@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F4C5C"/>
+      <stop offset="50%" stop-color="#1A7A6D"/>
+      <stop offset="100%" stop-color="#2A9D8F"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E3C37A"/>
+      <stop offset="100%" stop-color="#C9A227"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  
+  <!-- Connection lines (behind nodes) -->
+  <g stroke="#F6F1E8" stroke-width="4" stroke-opacity="0.5" fill="none">
+    <!-- Horizontal connections -->
+    <line x1="156" y1="156" x2="256" y2="156"/>
+    <line x1="256" y1="156" x2="356" y2="156"/>
+    <line x1="156" y1="356" x2="256" y2="356"/>
+    <line x1="256" y1="356" x2="356" y2="356"/>
+    <!-- Vertical connections -->
+    <line x1="156" y1="156" x2="156" y2="356"/>
+    <line x1="356" y1="156" x2="356" y2="356"/>
+    <!-- Diagonal connections to center -->
+    <line x1="156" y1="156" x2="256" y2="256"/>
+    <line x1="356" y1="156" x2="256" y2="256"/>
+    <line x1="156" y1="356" x2="256" y2="256"/>
+    <line x1="356" y1="356" x2="256" y2="256"/>
+  </g>
+  
+  <!-- Corner nodes (smaller) -->
+  <circle cx="156" cy="156" r="32" fill="#F6F1E8"/>
+  <circle cx="356" cy="156" r="32" fill="#F6F1E8"/>
+  <circle cx="156" cy="356" r="32" fill="#F6F1E8"/>
+  <circle cx="356" cy="356" r="32" fill="#F6F1E8"/>
+  
+  <!-- Center main node (larger, gold accent) -->
+  <circle cx="256" cy="256" r="52" fill="url(#gold)"/>
+  <circle cx="256" cy="256" r="36" fill="#F6F1E8"/>
+  
+  <!-- Inner symbols on corner nodes -->
+  <g fill="#1A7A6D">
+    <!-- Top-left: database -->
+    <ellipse cx="156" cy="148" rx="14" ry="6"/>
+    <rect x="142" y="148" width="28" height="16" fill="#1A7A6D"/>
+    <ellipse cx="156" cy="164" rx="14" ry="6"/>
+    
+    <!-- Top-right: server -->
+    <rect x="344" y="144" width="24" height="24" rx="3" fill="#1A7A6D"/>
+    <line x1="350" y1="152" x2="362" y2="152" stroke="#F6F1E8" stroke-width="2"/>
+    <line x1="350" y1="158" x2="362" y2="158" stroke="#F6F1E8" stroke-width="2"/>
+    <line x1="350" y1="164" x2="362" y2="164" stroke="#F6F1E8" stroke-width="2"/>
+    
+    <!-- Bottom-left: storage/cloud -->
+    <path d="M144 360 Q144 350 154 350 Q154 344 164 344 Q174 344 174 352 Q182 352 182 360 Q182 368 172 368 L152 368 Q144 368 144 360Z" fill="#1A7A6D"/>
+    
+    <!-- Bottom-right: users/multiple -->
+    <circle cx="352" cy="350" r="8" fill="#1A7A6D"/>
+    <circle cx="360" cy="358" r="8" fill="#1A7A6D"/>
+  </g>
+  
+  <!-- Center node inner icon: system/check mark -->
+  <path d="M236 256 L250 270 L276 244" fill="none" stroke="#1A7A6D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

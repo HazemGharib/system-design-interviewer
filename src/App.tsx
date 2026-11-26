@@ -563,6 +563,24 @@ export default function App() {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   }, [lang]);
 
+  // Calculate stages and totals - must be before early return to maintain hooks order
+  const stages = scenario && scenarioState ? getFilteredStages(scenario, scenarioState.level) : [];
+  
+  const totals = useMemo(() => {
+    if (!scenarioState) return { done: 0, total: 0, markedStages: 0, writtenStages: 0, perStage: [] };
+    let done = 0, total = 0, markedStages = 0, writtenStages = 0;
+    const perStage = stages.map(s => {
+      const vals = scenarioState.ticks[s.id] || [];
+      const d = s.items.reduce((c, _, i) => c + (vals[i] ? 1 : 0), 0);
+      const t = s.items.length;
+      done += d; total += t;
+      if (d > 0) markedStages++;
+      if ((scenarioState.answers[s.id] || '').trim()) writtenStages++;
+      return { stage: s, done: d, total: t };
+    });
+    return { done, total, markedStages, writtenStages, perStage };
+  }, [stages, scenarioState]);
+
   if (!scenario || !scenarioState) {
     // Scenario picker
     return (
@@ -579,26 +597,11 @@ export default function App() {
     );
   }
 
-  const stages = getFilteredStages(scenario, scenarioState.level);
   const viewOptions = [...stages.map(s => ({ value: s.id, label: localizedText(s.shortTitle, lang) })), { value: 'results', label: t('results', lang) }];
   const isResults = scenarioState.view === 'results';
   const stageIndex = stages.findIndex(s => s.id === scenarioState.view);
   const stage = !isResults && stageIndex >= 0 ? stages[stageIndex] : null;
   const expired = scenarioState.remaining === 0;
-
-  const totals = useMemo(() => {
-    let done = 0, total = 0, markedStages = 0, writtenStages = 0;
-    const perStage = stages.map(s => {
-      const vals = scenarioState.ticks[s.id] || [];
-      const d = s.items.reduce((c, _, i) => c + (vals[i] ? 1 : 0), 0);
-      const t = s.items.length;
-      done += d; total += t;
-      if (d > 0) markedStages++;
-      if ((scenarioState.answers[s.id] || '').trim()) writtenStages++;
-      return { stage: s, done: d, total: t };
-    });
-    return { done, total, markedStages, writtenStages, perStage };
-  }, [stages, scenarioState.ticks, scenarioState.answers]);
 
   const percent = totals.total === 0 ? 0 : Math.round((totals.done / totals.total) * 100);
 

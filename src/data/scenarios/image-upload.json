@@ -2788,6 +2788,336 @@
         "x": 20,
         "y": 240
       }
+    ],
+    "containers": [
+      {
+        "id": "pipeline",
+        "label": {
+          "ar": "Upload pipeline",
+          "en": "Upload pipeline"
+        },
+        "x": 120,
+        "y": 10,
+        "w": 420,
+        "h": 220
+      }
     ]
-  }
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار الرفع والمعالجة",
+        "en": "Upload & processing path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "العميل يبدأ رفع صورة",
+            "en": "Client starts image upload"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "API يصدر سياسة الرفع",
+            "en": "API issues upload policy"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "التخزين يستقبل البايتات",
+            "en": "Storage receives bytes"
+          },
+          "nodes": [
+            "api",
+            "storage"
+          ],
+          "edgeKeys": [
+            "api->storage"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "storage"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Job معالجة على الـ queue",
+            "en": "Processing job on the queue"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Worker يعمل thumbnails",
+            "en": "Worker creates thumbnails"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "w6",
+          "caption": {
+            "ar": "Metadata في DB",
+            "en": "Metadata in DB"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار القراءة عبر CDN",
+        "en": "Read path via CDN"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "عميل يطلب صورة",
+            "en": "Client requests an image"
+          },
+          "nodes": [
+            "client",
+            "cdn"
+          ],
+          "edgeKeys": [
+            "client->cdn"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "cdn"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "CDN يروح للـ storage عند miss",
+            "en": "CDN goes to storage on miss"
+          },
+          "nodes": [
+            "cdn",
+            "storage"
+          ],
+          "edgeKeys": [
+            "cdn->storage"
+          ],
+          "packet": {
+            "from": "cdn",
+            "to": "storage"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "API يحدّث/يتحقق من storage policy",
+            "en": "API updates/checks storage policy"
+          },
+          "nodes": [
+            "api",
+            "storage"
+          ],
+          "edgeKeys": [
+            "api->storage"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "storage"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Cache metadata",
+            "en": "Cache metadata"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "DB للـ ACL/metadata",
+            "en": "DB for ACL/metadata"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Worker متأخر — الـ thumbs مش جاهزة",
+            "en": "Worker lagging — thumbs not ready"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Serve original مؤقتًا من storage/CDN",
+            "en": "Serve original temporarily from storage/CDN"
+          },
+          "nodes": [
+            "api",
+            "storage"
+          ],
+          "edgeKeys": [
+            "api->storage"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "storage"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Cache stampede protection",
+            "en": "Cache stampede protection"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Scale workers / replay",
+            "en": "Scale workers / replay"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Monitoring على processing lag",
+            "en": "Monitoring on processing lag"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        }
+      ]
+    }
+  ]
 }

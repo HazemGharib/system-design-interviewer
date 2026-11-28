@@ -1,0 +1,1829 @@
+{
+  "id": "notification-system",
+  "title": {
+    "ar": "نظام الإشعارات",
+    "en": "Notification System"
+  },
+  "description": {
+    "ar": "صمم منصة إشعارات multi-channel (push/email/SMS)",
+    "en": "Design a multi-channel notification platform (push/email/SMS)"
+  },
+  "difficulty": {
+    "ar": "متوسط",
+    "en": "Medium"
+  },
+  "estimatedTime": {
+    "ar": "45 دقيقة",
+    "en": "45 minutes"
+  },
+  "problemStatement": {
+    "ar": "صمم نظام إشعارات يدعم push وemail وSMS. فيه إشعارات حرجة زي OTP وحملات تسويق ضخمة. لازم preferences، dedupe، وتعامل مع فشل المزوّدين.",
+    "en": "Design a notification system supporting push, email, and SMS. Include critical OTP-style messages and huge marketing campaigns. Need preferences, dedupe, and provider failure handling."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "إشعارات/يوم",
+        "en": "Notifications/day"
+      },
+      "value": {
+        "ar": "1 مليار",
+        "en": "1 billion"
+      }
+    },
+    {
+      "label": {
+        "ar": "قنوات",
+        "en": "Channels"
+      },
+      "value": {
+        "ar": "Push / Email / SMS",
+        "en": "Push / Email / SMS"
+      }
+    },
+    {
+      "label": {
+        "ar": "OTP latency",
+        "en": "OTP latency"
+      },
+      "value": {
+        "ar": "< 3 ثوانٍ",
+        "en": "< 3 seconds"
+      }
+    },
+    {
+      "label": {
+        "ar": "Peak factor",
+        "en": "Peak factor"
+      },
+      "value": {
+        "ar": "5×",
+        "en": "5×"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن الـ scope واعمل حسبة.",
+        "en": "Before designing: clarify scope and estimate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن القنوات والحجم لكل قناة",
+            "en": "Asked about channels and volume per channel"
+          },
+          "detail": {
+            "ar": {
+              "why": "التكلفة والـ SLA مختلفين جدًا.",
+              "how": "اسأل: transactional vs marketing؟ quiet hours؟",
+              "tradeoffs": "أكتر قنوات = أكتر integrations.",
+              "examples": "OTP SMS، order push، promo email.",
+              "mistakes": "خطأ: تعامل OTP زي marketing."
+            },
+            "en": {
+              "why": "Cost and SLA differ a lot.",
+              "how": "Ask: transactional vs marketing? quiet hours?",
+              "tradeoffs": "More channels = more integrations.",
+              "examples": "OTP SMS, order push, promo email.",
+              "mistakes": "Mistake: treating OTP like marketing."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت 1B notifications/day وpeak factor",
+            "en": "Estimated 1B notifications/day and peak factor"
+          },
+          "detail": {
+            "ar": {
+              "why": "بيحدد partitions والـ providers.",
+              "how": "قسّم by channel. OTP له latency صارم.",
+              "tradeoffs": "Marketing يتحمل تأخير؛ OTP لا.",
+              "examples": "Black Friday spikes.",
+              "mistakes": "خطأ: queue واحدة لكل الأولويات."
+            },
+            "en": {
+              "why": "Sizes partitions and providers.",
+              "how": "Split by channel. OTP has strict latency.",
+              "tradeoffs": "Marketing tolerates delay; OTP does not.",
+              "examples": "Black Friday spikes.",
+              "mistakes": "Mistake: one queue for all priorities."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت idempotency وdedupe window",
+            "en": "Clarified idempotency and dedupe window"
+          },
+          "detail": {
+            "ar": {
+              "why": "Retries بتسبب duplicate notifications.",
+              "how": "Idempotency key per (user, template, entity).",
+              "tradeoffs": "Window أطول = storage أكتر.",
+              "examples": "Payment receipt once.",
+              "mistakes": "خطأ: مفيش dedupe على SMS."
+            },
+            "en": {
+              "why": "Retries cause duplicate notifications.",
+              "how": "Idempotency key per (user, template, entity).",
+              "tradeoffs": "Longer window = more storage.",
+              "examples": "Payment receipt once.",
+              "mistakes": "Mistake: no SMS dedupe."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن user preferences وdevice tokens",
+            "en": "Asked about user preferences and device tokens"
+          },
+          "detail": {
+            "ar": {
+              "why": "Device graph معقّد (iOS/Android/web).",
+              "how": "Preference store + token registry.",
+              "tradeoffs": "Strong consistency على opt-out مهمة.",
+              "examples": "Per-channel preference center.",
+              "mistakes": "خطأ: تبعت بعد opt-out بسبب cache stale."
+            },
+            "en": {
+              "why": "Device graph is complex (iOS/Android/web).",
+              "how": "Preference store + token registry.",
+              "tradeoffs": "Strong consistency on opt-out matters.",
+              "examples": "Per-channel preference center.",
+              "mistakes": "Mistake: sending after opt-out due to stale cache."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف ingestion، orchestration، وchannels: push/email/SMS/in-app.",
+        "en": "Describe ingestion, orchestration, and channels: push/email/SMS/in-app."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 API → Queue → Worker/Orchestrator → Push/Provider + DLQ",
+            "en": "📊 API → Queue → Worker/Orchestrator → Push/Provider + DLQ"
+          },
+          "detail": {
+            "ar": {
+              "why": "فصل قبول الحدث عن التسليم.",
+              "how": "Ingest سريع 202. Workers يختاروا القناة حسب القواعد.",
+              "tradeoffs": "Sync send أبسط لـ OTP الداخلي الصغير.",
+              "examples": "Notification services at Uber/Airbnb style.",
+              "mistakes": "خطأ: استدعاء FCM جوّا الـ request الأصلي."
+            },
+            "en": {
+              "why": "Decouple accept from delivery.",
+              "how": "Fast ingest 202. Workers pick channel by rules.",
+              "tradeoffs": "Sync send is simpler for small internal OTP.",
+              "examples": "Notification services at Uber/Airbnb style.",
+              "mistakes": "Mistake: calling FCM inside the original request."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Orchestrator: templates + rules + preference check",
+            "en": "Orchestrator: templates + rules + preference check"
+          },
+          "detail": {
+            "ar": {
+              "why": "Business logic مركزية.",
+              "how": "Render template، evaluate quiet hours، fanout devices.",
+              "tradeoffs": "Monolith orchestrator vs per-channel services.",
+              "examples": "Rule engine + template service.",
+              "mistakes": "خطأ: منطق القناة متكرر في كل producer."
+            },
+            "en": {
+              "why": "Central business logic.",
+              "how": "Render template, evaluate quiet hours, fanout devices.",
+              "tradeoffs": "Monolith orchestrator vs per-channel services.",
+              "examples": "Rule engine + template service.",
+              "mistakes": "Mistake: channel logic duplicated in every producer."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Priority queues: critical / high / bulk",
+            "en": "Priority queues: critical / high / bulk"
+          },
+          "detail": {
+            "ar": {
+              "why": "OTP لازم يعدّي قدام الـ promos.",
+              "how": "Separate topics + worker pools.",
+              "tradeoffs": "أكتر pools = أكتر ops.",
+              "examples": "Kafka topics by priority.",
+              "mistakes": "خطأ: fairness واحدة يخنق OTP وقت حملة."
+            },
+            "en": {
+              "why": "OTP must pass ahead of promos.",
+              "how": "Separate topics + worker pools.",
+              "tradeoffs": "More pools = more ops.",
+              "examples": "Kafka topics by priority.",
+              "mistakes": "Mistake: one fairness lane choking OTP during a campaign."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Provider adapters + DLQ + retry with backoff",
+            "en": "Provider adapters + DLQ + retry with backoff"
+          },
+          "detail": {
+            "ar": {
+              "why": "Providers بيفشلوا كثير.",
+              "how": "Timeout، retry jitter، DLQ بعد N.",
+              "tradeoffs": "Aggressive retry يزيد التكلفة والتكرار.",
+              "examples": "Twilio/FCM/SES adapters.",
+              "mistakes": "خطأ: infinite retry على invalid token."
+            },
+            "en": {
+              "why": "Providers fail often.",
+              "how": "Timeout, retry jitter, DLQ after N.",
+              "tradeoffs": "Aggressive retry increases cost and duplicates.",
+              "examples": "Twilio/FCM/SES adapters.",
+              "mistakes": "Mistake: infinite retry on invalid token."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale مع bursts (flash sales) وper-channel providers؟",
+        "en": "How do you scale for bursts (flash sales) and per-channel providers?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Partition by user_id عشان ordering وdedupe المحلي",
+            "en": "Partition by user_id for ordering and local dedupe"
+          },
+          "detail": {
+            "ar": {
+              "why": "نفس اليوزر يفضل ترتيب الرسائل.",
+              "how": "Kafka key=user_id. Shard preference cache.",
+              "tradeoffs": "Hot users يقدروا يولّعوا partition.",
+              "examples": "Per-user serial senders.",
+              "mistakes": "خطأ: random partition يكرّر ويرتّب غلط."
+            },
+            "en": {
+              "why": "Same user keeps message order.",
+              "how": "Kafka key=user_id. Shard preference cache.",
+              "tradeoffs": "Hot users can melt a partition.",
+              "examples": "Per-user serial senders.",
+              "mistakes": "Mistake: random partition causing dupes/bad order."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Autoscale workers على lag؛ isolate bulk campaigns",
+            "en": "Autoscale workers on lag; isolate bulk campaigns"
+          },
+          "detail": {
+            "ar": {
+              "why": "الحمل غير منتظم.",
+              "how": "HPA على consumer lag. Campaigns على cluster منفصل.",
+              "tradeoffs": "عزل أغلى بس أحمي transactional.",
+              "examples": "Bulk vs transactional clusters.",
+              "mistakes": "خطأ: حملة تسويقية تشارك OTP workers."
+            },
+            "en": {
+              "why": "Load is bursty.",
+              "how": "HPA on consumer lag. Campaigns on a separate cluster.",
+              "tradeoffs": "Isolation costs more but protects transactional.",
+              "examples": "Bulk vs transactional clusters.",
+              "mistakes": "Mistake: marketing campaign sharing OTP workers."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Token registry cache + provider connection pooling",
+            "en": "Token registry cache + provider connection pooling"
+          },
+          "detail": {
+            "ar": {
+              "why": "Lookup الأجهزة على الـ path.",
+              "how": "Redis cache tokens. HTTP/2 pools لـ FCM.",
+              "tradeoffs": "Stale token = failed push.",
+              "examples": "Feedback loops لحذف tokens.",
+              "mistakes": "خطأ: تفتح TCP جديد لكل send."
+            },
+            "en": {
+              "why": "Device lookup is on the path.",
+              "how": "Redis cache tokens. HTTP/2 pools to FCM.",
+              "tradeoffs": "Stale token = failed push.",
+              "examples": "Feedback loops to delete tokens.",
+              "mistakes": "Mistake: opening a new TCP connection per send."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "SLIs: enqueue lag، delivery success، provider latency.",
+        "en": "SLIs: enqueue lag, delivery success, provider latency."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "SLOs: OTP p99 < 3s، push success > 98%",
+            "en": "SLOs: OTP p99 < 3s, push success > 98%"
+          },
+          "detail": {
+            "ar": {
+              "why": "قسّم SLO حسب القناة والأولوية.",
+              "how": "End-to-end timestamp من ingest لـ provider accept.",
+              "tradeoffs": "Provider SLA خارج سيطرتك — اعمل budget.",
+              "examples": "Synthetic OTP probes.",
+              "mistakes": "خطأ: SLO واحد لكل الإشعارات."
+            },
+            "en": {
+              "why": "Split SLO by channel and priority.",
+              "how": "End-to-end timestamp from ingest to provider accept.",
+              "tradeoffs": "Provider SLA is outside your control — budget it.",
+              "examples": "Synthetic OTP probes.",
+              "mistakes": "Mistake: one SLO for all notifications."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Alert على DLQ growth وprovider error codes",
+            "en": "Alert on DLQ growth and provider error codes"
+          },
+          "detail": {
+            "ar": {
+              "why": "Error class يفرق (4xx vs 5xx).",
+              "how": "Page على 5xx spike. Ticket على 4xx invalid tokens.",
+              "tradeoffs": "Noise من invalid tokens.",
+              "examples": "Provider dashboards.",
+              "mistakes": "خطأ: ignore DLQ لأنها 'async'."
+            },
+            "en": {
+              "why": "Error class matters (4xx vs 5xx).",
+              "how": "Page on 5xx spike. Ticket on 4xx invalid tokens.",
+              "tradeoffs": "Noise from invalid tokens.",
+              "examples": "Provider dashboards.",
+              "mistakes": "Mistake: ignoring DLQ because it is 'async'."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Track opt-out compliance violations = zero tolerance",
+            "en": "Track opt-out compliance violations = zero tolerance"
+          },
+          "detail": {
+            "ar": {
+              "why": "مخالفة قانونية/ثقة.",
+              "how": "Metric: sends after opt-out. Alert فوري.",
+              "tradeoffs": "Detection لازم near-realtime.",
+              "examples": "Compliance audits.",
+              "mistakes": "خطأ: مفيش مقياس للـ preference misses."
+            },
+            "en": {
+              "why": "Legal/trust violation.",
+              "how": "Metric: sends after opt-out. Immediate alert.",
+              "tradeoffs": "Detection must be near-realtime.",
+              "examples": "Compliance audits.",
+              "mistakes": "Mistake: no metric for preference misses."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "Provider outages، duplicate sends، quiet hours violations.",
+        "en": "Provider outages, duplicate sends, quiet hours violations."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Provider rate limits وقت الحمل",
+            "en": "Provider rate limits under load"
+          },
+          "detail": {
+            "ar": {
+              "why": "Twilio/FCM ليهم caps.",
+              "how": "Smooth send، multi-provider، pre-negotiated quotas.",
+              "tradeoffs": "Multi-provider يزيد التعقيد.",
+              "examples": "Backup SMS provider.",
+              "mistakes": "خطأ: burst كامل على provider واحد."
+            },
+            "en": {
+              "why": "Twilio/FCM have caps.",
+              "how": "Smooth send, multi-provider, pre-negotiated quotas.",
+              "tradeoffs": "Multi-provider increases complexity.",
+              "examples": "Backup SMS provider.",
+              "mistakes": "Mistake: full burst to one provider."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Duplicate sends من at-least-once",
+            "en": "Duplicate sends from at-least-once"
+          },
+          "detail": {
+            "ar": {
+              "why": "اليوزر بيزعل من OTP مكرر.",
+              "how": "Idempotency store قبل الـ provider call.",
+              "tradeoffs": "Exactly-once حقيقي نادر مع providers.",
+              "examples": "Redis SETNX dedupe keys.",
+              "mistakes": "خطأ: تعتمد على provider dedupe بس."
+            },
+            "en": {
+              "why": "Users hate duplicate OTPs.",
+              "how": "Idempotency store before provider call.",
+              "tradeoffs": "True exactly-once is rare with providers.",
+              "examples": "Redis SETNX dedupe keys.",
+              "mistakes": "Mistake: relying only on provider dedupe."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Template render CPU في الحمل الكبير",
+            "en": "Template render CPU under heavy load"
+          },
+          "detail": {
+            "ar": {
+              "why": "Personalization غالية.",
+              "how": "Pre-render لما ممكن. Cache fragments.",
+              "tradeoffs": "Pre-render يقلل المرونة.",
+              "examples": "MJML/email workers separate.",
+              "mistakes": "خطأ: render ثقيل على critical OTP path."
+            },
+            "en": {
+              "why": "Personalization is expensive.",
+              "how": "Pre-render when possible. Cache fragments.",
+              "tradeoffs": "Pre-render reduces flexibility.",
+              "examples": "MJML/email workers separate.",
+              "mistakes": "Mistake: heavy render on critical OTP path."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "Sync vs async send، وpriority queues.",
+        "en": "Sync vs async send, and priority queues."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Push-first vs SMS-first للـ OTP",
+            "en": "Push-first vs SMS-first for OTP"
+          },
+          "detail": {
+            "ar": {
+              "why": "التكلفة vs الوصول.",
+              "how": "جرّب push؛ fallback SMS لو مفيش receipt.",
+              "tradeoffs": "Fallback يزيد التعقيد والـ latency.",
+              "examples": "WhatsApp/push fallback patterns.",
+              "mistakes": "خطأ: SMS دايمًا = تكلفة بتولّع."
+            },
+            "en": {
+              "why": "Cost vs reach.",
+              "how": "Try push; fallback SMS if no receipt.",
+              "tradeoffs": "Fallback adds complexity and latency.",
+              "examples": "WhatsApp/push fallback patterns.",
+              "mistakes": "Mistake: always SMS = burning money."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Central notification service vs library in each app",
+            "en": "Central notification service vs library in each app"
+          },
+          "detail": {
+            "ar": {
+              "why": "الاتساق vs الاستقلالية.",
+              "how": "Central للـ companies الكبيرة.",
+              "tradeoffs": "Central ممكن يبقى bottleneck تنظيمي.",
+              "examples": "Platform notification bus.",
+              "mistakes": "خطأ: كل فريق يعمل Twilio لوحده."
+            },
+            "en": {
+              "why": "Consistency vs autonomy.",
+              "how": "Central for larger companies.",
+              "tradeoffs": "Central can become an org bottleneck.",
+              "examples": "Platform notification bus.",
+              "mistakes": "Mistake: every team integrating Twilio alone."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "At-least-once + dedupe vs best-effort",
+            "en": "At-least-once + dedupe vs best-effort"
+          },
+          "detail": {
+            "ar": {
+              "why": "الموثوقية vs التكلفة.",
+              "how": "Transactional: dedupe. Marketing: best-effort OK.",
+              "tradeoffs": "Dedupe storage cost.",
+              "examples": "Outbox + idempotency keys.",
+              "mistakes": "خطأ: best-effort على دفع/OTP."
+            },
+            "en": {
+              "why": "Reliability vs cost.",
+              "how": "Transactional: dedupe. Marketing: best-effort OK.",
+              "tradeoffs": "Dedupe storage cost.",
+              "examples": "Outbox + idempotency keys.",
+              "mistakes": "Mistake: best-effort on payments/OTP."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "Template versioning وidempotency عبر القنوات.",
+        "en": "Template versioning and cross-channel idempotency."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Idempotency key عبر القنوات لنفس الحدث",
+            "en": "Idempotency key across channels for the same event"
+          },
+          "detail": {
+            "ar": {
+              "why": "مفيش push + SMS لنفس OTP بالغلط.",
+              "how": "Key يشمل channel strategy decision.",
+              "tradeoffs": "أحيانًا intentional multi-channel.",
+              "examples": "Policy: exclusive vs complementary channels.",
+              "mistakes": "خطأ: dedupe per channel بس."
+            },
+            "en": {
+              "why": "No accidental push + SMS for same OTP.",
+              "how": "Key includes channel strategy decision.",
+              "tradeoffs": "Sometimes intentional multi-channel.",
+              "examples": "Policy: exclusive vs complementary channels.",
+              "mistakes": "Mistake: dedupe per channel only."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Quiet hours وtimezone صحيحة",
+            "en": "Correct quiet hours and timezones"
+          },
+          "detail": {
+            "ar": {
+              "why": "Compliance وUX.",
+              "how": "خزّن tz لليوزر. Postpone bulk.",
+              "tradeoffs": "Transactional قد يتخطى quiet hours.",
+              "examples": "Local schedule queues.",
+              "mistakes": "خطأ: UTC على كل الناس."
+            },
+            "en": {
+              "why": "Compliance and UX.",
+              "how": "Store user tz. Postpone bulk.",
+              "tradeoffs": "Transactional may bypass quiet hours.",
+              "examples": "Local schedule queues.",
+              "mistakes": "Mistake: UTC for everyone."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Template versioning وcanary",
+            "en": "Template versioning and canary"
+          },
+          "detail": {
+            "ar": {
+              "why": "Template غلط = كارثة واسعة.",
+              "how": "Version pin + canary % + kill switch.",
+              "tradeoffs": "أكتر versions = ops.",
+              "examples": "Feature flags على templates.",
+              "mistakes": "خطأ: نشر template على 100% مباشرة."
+            },
+            "en": {
+              "why": "Bad template = wide blast.",
+              "how": "Version pin + canary % + kill switch.",
+              "tradeoffs": "More versions = ops.",
+              "examples": "Feature flags on templates.",
+              "mistakes": "Mistake: shipping a template to 100% immediately."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "تكلفة SMS vs push vs email عند 1B notifications/day.",
+        "en": "Cost of SMS vs push vs email at 1B notifications/day."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "SMS هو غالب التكلفة؛ ادفع push/email بديل",
+            "en": "SMS dominates cost; prefer push/email alternatives"
+          },
+          "detail": {
+            "ar": {
+              "why": "SMS cents لكل رسالة.",
+              "how": "احسب mix: 1B × channel cost.",
+              "tradeoffs": "Push رخيص بس مش دايمًا reachable.",
+              "examples": "OTP via push where possible.",
+              "mistakes": "خطأ: تقدير من غير channel mix."
+            },
+            "en": {
+              "why": "SMS costs cents per message.",
+              "how": "Compute mix: 1B × channel cost.",
+              "tradeoffs": "Push is cheap but not always reachable.",
+              "examples": "OTP via push where possible.",
+              "mistakes": "Mistake: estimating without channel mix."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Queue/storage للـ retries وdedupe keys",
+            "en": "Queue/storage for retries and dedupe keys"
+          },
+          "detail": {
+            "ar": {
+              "why": "Retention قصيرة بس حجم كبير.",
+              "how": "TTL على dedupe 24–72h. Compress payloads.",
+              "tradeoffs": "أطول TTL أأمن وأغلى.",
+              "examples": "Redis/Dynamo dedupe tables.",
+              "mistakes": "خطأ: تخزن body كبير في الـ queue للأبد."
+            },
+            "en": {
+              "why": "Short retention but huge volume.",
+              "how": "TTL on dedupe 24–72h. Compress payloads.",
+              "tradeoffs": "Longer TTL safer and costlier.",
+              "examples": "Redis/Dynamo dedupe tables.",
+              "mistakes": "Mistake: storing large bodies in queue forever."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Provider commits: reserved capacity vs on-demand",
+            "en": "Provider commits: reserved capacity vs on-demand"
+          },
+          "detail": {
+            "ar": {
+              "why": "Peaks تحتاج negotiation.",
+              "how": "Reserve لـ OTP. On-demand للـ marketing.",
+              "tradeoffs": "Reservation تكلفة ثابتة.",
+              "examples": "Enterprise SMS contracts.",
+              "mistakes": "خطأ: on-demand بس وقت رمضان/BF."
+            },
+            "en": {
+              "why": "Peaks need negotiation.",
+              "how": "Reserve for OTP. On-demand for marketing.",
+              "tradeoffs": "Reservation is fixed cost.",
+              "examples": "Enterprise SMS contracts.",
+              "mistakes": "Mistake: on-demand only during Ramadan/BF."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "Consent، opt-out، PII في الـ payloads.",
+        "en": "Consent, opt-out, PII in payloads."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Consent & opt-out كـ source of truth قوية",
+            "en": "Consent & opt-out as strong source of truth"
+          },
+          "detail": {
+            "ar": {
+              "why": "قانوني (GDPR/TCPA).",
+              "how": "Strong read قبل send. Invalidate caches فورًا.",
+              "tradeoffs": "Latency زيادة بسيطة مقبولة.",
+              "examples": "Preference service with audit log.",
+              "mistakes": "خطأ: eventual opt-out على marketing الكبير."
+            },
+            "en": {
+              "why": "Legal (GDPR/TCPA).",
+              "how": "Strong read before send. Invalidate caches immediately.",
+              "tradeoffs": "Small extra latency is acceptable.",
+              "examples": "Preference service with audit log.",
+              "mistakes": "Mistake: eventual opt-out on large marketing."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قلّل PII في الـ payloads والسجلات",
+            "en": "Minimize PII in payloads and logs"
+          },
+          "detail": {
+            "ar": {
+              "why": "Queues بتتنسخ.",
+              "how": "IDs بدل أرقام تليفون في الـ body لما ممكن. Mask logs.",
+              "tradeoffs": "Providers محتاجين PII أحيانًا.",
+              "examples": "Tokenization للـ phone/email.",
+              "mistakes": "خطأ: log OTP codes."
+            },
+            "en": {
+              "why": "Queues get replicated.",
+              "how": "IDs instead of phone numbers in body when possible. Mask logs.",
+              "tradeoffs": "Providers sometimes need PII.",
+              "examples": "Tokenization for phone/email.",
+              "mistakes": "Mistake: logging OTP codes."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Auth بين الخدمات + signed webhooks من providers",
+            "en": "Auth between services + signed provider webhooks"
+          },
+          "detail": {
+            "ar": {
+              "why": "تمنع spoofed delivery receipts.",
+              "how": "mTLS/JWT داخلي. HMAC على webhooks.",
+              "tradeoffs": "Key rotation لازم.",
+              "examples": "Twilio request validation.",
+              "mistakes": "خطأ: webhook مفتوح من غير توقيع."
+            },
+            "en": {
+              "why": "Prevents spoofed delivery receipts.",
+              "how": "Internal mTLS/JWT. HMAC on webhooks.",
+              "tradeoffs": "Key rotation required.",
+              "examples": "Twilio request validation.",
+              "mistakes": "Mistake: open webhook without signature."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "Multi-region: local quiet hours وprovider failover.",
+        "en": "Multi-region: local quiet hours and provider failover."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Multi-provider failover runbook",
+            "en": "Multi-provider failover runbook"
+          },
+          "detail": {
+            "ar": {
+              "why": "Provider outage شائع.",
+              "how": "Health checks + weighted routing + manual override.",
+              "tradeoffs": "Dual-write receipts أعقد.",
+              "examples": "Primary/secondary SMS.",
+              "mistakes": "خطأ: مفيش provider تاني متعاقد."
+            },
+            "en": {
+              "why": "Provider outages are common.",
+              "how": "Health checks + weighted routing + manual override.",
+              "tradeoffs": "Dual-write receipts are harder.",
+              "examples": "Primary/secondary SMS.",
+              "mistakes": "Mistake: no contracted secondary provider."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Regional quiet-hours وdata residency",
+            "en": "Regional quiet-hours and data residency"
+          },
+          "detail": {
+            "ar": {
+              "why": "قوانين محلية مختلفة.",
+              "how": "Store preferences/regionally route sends.",
+              "tradeoffs": "Multi-region cost.",
+              "examples": "EU data residency queues.",
+              "mistakes": "خطأ: region واحد لكل العالم."
+            },
+            "en": {
+              "why": "Different local laws.",
+              "how": "Store preferences/regionally route sends.",
+              "tradeoffs": "Multi-region cost.",
+              "examples": "EU data residency queues.",
+              "mistakes": "Mistake: one region for the whole world."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Replay من DLQ بعد إصلاح القالب/المزوّد",
+            "en": "Replay from DLQ after fixing template/provider"
+          },
+          "detail": {
+            "ar": {
+              "why": "متضيعش transactional مهم.",
+              "how": "Tooling للـ selective replay مع dedupe.",
+              "tradeoffs": "Replay خطر يكرر.",
+              "examples": "DLQ console with filters.",
+              "mistakes": "خطأ: replay أعمى لكل الـ DLQ."
+            },
+            "en": {
+              "why": "Do not lose important transactional.",
+              "how": "Tooling for selective replay with dedupe.",
+              "tradeoffs": "Replay risks duplicates.",
+              "examples": "DLQ console with filters.",
+              "mistakes": "Mistake: blindly replaying the entire DLQ."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "notifDay",
+        "label": {
+          "ar": "إشعارات/يوم",
+          "en": "Notifications/day"
+        },
+        "unit": {
+          "ar": "إشعار",
+          "en": "notes"
+        },
+        "default": 1000000000,
+        "role": "input"
+      },
+      {
+        "id": "smsPct",
+        "label": {
+          "ar": "نسبة SMS",
+          "en": "SMS percent"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 5,
+        "role": "input"
+      },
+      {
+        "id": "pushPct",
+        "label": {
+          "ar": "نسبة Push",
+          "en": "Push percent"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 70,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 5,
+        "role": "assumption",
+        "range": {
+          "goodMin": 3,
+          "goodMax": 8,
+          "okMin": 2,
+          "okMax": 12
+        },
+        "rangeHint": {
+          "ar": "حملات التسويق غالبًا ٣–٨×.",
+          "en": "Marketing campaigns are often 3–8×."
+        }
+      },
+      {
+        "id": "dedupeBytes",
+        "label": {
+          "ar": "بايت dedupe",
+          "en": "Dedupe bytes"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 64,
+        "role": "assumption",
+        "range": {
+          "goodMin": 32,
+          "goodMax": 128,
+          "okMin": 16,
+          "okMax": 256
+        },
+        "rangeHint": {
+          "ar": "مفتاح dedupe صغير عادة عشرات البايت.",
+          "en": "A dedupe key is usually tens of bytes."
+        }
+      },
+      {
+        "id": "dedupeHours",
+        "label": {
+          "ar": "ساعات الاحتفاظ بالـ dedupe",
+          "en": "Dedupe retention hours"
+        },
+        "unit": {
+          "ar": "ساعة",
+          "en": "hours"
+        },
+        "default": 48,
+        "role": "assumption",
+        "range": {
+          "goodMin": 24,
+          "goodMax": 72,
+          "okMin": 12,
+          "okMax": 168
+        },
+        "rangeHint": {
+          "ar": "٢٤–٧٢ ساعة شائع للـ transactional.",
+          "en": "24–72 hours is common for transactional."
+        }
+      },
+      {
+        "id": "smsCost",
+        "label": {
+          "ar": "تكلفة SMS",
+          "en": "SMS cost cents"
+        },
+        "unit": {
+          "ar": "سنت",
+          "en": "cents"
+        },
+        "default": 2,
+        "role": "assumption",
+        "range": {
+          "goodMin": 1,
+          "goodMax": 4,
+          "okMin": 0.5,
+          "okMax": 8
+        },
+        "rangeHint": {
+          "ar": "تكلفة SMS تختلف حسب الدولة حوالي ١–٤ سنت.",
+          "en": "SMS cost varies by country around 1–4 cents."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "avgQps",
+        "label": {
+          "ar": "متوسط QPS",
+          "en": "Average QPS"
+        },
+        "unit": {
+          "ar": "إشعار/ث",
+          "en": "notes/s"
+        },
+        "format": "qps",
+        "expr": "notifDay / 86400",
+        "display": [
+          {
+            "var": "notifDay"
+          },
+          {
+            "text": " ÷ 86400"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "peakQps",
+        "label": {
+          "ar": "Peak QPS",
+          "en": "Peak QPS"
+        },
+        "unit": {
+          "ar": "إشعار/ث",
+          "en": "notes/s"
+        },
+        "format": "qps",
+        "expr": "avgQps * peakFactor",
+        "display": [
+          {
+            "ref": "avgQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "smsDay",
+        "label": {
+          "ar": "SMS/يوم",
+          "en": "SMS/day"
+        },
+        "unit": {
+          "ar": "رسالة",
+          "en": "msgs"
+        },
+        "format": "count",
+        "expr": "notifDay * smsPct / 100",
+        "display": [
+          {
+            "var": "notifDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "smsPct"
+          },
+          {
+            "text": "%"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "smsCostDay",
+        "label": {
+          "ar": "تكلفة SMS/يوم",
+          "en": "SMS cost/day"
+        },
+        "unit": {
+          "ar": "$",
+          "en": "$"
+        },
+        "format": "count",
+        "expr": "smsDay * smsCost / 100",
+        "display": [
+          {
+            "ref": "smsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "smsCost"
+          },
+          {
+            "text": "¢ ÷ 100"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "dedupeStorage",
+        "label": {
+          "ar": "تخزين dedupe",
+          "en": "Dedupe storage"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "notifDay * dedupeHours / 24 * dedupeBytes / 1000000000",
+        "display": [
+          {
+            "var": "notifDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "dedupeHours"
+          },
+          {
+            "text": "/24 × "
+          },
+          {
+            "var": "dedupeBytes"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) QPS = notifications/day ÷ 86400؛ peak × factor.",
+        "en": "1) QPS = notifications/day ÷ 86400; peak × factor."
+      },
+      {
+        "ar": "2) SMS volume = day × sms%. Cost = volume × cents.",
+        "en": "2) SMS volume = day × sms%. Cost = volume × cents."
+      },
+      {
+        "ar": "3) Dedupe storage ≈ daily × retention days × bytes.",
+        "en": "3) Dedupe storage ≈ daily × retention days × bytes."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "fcm-down",
+      "title": {
+        "ar": "FCM واقع",
+        "en": "FCM is down"
+      },
+      "description": {
+        "ar": "Push provider مش بيرد. OTP والـ marketing متأثرين. إيه الخطة؟",
+        "en": "Push provider is not responding. OTP and marketing affected. What is the plan?"
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "حوّل OTP لـ SMS/fallback",
+          "en": "Shift OTP to SMS/fallback"
+        },
+        {
+          "ar": "Pause bulk push",
+          "en": "Pause bulk push"
+        },
+        {
+          "ar": "DLQ مع dedupe جاهز للـ replay",
+          "en": "DLQ with dedupe ready for replay"
+        },
+        {
+          "ar": "Status + provider ticket",
+          "en": "Status + provider ticket"
+        }
+      ]
+    },
+    {
+      "id": "campaign-stampede",
+      "title": {
+        "ar": "حملة بتغرق OTP",
+        "en": "Campaign drowning OTP"
+      },
+      "description": {
+        "ar": "Marketing enqueue ملايين الرسائل. OTP latency طالع.",
+        "en": "Marketing enqueued millions. OTP latency is up."
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "اعزل bulk cluster فورًا",
+          "en": "Isolate bulk cluster immediately"
+        },
+        {
+          "ar": "Throttle campaign",
+          "en": "Throttle campaign"
+        },
+        {
+          "ar": "Priority worker reservation لـ OTP",
+          "en": "Priority worker reservation for OTP"
+        },
+        {
+          "ar": "Postmortem على missing isolation",
+          "en": "Postmortem on missing isolation"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "sync-async",
+      "question": {
+        "ar": "الإرسال: sync ولا async queue؟",
+        "en": "Sending: sync or async queue?"
+      },
+      "optionA": {
+        "ar": "Sync",
+        "en": "Sync"
+      },
+      "optionB": {
+        "ar": "Async queue",
+        "en": "Async queue"
+      },
+      "expected": "B",
+      "expectedNote": {
+        "ar": "Async هو الافتراضي؛ sync نادر لـ OTP الداخلي الصغير.",
+        "en": "Async is the default; sync is rare for small internal OTP."
+      },
+      "prosA": {
+        "ar": "أبسط وأكثر مباشرة",
+        "en": "Simpler and more direct"
+      },
+      "consA": {
+        "ar": "يضر latency الـ caller",
+        "en": "Hurts caller latency"
+      },
+      "prosB": {
+        "ar": "عزل وفصل وتحجيم",
+        "en": "Isolation, decoupling, scaling"
+      },
+      "consB": {
+        "ar": "At-least-once وdedupe",
+        "en": "At-least-once and dedupe"
+      },
+      "whenOtherWins": {
+        "ar": "Sync لو الحجم صغير ومفيش providers خارجيين بطيئين.",
+        "en": "Sync if volume is small and there are no slow external providers."
+      }
+    },
+    {
+      "id": "sms-push",
+      "question": {
+        "ar": "OTP: SMS ولا push-first؟",
+        "en": "OTP: SMS or push-first?"
+      },
+      "optionA": {
+        "ar": "SMS",
+        "en": "SMS"
+      },
+      "optionB": {
+        "ar": "Push-first + SMS fallback",
+        "en": "Push-first + SMS fallback"
+      },
+      "expected": "B",
+      "expectedNote": {
+        "ar": "Push-first يوفّر فلوس لو الـ reach كويس.",
+        "en": "Push-first saves money when reach is good."
+      },
+      "prosA": {
+        "ar": "Reach عالي",
+        "en": "High reach"
+      },
+      "consA": {
+        "ar": "تكلفة عالية",
+        "en": "High cost"
+      },
+      "prosB": {
+        "ar": "أرخص",
+        "en": "Cheaper"
+      },
+      "consB": {
+        "ar": "Reach أقل وcomplexity",
+        "en": "Lower reach and more complexity"
+      },
+      "whenOtherWins": {
+        "ar": "SMS لو جمهور بدون apps أو تنظيم صارم.",
+        "en": "SMS if the audience lacks apps or regulation is strict."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "api",
+      "queue",
+      "worker",
+      "push",
+      "dlq",
+      "db",
+      "cache",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "event/API",
+          "en": "event/API"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "ingest",
+          "en": "ingest"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "prefs/templates",
+          "en": "prefs/templates"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "enqueue",
+          "en": "enqueue"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "worker",
+        "label": {
+          "ar": "consume",
+          "en": "consume"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "push",
+        "label": {
+          "ar": "send",
+          "en": "send"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "dlq",
+        "label": {
+          "ar": "failures",
+          "en": "failures"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "cache",
+        "label": {
+          "ar": "dedupe",
+          "en": "dedupe"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 40
+      },
+      {
+        "type": "lb",
+        "x": 140,
+        "y": 40
+      },
+      {
+        "type": "api",
+        "x": 260,
+        "y": 40
+      },
+      {
+        "type": "db",
+        "x": 400,
+        "y": 20
+      },
+      {
+        "type": "queue",
+        "x": 260,
+        "y": 140
+      },
+      {
+        "type": "worker",
+        "x": 400,
+        "y": 140
+      },
+      {
+        "type": "push",
+        "x": 540,
+        "y": 100
+      },
+      {
+        "type": "dlq",
+        "x": 540,
+        "y": 180
+      },
+      {
+        "type": "cache",
+        "x": 400,
+        "y": 220
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 180
+      }
+    ],
+    "containers": [
+      {
+        "id": "delivery",
+        "label": {
+          "ar": "Delivery plane",
+          "en": "Delivery plane"
+        },
+        "x": 230,
+        "y": 100,
+        "w": 360,
+        "h": 160
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار الإرسال",
+        "en": "Send path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "خدمة تنتج حدث إشعار",
+            "en": "A service produces a notification event"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "الـ API يتحقق ويسجّل",
+            "en": "API validates and accepts"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "Enqueue حسب الأولوية",
+            "en": "Enqueue by priority"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Worker يطبّق prefs ويعمل dedupe",
+            "en": "Worker applies prefs and dedupes"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "إرسال عبر push/provider",
+            "en": "Send via push/provider"
+          },
+          "nodes": [
+            "worker",
+            "push"
+          ],
+          "edgeKeys": [
+            "worker->push"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "push"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار قراءة التفضيلات",
+        "en": "Preference read path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "Worker يحتاج prefs/tokens",
+            "en": "Worker needs prefs/tokens"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "Cache miss → DB",
+            "en": "Cache miss → DB"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "حدث ingest يقرأ templates",
+            "en": "Ingest event reads templates"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "تحديث cache بعد opt-out",
+            "en": "Update cache after opt-out"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "Monitoring يتابع compliance",
+            "en": "Monitoring tracks compliance"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Provider يفشل",
+            "en": "Provider fails"
+          },
+          "nodes": [
+            "worker",
+            "push"
+          ],
+          "edgeKeys": [
+            "worker->push"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "push"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Retry ثم DLQ",
+            "en": "Retry then DLQ"
+          },
+          "nodes": [
+            "worker",
+            "dlq"
+          ],
+          "edgeKeys": [
+            "worker->dlq"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "dlq"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Failover لمزوّد بديل",
+            "en": "Failover to alternate provider"
+          },
+          "nodes": [
+            "worker",
+            "push"
+          ],
+          "edgeKeys": [
+            "worker->push"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "push"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Dedupe يمنع التكرار بعد replay",
+            "en": "Dedupe prevents duplicates after replay"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Alert on-call",
+            "en": "Alert on-call"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        }
+      ]
+    }
+  ]
+}

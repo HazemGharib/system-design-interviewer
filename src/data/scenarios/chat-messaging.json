@@ -2014,6 +2014,318 @@
         "x": 20,
         "y": 220
       }
+    ],
+    "containers": [
+      {
+        "id": "rt",
+        "label": {
+          "ar": "Realtime plane",
+          "en": "Realtime plane"
+        },
+        "x": 100,
+        "y": 10,
+        "w": 420,
+        "h": 200
+      }
     ]
-  }
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار إرسال رسالة",
+        "en": "Send message path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "العميل بيبعت رسالة",
+            "en": "Client sends a message"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "LB للـ websocket gateway",
+            "en": "LB to websocket gateway"
+          },
+          "nodes": [
+            "lb",
+            "websocket"
+          ],
+          "edgeKeys": [
+            "lb->websocket"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "websocket"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "Router يحدد المستلمين",
+            "en": "Router determines recipients"
+          },
+          "nodes": [
+            "websocket",
+            "router"
+          ],
+          "edgeKeys": [
+            "websocket->router"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "router"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Persist عبر queue/DB",
+            "en": "Persist via queue/DB"
+          },
+          "nodes": [
+            "router",
+            "queue"
+          ],
+          "edgeKeys": [
+            "router->queue"
+          ],
+          "packet": {
+            "from": "router",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Delivery للـ online عبر WS",
+            "en": "Deliver to online via WS"
+          },
+          "nodes": [
+            "queue",
+            "db"
+          ],
+          "edgeKeys": [
+            "queue->db"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار المزامنة / التاريخ",
+        "en": "Sync / history path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "عميل يطلب history/sync",
+            "en": "Client requests history/sync"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "WS gateway يستقبل",
+            "en": "WS gateway receives"
+          },
+          "nodes": [
+            "lb",
+            "websocket"
+          ],
+          "edgeKeys": [
+            "lb->websocket"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "websocket"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "Presence يوضح مين أونلاين",
+            "en": "Presence shows who is online"
+          },
+          "nodes": [
+            "websocket",
+            "presence"
+          ],
+          "edgeKeys": [
+            "websocket->presence"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "presence"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Presence يحدّث الـ cache",
+            "en": "Presence updates the cache"
+          },
+          "nodes": [
+            "presence",
+            "cache"
+          ],
+          "edgeKeys": [
+            "presence->cache"
+          ],
+          "packet": {
+            "from": "presence",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "Push لليوزر الأوفلاين",
+            "en": "Push for offline user"
+          },
+          "nodes": [
+            "router",
+            "push"
+          ],
+          "edgeKeys": [
+            "router->push"
+          ],
+          "packet": {
+            "from": "router",
+            "to": "push"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "WS storm أو disconnects",
+            "en": "WS storm or disconnects"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Fallback على queue للتسليم لاحقًا",
+            "en": "Fallback to queue for later delivery"
+          },
+          "nodes": [
+            "router",
+            "queue"
+          ],
+          "edgeKeys": [
+            "router->queue"
+          ],
+          "packet": {
+            "from": "router",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Push notification لو الأوفلاين",
+            "en": "Push notification if offline"
+          },
+          "nodes": [
+            "router",
+            "push"
+          ],
+          "edgeKeys": [
+            "router->push"
+          ],
+          "packet": {
+            "from": "router",
+            "to": "push"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Presence يعيد المزامنة بعد الرجوع",
+            "en": "Presence resyncs after reconnect"
+          },
+          "nodes": [
+            "websocket",
+            "presence"
+          ],
+          "edgeKeys": [
+            "websocket->presence"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "presence"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Persist عبر queue→DB",
+            "en": "Persist via queue→DB"
+          },
+          "nodes": [
+            "queue",
+            "db"
+          ],
+          "edgeKeys": [
+            "queue->db"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "db"
+          }
+        }
+      ]
+    }
+  ]
 }

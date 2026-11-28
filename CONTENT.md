@@ -9,14 +9,49 @@ src/data/
   cheatsheet.json
   glossary.json
   palette.json
+  templates.json          # drawing board starters (generic + per-scenario)
   scenarios/
     manifest.json
     image-upload.json
     url-shortener.json
     chat-messaging.json
+    rate-limiter.json
+    news-feed.json
+    notification-system.json
+    typeahead.json
+    payment-system.json
+    ride-sharing.json
 ```
 
 `import.meta.glob` loads every `src/data/scenarios/*.json` except `manifest.json`. The manifest controls display order and must list each scenario id.
+
+## Solution flows (animated walkthrough)
+
+Optional top-level `flows` on each scenario drive the Architecture reveal walkthrough:
+
+```json
+"flows": [
+  {
+    "id": "write",
+    "title": { "ar": "مسار الكتابة", "en": "Write path" },
+    "steps": [
+      {
+        "id": "w1",
+        "caption": { "ar": "...", "en": "..." },
+        "nodes": ["client", "lb"],
+        "edgeKeys": ["client->lb"],
+        "packet": { "from": "client", "to": "lb" }
+      }
+    ]
+  }
+]
+```
+
+`edgeKeys` use `from->to` component types matching `drawing.edges`. Optional `drawing.containers` render Region/VPC boxes. If `flows` is omitted, the UI synthesizes a short overview from the drawing edges.
+
+## Drawing templates
+
+`templates.json` has `generic` (Read-heavy, Write-heavy, Event-driven) plus `scenarios[id]` minimal starters. Loading a template onto a non-empty board confirms and is one undo step.
 
 ## Palette + AWS icons
 

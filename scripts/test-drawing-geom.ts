@@ -80,9 +80,22 @@ for (const tpl of templates.generic) {
   assert.ok(tpl.blocks.length >= 2, `generic template ${tpl.id} needs ≥2 blocks`);
   assert.ok(Array.isArray(tpl.edges));
 }
-assert.ok(templates.scenarios['image-upload']?.blocks.length >= 3);
-assert.ok(templates.scenarios['url-shortener']?.blocks.length >= 3);
-assert.ok(templates.scenarios['chat-messaging']?.blocks.length >= 3);
+for (const id of [
+  'image-upload',
+  'url-shortener',
+  'chat-messaging',
+  'rate-limiter',
+  'news-feed',
+  'notification-system',
+  'typeahead',
+  'payment-system',
+  'ride-sharing',
+]) {
+  assert.ok(
+    (templates.scenarios[id]?.blocks.length || 0) >= 3,
+    `scenario starter ${id} needs ≥3 blocks`,
+  );
+}
 
 assert.equal(edgeKey('api', 'db'), 'api->db');
 assert.deepEqual(parseEdgeKey('client->cdn'), { from: 'client', to: 'cdn' });

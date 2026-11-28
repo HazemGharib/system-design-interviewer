@@ -1,0 +1,1769 @@
+{
+  "id": "typeahead",
+  "title": {
+    "ar": "البحث التوقعي (Typeahead)",
+    "en": "Typeahead / Autocomplete"
+  },
+  "description": {
+    "ar": "صمم typeahead سريع للبحث والاقتراحات",
+    "en": "Design a fast typeahead for search suggestions"
+  },
+  "difficulty": {
+    "ar": "متوسط soft",
+    "en": "Easy"
+  },
+  "estimatedTime": {
+    "ar": "40 دقيقة",
+    "en": "40 minutes"
+  },
+  "problemStatement": {
+    "ar": "صمم نظام autocomplete يرجع اقتراحات في أقل من 100ms. الـ corpus كبير، والـ QPS عالي لأن كل حرف طلب. ناقش هيكل الفهرس، الـ caching، والتحديثات.",
+    "en": "Design an autocomplete system that returns suggestions in under 100ms. The corpus is large and QPS is high because every keystroke is a request. Discuss index structure, caching, and updates."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "Suggest QPS",
+        "en": "Suggest QPS"
+      },
+      "value": {
+        "ar": "100 ألف",
+        "en": "100 thousand"
+      }
+    },
+    {
+      "label": {
+        "ar": "حجم الـ corpus",
+        "en": "Corpus size"
+      },
+      "value": {
+        "ar": "100 مليون إدخال",
+        "en": "100 million entries"
+      }
+    },
+    {
+      "label": {
+        "ar": "Latency target",
+        "en": "Latency target"
+      },
+      "value": {
+        "ar": "< 100ms p99",
+        "en": "< 100ms p99"
+      }
+    },
+    {
+      "label": {
+        "ar": "Languages",
+        "en": "Languages"
+      },
+      "value": {
+        "ar": "عربي + إنجليزي",
+        "en": "Arabic + English"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن الـ scope واعمل حسبة.",
+        "en": "Before designing: clarify scope and estimate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن corpus: users/products/queries وحجمها",
+            "en": "Asked about corpus: users/products/queries and size"
+          },
+          "detail": {
+            "ar": {
+              "why": "هيكل الفهرس يختلف.",
+              "how": "اسأل: prefix only ولا fuzzy؟ لغة عربية؟",
+              "tradeoffs": "Fuzzy أغلى بكثير.",
+              "examples": "Amazon product typeahead، Google suggest.",
+              "mistakes": "خطأ: Elasticsearch افتراضي من غير access pattern."
+            },
+            "en": {
+              "why": "Index structure differs.",
+              "how": "Ask: prefix only or fuzzy? Arabic?",
+              "tradeoffs": "Fuzzy is much more expensive.",
+              "examples": "Amazon product typeahead, Google suggest.",
+              "mistakes": "Mistake: defaulting to Elasticsearch without access pattern."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت 100k suggest QPS وavg 3 chars قبل النتائج",
+            "en": "Estimated 100k suggest QPS and avg 3 chars before results"
+          },
+          "detail": {
+            "ar": {
+              "why": "الأرقام بتحجم الـ in-memory replicas.",
+              "how": "كل keystroke = request. Debounce على العميل.",
+              "tradeoffs": "Debounce يقلل QPS ويحسّس بـ lag.",
+              "examples": "150ms UI budget شائع.",
+              "mistakes": "خطأ: تنسى إن QPS ≈ keystrokes مش searches."
+            },
+            "en": {
+              "why": "Numbers size in-memory replicas.",
+              "how": "Each keystroke = request. Client debounce.",
+              "tradeoffs": "Debounce lowers QPS and can feel laggy.",
+              "examples": "150ms UI budget is common.",
+              "mistakes": "Mistake: forgetting QPS ≈ keystrokes not searches."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت freshness للتحديثات (منتج جديد امتى يظهر)",
+            "en": "Clarified freshness for updates (when a new product appears)"
+          },
+          "detail": {
+            "ar": {
+              "why": "Index lag مقبول لحد كام؟",
+              "how": "Seconds للـ social usernames؛ minutes للكتالوج.",
+              "tradeoffs": "أصرّ freshness = أكتر rebuilds.",
+              "examples": "Nearline index updater.",
+              "mistakes": "خطأ: تعد فوري على فهرس ضخم موزّع."
+            },
+            "en": {
+              "why": "How much index lag is OK?",
+              "how": "Seconds for social usernames; minutes for catalog.",
+              "tradeoffs": "Stricter freshness = more rebuilds.",
+              "examples": "Nearline index updater.",
+              "mistakes": "Mistake: promising instant on a huge distributed index."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن personalization والـ NSFW filters",
+            "en": "Asked about personalization and NSFW filters"
+          },
+          "detail": {
+            "ar": {
+              "why": "Ranking مش بس prefix match.",
+              "how": "Global popularity + user context + safety.",
+              "tradeoffs": "Personalization يزيد fan-out.",
+              "examples": "Query + geo + locale features.",
+              "mistakes": "خطأ: ترجع نتائج من غير safety filter."
+            },
+            "en": {
+              "why": "Ranking is not just prefix match.",
+              "how": "Global popularity + user context + safety.",
+              "tradeoffs": "Personalization increases fan-out.",
+              "examples": "Query + geo + locale features.",
+              "mistakes": "Mistake: returning results without a safety filter."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف edge/CDN، API، trie/prefix index، وranking.",
+        "en": "Describe edge/CDN, API, trie/prefix index, and ranking."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 Client → CDN/LB → API → Cache → Prefix Index → DB",
+            "en": "📊 Client → CDN/LB → API → Cache → Prefix Index → DB"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ path لازم يبقى قصير جدًا.",
+              "how": "Edge cache للـ hot prefixes. Origin للـ miss.",
+              "tradeoffs": "Full CDN cache يضعف personalization.",
+              "examples": "Edge + origin hybrid.",
+              "mistakes": "خطأ: DB LIKE '%x%' على كل keystroke."
+            },
+            "en": {
+              "why": "The path must be very short.",
+              "how": "Edge cache for hot prefixes. Origin on miss.",
+              "tradeoffs": "Full CDN cache weakens personalization.",
+              "examples": "Edge + origin hybrid.",
+              "mistakes": "Mistake: DB LIKE '%x%' on every keystroke."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Prefix index: Trie أو Redis ZSET lex أو inverted prefix",
+            "en": "Prefix index: Trie or Redis ZSET lex or inverted prefix"
+          },
+          "detail": {
+            "ar": {
+              "why": "Core data structure للسرعة.",
+              "how": "In-mem trie للـ top corpus. ZSET للـ simpler ops.",
+              "tradeoffs": "Trie سريع وأصعب في الـ update الموزع.",
+              "examples": "Redis ZRANGEBYLEX، custom trie service.",
+              "mistakes": "خطأ: جدول SQL من غير index مناسب."
+            },
+            "en": {
+              "why": "Core data structure for speed.",
+              "how": "In-mem trie for top corpus. ZSET for simpler ops.",
+              "tradeoffs": "Trie is fast and harder to update distributed.",
+              "examples": "Redis ZRANGEBYLEX, custom trie service.",
+              "mistakes": "Mistake: SQL table without a proper index."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Ranking: popularity × text match × context",
+            "en": "Ranking: popularity × text match × context"
+          },
+          "detail": {
+            "ar": {
+              "why": "Prefix وحدها بترجع نتايج وحشة.",
+              "how": "خزّن score مع الإدخالات. Re-rank top K.",
+              "tradeoffs": "معقّد ranking = latency.",
+              "examples": "BM25-ish + popularity.",
+              "mistakes": "خطأ: رجّع lexicographic بس."
+            },
+            "en": {
+              "why": "Prefix alone returns poor results.",
+              "how": "Store score with entries. Re-rank top K.",
+              "tradeoffs": "Heavier ranking = latency.",
+              "examples": "BM25-ish + popularity.",
+              "mistakes": "Mistake: returning lexicographic only."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Async indexer من source-of-truth DB/stream",
+            "en": "Async indexer from source-of-truth DB/stream"
+          },
+          "detail": {
+            "ar": {
+              "why": "فصل الكتابة عن الـ suggest path.",
+              "how": "CDC/Kafka → indexer → reload shards.",
+              "tradeoffs": "Rebuild كامل vs incremental.",
+              "examples": "Search index pipelines.",
+              "mistakes": "خطأ: updates sync على كل replicas في request."
+            },
+            "en": {
+              "why": "Decouple writes from the suggest path.",
+              "how": "CDC/Kafka → indexer → reload shards.",
+              "tradeoffs": "Full rebuild vs incremental.",
+              "examples": "Search index pipelines.",
+              "mistakes": "Mistake: sync updates to every replica in-request."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale prefix search مع قواميس ضخمة وتحديثات؟",
+        "en": "How do you scale prefix search with huge dictionaries and updates?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Shard dictionary by first chars أو hash ranges",
+            "en": "Shard dictionary by first chars or hash ranges"
+          },
+          "detail": {
+            "ar": {
+              "why": "Memory per node محدودة.",
+              "how": "Router يعرف الـ shard. Hot prefix shards تتكرر.",
+              "tradeoffs": "First-char sharding غير متوازن لغويًا.",
+              "examples": "Arabic/English separate indexes.",
+              "mistakes": "خطأ: shard واحد يحمل كل الـ 'a' الإنجليزية."
+            },
+            "en": {
+              "why": "Memory per node is limited.",
+              "how": "Router knows the shard. Hot prefix shards are replicated.",
+              "tradeoffs": "First-char sharding is linguistically unbalanced.",
+              "examples": "Arabic/English separate indexes.",
+              "mistakes": "Mistake: one shard holding all English 'a'."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Replica suggest nodes؛ stateless API",
+            "en": "Replica suggest nodes; stateless API"
+          },
+          "detail": {
+            "ar": {
+              "why": "Read-heavy جدًا.",
+              "how": "N replicas خلف LB. Rolling reload للفهرس.",
+              "tradeoffs": "أكتر replicas = memory $$",
+              "examples": "Autoscaling on QPS/CPU.",
+              "mistakes": "خطأ: تخزن الفهرس في API pod من غير plan للـ reload."
+            },
+            "en": {
+              "why": "Extremely read-heavy.",
+              "how": "N replicas behind LB. Rolling reload of the index.",
+              "tradeoffs": "More replicas = memory $$",
+              "examples": "Autoscaling on QPS/CPU.",
+              "mistakes": "Mistake: storing the index in API pods with no reload plan."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Edge cache للـ anonymous popular prefixes",
+            "en": "Edge cache for anonymous popular prefixes"
+          },
+          "detail": {
+            "ar": {
+              "why": "نسبة كبيرة من الـ queries متكررة.",
+              "how": "CDN/key = locale+prefix. Short TTL.",
+              "tradeoffs": "Personalization bypass للـ edge.",
+              "examples": "CloudFront/Fastly for suggests.",
+              "mistakes": "خطأ: cache personalized responses على CDN."
+            },
+            "en": {
+              "why": "A large share of queries repeats.",
+              "how": "CDN/key = locale+prefix. Short TTL.",
+              "tradeoffs": "Personalization bypasses the edge.",
+              "examples": "CloudFront/Fastly for suggests.",
+              "mistakes": "Mistake: caching personalized responses on the CDN."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "SLIs: suggest p99، empty-result rate، index lag.",
+        "en": "SLIs: suggest p99, empty-result rate, index lag."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "p99 suggest < 100ms؛ track client cancel rate",
+            "en": "p99 suggest < 100ms; track client cancel rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "UI حساس جدًا.",
+              "how": "Histogram + timeout metrics.",
+              "tradeoffs": "Timeoutات قصيرة تزيد الأخطاء.",
+              "examples": "RUM على typeahead.",
+              "mistakes": "خطأ: تقيس server بس من غير client abandons."
+            },
+            "en": {
+              "why": "UI is very sensitive.",
+              "how": "Histogram + timeout metrics.",
+              "tradeoffs": "Short timeouts increase errors.",
+              "examples": "RUM on typeahead.",
+              "mistakes": "Mistake: measuring server only without client abandons."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Index lag وfreshness gauges",
+            "en": "Index lag and freshness gauges"
+          },
+          "detail": {
+            "ar": {
+              "why": "منتج جديد لازم يظهر.",
+              "how": "Lag from source commit → searchable.",
+              "tradeoffs": "أصرّ lag يزود indexer cost.",
+              "examples": "Indexer dashboards.",
+              "mistakes": "خطأ: مفيش رؤية للـ lag."
+            },
+            "en": {
+              "why": "New products must appear.",
+              "how": "Lag from source commit → searchable.",
+              "tradeoffs": "Stricter lag raises indexer cost.",
+              "examples": "Indexer dashboards.",
+              "mistakes": "Mistake: no visibility into lag."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Empty-result وtoxic-result rates",
+            "en": "Empty-result and toxic-result rates"
+          },
+          "detail": {
+            "ar": {
+              "why": "الجودة جزء من الـ reliability.",
+              "how": "Sample queries. Safety classifier hits.",
+              "tradeoffs": "Sampling bias.",
+              "examples": "Query quality eval sets.",
+              "mistakes": "خطأ: تهتم بالـ latency بس."
+            },
+            "en": {
+              "why": "Quality is part of reliability.",
+              "how": "Sample queries. Safety classifier hits.",
+              "tradeoffs": "Sampling bias.",
+              "examples": "Query quality eval sets.",
+              "mistakes": "Mistake: caring about latency only."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "Hot prefixes، typo storms، index rebuilds.",
+        "en": "Hot prefixes, typo storms, index rebuilds."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Hot prefixes ('a', 'the', حروف شائعة)",
+            "en": "Hot prefixes ('a', 'the', common letters)"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cache/CPU hotspot.",
+              "how": "Precompute top results، replicate hot shards.",
+              "tradeoffs": "Precompute يضعف personalization.",
+              "examples": "Static top charts per locale.",
+              "mistakes": "خطأ: نفس الـ TTL لكل الـ prefixes."
+            },
+            "en": {
+              "why": "Cache/CPU hotspot.",
+              "how": "Precompute top results, replicate hot shards.",
+              "tradeoffs": "Precompute weakens personalization.",
+              "examples": "Static top charts per locale.",
+              "mistakes": "Mistake: same TTL for all prefixes."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Typo / bot storms تضرب fuzzy path",
+            "en": "Typo / bot storms hitting fuzzy path"
+          },
+          "detail": {
+            "ar": {
+              "why": "Fuzzy أغلى من prefix.",
+              "how": "Rate limit fuzzy. Captcha scrapers. Fallback prefix-only.",
+              "tradeoffs": "تقييد fuzzy يقلل UX للأخطاء الإملائية.",
+              "examples": "WAF + suggest budgets.",
+              "mistakes": "خطأ: fuzzy مفتوح من غير budget."
+            },
+            "en": {
+              "why": "Fuzzy is costlier than prefix.",
+              "how": "Rate limit fuzzy. Captcha scrapers. Fallback prefix-only.",
+              "tradeoffs": "Restricting fuzzy hurts typo UX.",
+              "examples": "WAF + suggest budgets.",
+              "mistakes": "Mistake: open fuzzy without a budget."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Index reload يسبب memory spikes",
+            "en": "Index reload causing memory spikes"
+          },
+          "detail": {
+            "ar": {
+              "why": "Double buffering يستهلك RAM.",
+              "how": "Blue/green index، reload تدريجي.",
+              "tradeoffs": "Reload أبطأ = lag أكتر.",
+              "examples": "mmap + atomic swap.",
+              "mistakes": "خطأ: reload in-place يوقف الخدمة."
+            },
+            "en": {
+              "why": "Double buffering consumes RAM.",
+              "how": "Blue/green index, gradual reload.",
+              "tradeoffs": "Slower reload = more lag.",
+              "examples": "mmap + atomic swap.",
+              "mistakes": "Mistake: in-place reload stalls the service."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "In-memory trie vs search engine vs Redis ZSET.",
+        "en": "In-memory trie vs search engine vs Redis ZSET."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "In-memory trie vs Elasticsearch",
+            "en": "In-memory trie vs Elasticsearch"
+          },
+          "detail": {
+            "ar": {
+              "why": "Latency vs flexibility.",
+              "how": "Trie/ZSET للـ typeahead الصرف. ES لو query أعقد.",
+              "tradeoffs": "ES أعقد وأبطأ غالبًا للـ prefix النقي.",
+              "examples": "Many large apps use custom prefix services.",
+              "mistakes": "خطأ: ES لكل keystroke من غير cache."
+            },
+            "en": {
+              "why": "Latency vs flexibility.",
+              "how": "Trie/ZSET for pure typeahead. ES if queries are richer.",
+              "tradeoffs": "ES is often heavier/slower for pure prefix.",
+              "examples": "Many large apps use custom prefix services.",
+              "mistakes": "Mistake: ES on every keystroke without cache."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Exact prefix vs fuzzy",
+            "en": "Exact prefix vs fuzzy"
+          },
+          "detail": {
+            "ar": {
+              "why": "الدقة الإملائية vs التكلفة.",
+              "how": "Prefix أولاً؛ fuzzy عند قلة النتائج.",
+              "tradeoffs": "Fuzzy دائم = $$ وlatency.",
+              "examples": "Keyboard distance edit1.",
+              "mistakes": "خطأ: fuzzy edit distance كبيرة على QPS عالي."
+            },
+            "en": {
+              "why": "Typo tolerance vs cost.",
+              "how": "Prefix first; fuzzy when results are scarce.",
+              "tradeoffs": "Always-on fuzzy = $$ and latency.",
+              "examples": "Keyboard distance edit1.",
+              "mistakes": "Mistake: large edit distance fuzzy at high QPS."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Global popularity vs personalized",
+            "en": "Global popularity vs personalized"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cacheability vs relevance.",
+              "how": "ابدأ global؛ أضف personalization للـ logged-in.",
+              "tradeoffs": "Personalization تكسر CDN.",
+              "examples": "Two-tier ranking.",
+              "mistakes": "خطأ: personalize كل شيء من اليوم الأول."
+            },
+            "en": {
+              "why": "Cacheability vs relevance.",
+              "how": "Start global; add personalization for logged-in.",
+              "tradeoffs": "Personalization breaks CDN.",
+              "examples": "Two-tier ranking.",
+              "mistakes": "Mistake: personalizing everything from day one."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "Personalization وprivacy للـ query logs.",
+        "en": "Personalization and privacy for query logs."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Arabic morphology / normalization",
+            "en": "Arabic morphology / normalization"
+          },
+          "detail": {
+            "ar": {
+              "why": "الهمزات والتشكيل.",
+              "how": "Normalize قبل الفهرسة والاستعلام.",
+              "tradeoffs": "Normalization عدواني يخلط كلمات.",
+              "examples": "Language analyzers.",
+              "mistakes": "خطأ: casefold إنجليزي بس."
+            },
+            "en": {
+              "why": "Hamzas and diacritics.",
+              "how": "Normalize before index and query.",
+              "tradeoffs": "Aggressive normalization conflates words.",
+              "examples": "Language analyzers.",
+              "mistakes": "Mistake: English-only casefold."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Privacy: لا تقترح PII حساس",
+            "en": "Privacy: do not suggest sensitive PII"
+          },
+          "detail": {
+            "ar": {
+              "why": "أرقام تليفون/إيميلات.",
+              "how": "Deny-list types. Authz على private entities.",
+              "tradeoffs": "False positives تزيل نتايج شرعية.",
+              "examples": "User search only for friends.",
+              "mistakes": "خطأ: typeahead عام على كل اليوزرز الخاصين."
+            },
+            "en": {
+              "why": "Phone numbers/emails.",
+              "how": "Deny-list types. Authz on private entities.",
+              "tradeoffs": "False positives remove legit results.",
+              "examples": "User search only for friends.",
+              "mistakes": "Mistake: public typeahead on all private users."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Offline eval + online A/B لـ ranking",
+            "en": "Offline eval + online A/B for ranking"
+          },
+          "detail": {
+            "ar": {
+              "why": "من غير قياس، الـ ranking عشوائي.",
+              "how": "Query sets + CTR experiments.",
+              "tradeoffs": "A/B بطيء على تغييرات السلامة.",
+              "examples": "Interleaving experiments.",
+              "mistakes": "خطأ: تعتمد على إحساس الـ PM بس."
+            },
+            "en": {
+              "why": "Without measurement, ranking is guesswork.",
+              "how": "Query sets + CTR experiments.",
+              "tradeoffs": "A/B is slow for safety changes.",
+              "examples": "Interleaving experiments.",
+              "mistakes": "Mistake: relying only on PM intuition."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "تكلفة memory للـ tries وreplicas عند 100k QPS.",
+        "en": "Memory cost for tries and replicas at 100k QPS."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Memory: corpus entries × bytes × replicas",
+            "en": "Memory: corpus entries × bytes × replicas"
+          },
+          "detail": {
+            "ar": {
+              "why": "RAM هي التكلفة الأساسية.",
+              "how": "100M entries × 100B × 10 replicas…",
+              "tradeoffs": "أقل replicas = أرخص وأقل availability.",
+              "examples": "r-class instances / Redis.",
+              "mistakes": "خطأ: تنسى replicas في كل AZ."
+            },
+            "en": {
+              "why": "RAM is the primary cost.",
+              "how": "100M entries × 100B × 10 replicas…",
+              "tradeoffs": "Fewer replicas = cheaper and less availability.",
+              "examples": "r-class instances / Redis.",
+              "mistakes": "Mistake: forgetting replicas in every AZ."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "CDN يقلل origin QPS بشدة",
+            "en": "CDN cuts origin QPS sharply"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hot prefixes أرخص على الـ edge.",
+              "how": "Target 70%+ edge hit للـ anonymous.",
+              "tradeoffs": "Personalization تقلل الـ hit rate.",
+              "examples": "Edge caching reports.",
+              "mistakes": "خطأ: كل الطلبات origin."
+            },
+            "en": {
+              "why": "Hot prefixes are cheaper at the edge.",
+              "how": "Target 70%+ edge hit for anonymous.",
+              "tradeoffs": "Personalization lowers hit rate.",
+              "examples": "Edge caching reports.",
+              "mistakes": "Mistake: all traffic to origin."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Indexer compute منفصل عن serve",
+            "en": "Indexer compute separated from serve"
+          },
+          "detail": {
+            "ar": {
+              "why": "Rebuilds متعملش نزاع مع QPS.",
+              "how": "Spot/batch للـ rebuild. Reserved للـ serve.",
+              "tradeoffs": "فصل = أكتر حركة بيانات.",
+              "examples": "Pipeline billing.",
+              "mistakes": "خطأ: reindex على نفس serve nodes تحت الضغط."
+            },
+            "en": {
+              "why": "Rebuilds should not fight QPS.",
+              "how": "Spot/batch for rebuild. Reserved for serve.",
+              "tradeoffs": "Separation = more data movement.",
+              "examples": "Pipeline billing.",
+              "mistakes": "Mistake: reindexing on the same serve nodes under load."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "Abuse: scrapers، PII في suggestions.",
+        "en": "Abuse: scrapers, PII in suggestions."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Rate limit per IP/user على suggest",
+            "en": "Rate limit per IP/user on suggest"
+          },
+          "detail": {
+            "ar": {
+              "why": "Scraping سهل.",
+              "how": "Token bucket + bot detection.",
+              "tradeoffs": "Strict limits تزعج power users.",
+              "examples": "WAF + app limits.",
+              "mistakes": "خطأ: endpoint عام من غير throttle."
+            },
+            "en": {
+              "why": "Scraping is easy.",
+              "how": "Token bucket + bot detection.",
+              "tradeoffs": "Strict limits upset power users.",
+              "examples": "WAF + app limits.",
+              "mistakes": "Mistake: public endpoint with no throttle."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Authorization على كيانات خاصة",
+            "en": "Authorization on private entities"
+          },
+          "detail": {
+            "ar": {
+              "why": "مش كل اسم يوزر عام.",
+              "how": "Filter by ACL بعد الاسترجاع أو index partitions.",
+              "tradeoffs": "Post-filter ممكن يخلّي النتائج فاضية.",
+              "examples": "Friend-only user search.",
+              "mistakes": "خطأ: تفهرس private ids في public shard."
+            },
+            "en": {
+              "why": "Not every username is public.",
+              "how": "Filter by ACL after retrieval or index partitions.",
+              "tradeoffs": "Post-filter can empty results.",
+              "examples": "Friend-only user search.",
+              "mistakes": "Mistake: indexing private ids in a public shard."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Log minimization للـ queries",
+            "en": "Log minimization for queries"
+          },
+          "detail": {
+            "ar": {
+              "why": "Query logs فيها PII ونوايا.",
+              "how": "Hash/truncate. Short retention. Access control.",
+              "tradeoffs": "أقل logs = أصعب الـ debug.",
+              "examples": "Privacy-safe analytics.",
+              "mistakes": "خطأ: تخزن raw queries للأبد."
+            },
+            "en": {
+              "why": "Query logs contain PII and intent.",
+              "how": "Hash/truncate. Short retention. Access control.",
+              "tradeoffs": "Fewer logs = harder debugging.",
+              "examples": "Privacy-safe analytics.",
+              "mistakes": "Mistake: storing raw queries forever."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "Multi-region indexes وRPO للتحديثات.",
+        "en": "Multi-region indexes and RPO for updates."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Multi-region serve replicas؛ index rebuild من المصدر",
+            "en": "Multi-region serve replicas; index rebuild from source"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ index مش المصدر الوحيد للحقيقة.",
+              "how": "RPO على المصدر. Indexes تتعيد.",
+              "tradeoffs": "Rebuild طويل بعد كارثة.",
+              "examples": "Snapshots لتسريع warm start.",
+              "mistakes": "خطأ: backups للـ index بس من غير المصدر."
+            },
+            "en": {
+              "why": "The index is not the only source of truth.",
+              "how": "RPO on source. Indexes are rebuildable.",
+              "tradeoffs": "Rebuild is long after disaster.",
+              "examples": "Snapshots to speed warm start.",
+              "mistakes": "Mistake: index-only backups without source."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Failover: اخدم stale index مع علم freshness",
+            "en": "Failover: serve stale index with freshness signal"
+          },
+          "detail": {
+            "ar": {
+              "why": "أحسن من outage كامل.",
+              "how": "Freeze updates. Serve last good.",
+              "tradeoffs": "Stale ممكن يُظهر منتجات اتحذفت.",
+              "examples": "Feature flag: stale mode.",
+              "mistakes": "خطأ: ترفض كل الطلبات لو indexer وقع."
+            },
+            "en": {
+              "why": "Better than full outage.",
+              "how": "Freeze updates. Serve last good.",
+              "tradeoffs": "Stale may show deleted products.",
+              "examples": "Feature flag: stale mode.",
+              "mistakes": "Mistake: rejecting all requests if indexer fails."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Chaos: اقتل shard وشيّك router fallback",
+            "en": "Chaos: kill a shard and check router fallback"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hot shard failure شائع.",
+              "how": "Partial results vs error policy واضحة.",
+              "tradeoffs": "Partial ممكن يضلل.",
+              "examples": "GameDays على router.",
+              "mistakes": "خطأ: 500 على أي shard miss."
+            },
+            "en": {
+              "why": "Hot shard failure is common.",
+              "how": "Clear partial results vs error policy.",
+              "tradeoffs": "Partial can mislead.",
+              "examples": "GameDays on router.",
+              "mistakes": "Mistake: 500 on any shard miss."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "suggestQps",
+        "label": {
+          "ar": "Suggest QPS",
+          "en": "Suggest QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "default": 100000,
+        "role": "input"
+      },
+      {
+        "id": "corpus",
+        "label": {
+          "ar": "حجم الـ corpus",
+          "en": "Corpus size"
+        },
+        "unit": {
+          "ar": "إدخال",
+          "en": "entries"
+        },
+        "default": 100000000,
+        "role": "input"
+      },
+      {
+        "id": "entryBytes",
+        "label": {
+          "ar": "بايت لكل إدخال",
+          "en": "Bytes per entry"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 100,
+        "role": "input"
+      },
+      {
+        "id": "replicas",
+        "label": {
+          "ar": "عدد الـ replicas",
+          "en": "Replica count"
+        },
+        "unit": {
+          "ar": "نسخة",
+          "en": "replicas"
+        },
+        "default": 10,
+        "role": "assumption",
+        "range": {
+          "goodMin": 6,
+          "goodMax": 16,
+          "okMin": 3,
+          "okMax": 30
+        },
+        "rangeHint": {
+          "ar": "Replicas عبر AZs غالبًا من ٦ لـ ١٦ حسب الـ QPS.",
+          "en": "Replicas across AZs are often 6–16 depending on QPS."
+        }
+      },
+      {
+        "id": "edgeHitPct",
+        "label": {
+          "ar": "نسبة إصابة الـ CDN",
+          "en": "CDN hit %"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 70,
+        "role": "assumption",
+        "range": {
+          "goodMin": 50,
+          "goodMax": 85,
+          "okMin": 30,
+          "okMax": 95
+        },
+        "rangeHint": {
+          "ar": "Hot prefixes غالبًا ٥٠–٨٥% hit.",
+          "en": "Hot prefixes often see 50–85% hit."
+        }
+      },
+      {
+        "id": "qpsPerNode",
+        "label": {
+          "ar": "QPS لكل node",
+          "en": "QPS per node"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "default": 20000,
+        "role": "assumption",
+        "range": {
+          "goodMin": 10000,
+          "goodMax": 40000,
+          "okMin": 5000,
+          "okMax": 60000
+        },
+        "rangeHint": {
+          "ar": "Suggest node in-memory غالبًا عشرات الآلاف QPS.",
+          "en": "In-memory suggest nodes often do tens of thousands QPS."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "originQps",
+        "label": {
+          "ar": "Origin QPS",
+          "en": "Origin QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "format": "qps",
+        "expr": "suggestQps * (100 - edgeHitPct) / 100",
+        "display": [
+          {
+            "var": "suggestQps"
+          },
+          {
+            "text": " × (100 − "
+          },
+          {
+            "var": "edgeHitPct"
+          },
+          {
+            "text": "%)"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "nodes",
+        "label": {
+          "ar": "عدد الـ nodes",
+          "en": "Node count"
+        },
+        "unit": {
+          "ar": "نسخة",
+          "en": "nodes"
+        },
+        "format": "count",
+        "expr": "originQps / qpsPerNode",
+        "display": [
+          {
+            "ref": "originQps"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "qpsPerNode"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "memPerReplica",
+        "label": {
+          "ar": "ذاكرة للنسخة",
+          "en": "Memory per replica"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "corpus * entryBytes / 1000000000",
+        "display": [
+          {
+            "var": "corpus"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "entryBytes"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "totalMem",
+        "label": {
+          "ar": "إجمالي الذاكرة",
+          "en": "Total memory"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "memPerReplica * replicas",
+        "display": [
+          {
+            "ref": "memPerReplica"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "replicas"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Origin QPS = suggest × (1 − edge hit).",
+        "en": "1) Origin QPS = suggest × (1 − edge hit)."
+      },
+      {
+        "ar": "2) Nodes ≈ origin QPS ÷ per-node QPS.",
+        "en": "2) Nodes ≈ origin QPS ÷ per-node QPS."
+      },
+      {
+        "ar": "3) Memory = corpus × bytes × replicas.",
+        "en": "3) Memory = corpus × bytes × replicas."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "shard-down",
+      "title": {
+        "ar": "Prefix shard واقع",
+        "en": "Prefix shard down"
+      },
+      "description": {
+        "ar": "الـ shard الخاص بالحرف الشائع واقع. جزء من الاقتراحات فاضي.",
+        "en": "The common-letter shard is down. Some suggestions are empty."
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Serve partial/stale من replicas أخرى",
+          "en": "Serve partial/stale from other replicas"
+        },
+        {
+          "ar": "Failover router",
+          "en": "Failover router"
+        },
+        {
+          "ar": "Disable fuzzy مؤقتًا لتوفير capacity",
+          "en": "Temporarily disable fuzzy to save capacity"
+        },
+        {
+          "ar": "Page on-call للـ shard",
+          "en": "Page on-call for the shard"
+        }
+      ]
+    },
+    {
+      "id": "scraper",
+      "title": {
+        "ar": "Scraper بيضرب الـ API",
+        "en": "Scraper hitting the API"
+      },
+      "description": {
+        "ar": "IP ranges بتسحب الـ corpus عبر typeahead. الـ QPS ×10.",
+        "en": "IP ranges are scraping the corpus via typeahead. QPS ×10."
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Rate limit + WAF",
+          "en": "Rate limit + WAF"
+        },
+        {
+          "ar": "Challenge bots",
+          "en": "Challenge bots"
+        },
+        {
+          "ar": "Serve cache-only للـ anonymous المشبوه",
+          "en": "Serve cache-only for suspicious anonymous"
+        },
+        {
+          "ar": "Review logs للـ ranges",
+          "en": "Review logs for the ranges"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "trie-es",
+      "question": {
+        "ar": "الفهرس: in-memory trie ولا search engine؟",
+        "en": "Index: in-memory trie or search engine?"
+      },
+      "optionA": {
+        "ar": "In-memory trie/ZSET",
+        "en": "In-memory trie/ZSET"
+      },
+      "optionB": {
+        "ar": "Elasticsearch/OpenSearch",
+        "en": "Elasticsearch/OpenSearch"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "للـ typeahead النقي، in-memory عادة أنسب للـ latency.",
+        "en": "For pure typeahead, in-memory is usually better for latency."
+      },
+      "prosA": {
+        "ar": "Latency واطي جدًا",
+        "en": "Very low latency"
+      },
+      "consA": {
+        "ar": "تحديثات/ops أصعب",
+        "en": "Harder updates/ops"
+      },
+      "prosB": {
+        "ar": "Query مرن",
+        "en": "Flexible queries"
+      },
+      "consB": {
+        "ar": "أثقل للـ keystroke path",
+        "en": "Heavier for keystroke path"
+      },
+      "whenOtherWins": {
+        "ar": "Search engine لو محتاج filtering/facets غنية مع الـ suggest.",
+        "en": "Search engine if you need rich filtering/facets with suggest."
+      }
+    },
+    {
+      "id": "edge-personal",
+      "question": {
+        "ar": "CDN cache ولا personalized origin؟",
+        "en": "CDN cache or personalized origin?"
+      },
+      "optionA": {
+        "ar": "CDN anonymous cache",
+        "en": "CDN anonymous cache"
+      },
+      "optionB": {
+        "ar": "Always personalized origin",
+        "en": "Always personalized origin"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "Cache للـ anonymous + origin للـ logged-in حل عملي.",
+        "en": "Cache for anonymous + origin for logged-in is practical."
+      },
+      "prosA": {
+        "ar": "يقلل التكلفة والـ latency",
+        "en": "Cuts cost and latency"
+      },
+      "consA": {
+        "ar": "أقل تخصيص",
+        "en": "Less personalization"
+      },
+      "prosB": {
+        "ar": "Relevance أعلى",
+        "en": "Higher relevance"
+      },
+      "consB": {
+        "ar": "تكلفة QPS أعلى",
+        "en": "Higher QPS cost"
+      },
+      "whenOtherWins": {
+        "ar": "Personalized لو الـ product قائم على التخصيص القوي.",
+        "en": "Personalized if the product depends on strong personalization."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "cdn",
+      "lb",
+      "api",
+      "cache",
+      "db",
+      "queue",
+      "worker",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "cdn",
+        "label": {
+          "ar": "suggest",
+          "en": "suggest"
+        }
+      },
+      {
+        "from": "cdn",
+        "to": "lb",
+        "label": {
+          "ar": "miss",
+          "en": "miss"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "توزيع",
+          "en": "distribute"
+        }
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "label": {
+          "ar": "prefix lookup",
+          "en": "prefix lookup"
+        }
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": {
+          "ar": "hydrate",
+          "en": "hydrate"
+        }
+      },
+      {
+        "from": "db",
+        "to": "queue",
+        "label": {
+          "ar": "CDC",
+          "en": "CDC"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "worker",
+        "label": {
+          "ar": "index",
+          "en": "index"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "cache",
+        "label": {
+          "ar": "reload",
+          "en": "reload"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 60
+      },
+      {
+        "type": "cdn",
+        "x": 130,
+        "y": 60
+      },
+      {
+        "type": "lb",
+        "x": 240,
+        "y": 60
+      },
+      {
+        "type": "api",
+        "x": 350,
+        "y": 60
+      },
+      {
+        "type": "cache",
+        "x": 480,
+        "y": 40
+      },
+      {
+        "type": "db",
+        "x": 480,
+        "y": 140
+      },
+      {
+        "type": "queue",
+        "x": 350,
+        "y": 180
+      },
+      {
+        "type": "worker",
+        "x": 480,
+        "y": 220
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 180
+      }
+    ],
+    "containers": [
+      {
+        "id": "serve",
+        "label": {
+          "ar": "Serve path",
+          "en": "Serve path"
+        },
+        "x": 100,
+        "y": 20,
+        "w": 420,
+        "h": 140
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار تحديث الفهرس",
+        "en": "Index update path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "تغيير في مصدر الحقيقة DB",
+            "en": "Change in source-of-truth DB"
+          },
+          "nodes": [
+            "db",
+            "queue"
+          ],
+          "edgeKeys": [
+            "db->queue"
+          ],
+          "packet": {
+            "from": "db",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "Queue ينقل حدث CDC",
+            "en": "Queue carries CDC event"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "Worker يحدّث/يعيد بناء الـ prefix index",
+            "en": "Worker updates/rebuilds prefix index"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "الـ API يقرأ الفهرس الجديد تدريجيًا",
+            "en": "API gradually reads the new index"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "CDN ياخد TTL قصير ويفرغ المفاتيح الساخنة",
+            "en": "CDN uses short TTL and purges hot keys"
+          },
+          "nodes": [
+            "client",
+            "cdn"
+          ],
+          "edgeKeys": [
+            "client->cdn"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "cdn"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار الاقتراح",
+        "en": "Suggest path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "Keystroke من العميل",
+            "en": "Client keystroke"
+          },
+          "nodes": [
+            "client",
+            "cdn"
+          ],
+          "edgeKeys": [
+            "client->cdn"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "cdn"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "CDN miss → LB",
+            "en": "CDN miss → LB"
+          },
+          "nodes": [
+            "cdn",
+            "lb"
+          ],
+          "edgeKeys": [
+            "cdn->lb"
+          ],
+          "packet": {
+            "from": "cdn",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "API يوجّه للـ prefix store",
+            "en": "API hits prefix store"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Lookup في cache/trie",
+            "en": "Lookup in cache/trie"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "Hydrate تفاصيل من DB لو لزم",
+            "en": "Hydrate details from DB if needed"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Shard سخن وقع",
+            "en": "Hot shard is down"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Router يرجّع partial/stale",
+            "en": "Router returns partial/stale"
+          },
+          "nodes": [
+            "cdn",
+            "lb"
+          ],
+          "edgeKeys": [
+            "cdn->lb"
+          ],
+          "packet": {
+            "from": "cdn",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Indexer متوقف — اخدم last good",
+            "en": "Indexer stopped — serve last good"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Rate limit على fuzzy/bots",
+            "en": "Rate limit fuzzy/bots"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Monitoring يطلق freshness alert",
+            "en": "Monitoring fires freshness alert"
+          },
+          "nodes": [
+            "db",
+            "queue"
+          ],
+          "edgeKeys": [
+            "db->queue"
+          ],
+          "packet": {
+            "from": "db",
+            "to": "queue"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1831 @@
+{
+  "id": "ride-sharing",
+  "title": {
+    "ar": "نظام طلب السيارات",
+    "en": "Ride-Sharing System"
+  },
+  "description": {
+    "ar": "صمم نظام matching وتتبع لمسارح الرحلات",
+    "en": "Design a matching and tracking system for ride-sharing"
+  },
+  "difficulty": {
+    "ar": "صعب",
+    "en": "Hard"
+  },
+  "estimatedTime": {
+    "ar": "50 دقيقة",
+    "en": "50 minutes"
+  },
+  "problemStatement": {
+    "ar": "صمم نظام ride-sharing: راكب يطلب، النظام يطابق سواق قريب، ويتتبع الرحلة لحد ما تخلص. ركّز على location streaming، geo indexing، وmatching تحت الذروة.",
+    "en": "Design a ride-sharing system: a rider requests, the system matches a nearby driver, and tracks the trip to completion. Focus on location streaming, geo indexing, and matching under peak load."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "رحلات/يوم",
+        "en": "Trips/day"
+      },
+      "value": {
+        "ar": "5 مليون",
+        "en": "5 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "سواقين نشطين في الذروة",
+        "en": "Peak active drivers"
+      },
+      "value": {
+        "ar": "200 ألف",
+        "en": "200 thousand"
+      }
+    },
+    {
+      "label": {
+        "ar": "Location update rate",
+        "en": "Location update rate"
+      },
+      "value": {
+        "ar": "1 Hz متوسط",
+        "en": "1 Hz average"
+      }
+    },
+    {
+      "label": {
+        "ar": "هدف المطابقة",
+        "en": "Match target"
+      },
+      "value": {
+        "ar": "< 15s p95",
+        "en": "< 15s p95"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن الـ scope واعمل حسبة.",
+        "en": "Before designing: clarify scope and estimate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن المدن، الـ peak trips، وSLA المطابقة",
+            "en": "Asked about cities, peak trips, and match SLA"
+          },
+          "detail": {
+            "ar": {
+              "why": "الجغرافيا بتحدد sharding.",
+              "how": "اسأل: ETA accuracy؟ pooled rides؟",
+              "tradeoffs": "Pool/shared أعقد بكثير.",
+              "examples": "Uber/Careem style dispatch.",
+              "mistakes": "خطأ: نظام عالمي واحد من غير city cells."
+            },
+            "en": {
+              "why": "Geography drives sharding.",
+              "how": "Ask: ETA accuracy? pooled rides?",
+              "tradeoffs": "Pool/shared is much harder.",
+              "examples": "Uber/Careem style dispatch.",
+              "mistakes": "Mistake: one global system without city cells."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت location updates/sec من السواقين النشطين",
+            "en": "Estimated location updates/sec from active drivers"
+          },
+          "detail": {
+            "ar": {
+              "why": "ده غالب الـ ingest load.",
+              "how": "Active drivers × updates/sec.",
+              "tradeoffs": "أحدث من اللازم = تكلفة؛ أقدم = ETA وحش.",
+              "examples": "1–4 Hz typical with adaptive.",
+              "mistakes": "خطأ: 10Hz ثابت لكل السواقين."
+            },
+            "en": {
+              "why": "This is most of the ingest load.",
+              "how": "Active drivers × updates/sec.",
+              "tradeoffs": "Too frequent = cost; too old = bad ETA.",
+              "examples": "1–4 Hz typical with adaptive.",
+              "mistakes": "Mistake: fixed 10Hz for every driver."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت match timeout وretry policy",
+            "en": "Clarified match timeout and retry policy"
+          },
+          "detail": {
+            "ar": {
+              "why": "تجربة الراكب حرجة.",
+              "how": "مثلاً 15s timeout ثم broaden radius.",
+              "tradeoffs": "أوسع radius = ETA أطول.",
+              "examples": "Tiered search radii.",
+              "mistakes": "خطأ: انتظار لا نهائي لمطابقة مثالية."
+            },
+            "en": {
+              "why": "Rider experience is critical.",
+              "how": "E.g. 15s timeout then broaden radius.",
+              "tradeoffs": "Wider radius = longer ETA.",
+              "examples": "Tiered search radii.",
+              "mistakes": "Mistake: waiting forever for a perfect match."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن payments/safety كحدود للنظام",
+            "en": "Asked about payments/safety as system boundaries"
+          },
+          "detail": {
+            "ar": {
+              "why": "حدد إيه داخل الـ design.",
+              "how": "Trip state آلة حالات. الدفع خدمة منفصلة.",
+              "tradeoffs": "أكبر scope = مقابلات أضعف.",
+              "examples": "Core: match + track + trip lifecycle.",
+              "mistakes": "خطأ: تحاول تصمم الدفع والخرائط من الصفر كله."
+            },
+            "en": {
+              "why": "Define what is in scope.",
+              "how": "Trip state machine. Payments as separate service.",
+              "tradeoffs": "Larger scope = weaker interviews.",
+              "examples": "Core: match + track + trip lifecycle.",
+              "mistakes": "Mistake: redesigning payments and maps from scratch entirely."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف rider/driver apps، matching engine، location stream، والـ trip state.",
+        "en": "Describe rider/driver apps, matching engine, location stream, and trip state."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 Client ↔ WS/LB → API/Router → Matching + Presence/Location → Queue/Workers",
+            "en": "📊 Client ↔ WS/LB → API/Router → Matching + Presence/Location → Queue/Workers"
+          },
+          "detail": {
+            "ar": {
+              "why": "Realtime + matching مسار أساسي.",
+              "how": "Drivers يبعتوا موقع. Matching يلاقي أقرب مناسب. Trip service يدير الحالة.",
+              "tradeoffs": "Polling أثقل من WS للمواقع.",
+              "examples": "Dispatch + location services.",
+              "mistakes": "خطأ: REST polling لكل ثانية من ملايين الأجهزة."
+            },
+            "en": {
+              "why": "Realtime + matching is the core path.",
+              "how": "Drivers send location. Matching finds nearest fit. Trip service manages state.",
+              "tradeoffs": "Polling is heavier than WS for locations.",
+              "examples": "Dispatch + location services.",
+              "mistakes": "Mistake: REST polling every second from millions of devices."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Geo index: geohash / S2 cells للسواقين المتاحين",
+            "en": "Geo index: geohash / S2 cells for available drivers"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم query جغرافي سريع.",
+              "how": "خزّن driver في cell + neighboring cells search.",
+              "tradeoffs": "Cell كبيرة = نتايج أكتر. صغيرة = misses.",
+              "examples": "Redis GEO / S2.",
+              "mistakes": "خطأ: Haversine على كل السواقين في المدينة."
+            },
+            "en": {
+              "why": "Need fast geo query.",
+              "how": "Store driver in cell + search neighbors.",
+              "tradeoffs": "Large cell = more results. Small = misses.",
+              "examples": "Redis GEO / S2.",
+              "mistakes": "Mistake: Haversine over every driver in the city."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Matching engine: filter + rank (ETA, rating, fairness)",
+            "en": "Matching engine: filter + rank (ETA, rating, fairness)"
+          },
+          "detail": {
+            "ar": {
+              "why": "أقرب مسافة مش دايمًا أفضل match.",
+              "how": "Candidate set من الـ geo → rank → offer → accept.",
+              "tradeoffs": "Push offer vs assign التلقائي.",
+              "examples": "Offer batches with timeout.",
+              "mistakes": "خطأ: assign من غير accept من السواق."
+            },
+            "en": {
+              "why": "Nearest distance is not always the best match.",
+              "how": "Candidate set from geo → rank → offer → accept.",
+              "tradeoffs": "Push offer vs automatic assign.",
+              "examples": "Offer batches with timeout.",
+              "mistakes": "Mistake: assigning without driver accept."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Trip state machine في DB قوية + pubsub للتحديثات",
+            "en": "Trip state machine in durable DB + pubsub for updates"
+          },
+          "detail": {
+            "ar": {
+              "why": "الحالة لازم تكون صحيحة بعد انقطاع الشبكة.",
+              "how": "States: requested→matched→enroute→ongoing→completed.",
+              "tradeoffs": "Event sourcing اختياري.",
+              "examples": "Durable trip service.",
+              "mistakes": "خطأ: الحالة في memory الـ matcher بس."
+            },
+            "en": {
+              "why": "State must be correct after network drops.",
+              "how": "States: requested→matched→enroute→ongoing→completed.",
+              "tradeoffs": "Event sourcing optional.",
+              "examples": "Durable trip service.",
+              "mistakes": "Mistake: state only in matcher memory."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale matching وgeo indexes وقت الذروة؟",
+        "en": "How do you scale matching and geo indexes at peak?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Shard by city/geocell؛ matching محلي",
+            "en": "Shard by city/geocell; local matching"
+          },
+          "detail": {
+            "ar": {
+              "why": "معظم الرحلات محلية.",
+              "how": "City service cells. Cross-cell edge cases نادرة.",
+              "tradeoffs": "حدود الخلايا محتاجة overlap.",
+              "examples": "Consistent city routing.",
+              "mistakes": "خطأ: matching عالمي لكل الطلبات."
+            },
+            "en": {
+              "why": "Most trips are local.",
+              "how": "City service cells. Rare cross-cell edge cases.",
+              "tradeoffs": "Cell borders need overlap.",
+              "examples": "Consistent city routing.",
+              "mistakes": "Mistake: global matching for all requests."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Location stream: Kafka partitions by geohash",
+            "en": "Location stream: Kafka partitions by geohash"
+          },
+          "detail": {
+            "ar": {
+              "why": "Ingest ضخم.",
+              "how": "Partition key = cell. Downstream presence update.",
+              "tradeoffs": "Hot downtown cells.",
+              "examples": "Adaptive update rates.",
+              "mistakes": "خطأ: partition بكل driver id عشوائي يبعثر locality."
+            },
+            "en": {
+              "why": "Huge ingest.",
+              "how": "Partition key = cell. Downstream presence update.",
+              "tradeoffs": "Hot downtown cells.",
+              "examples": "Adaptive update rates.",
+              "mistakes": "Mistake: random per-driver partitions breaking locality."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Autoscale matchers على queue depth / match latency",
+            "en": "Autoscale matchers on queue depth / match latency"
+          },
+          "detail": {
+            "ar": {
+              "why": "الذروة الصباحية/المطر.",
+              "how": "HPA + surge mode simplifications.",
+              "tradeoffs": "Scale بطيء يضيع SLA.",
+              "examples": "Pre-warm before known peaks.",
+              "mistakes": "خطأ: scale على CPU بس وتنسى match wait time."
+            },
+            "en": {
+              "why": "Morning/rain peaks.",
+              "how": "HPA + surge mode simplifications.",
+              "tradeoffs": "Slow scale misses SLA.",
+              "examples": "Pre-warm before known peaks.",
+              "mistakes": "Mistake: scaling on CPU only and ignoring match wait time."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "SLIs: match time، ETA error، location freshness.",
+        "en": "SLIs: match time, ETA error, location freshness."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "SLOs: match p95 < 15s، location freshness < 5s",
+            "en": "SLOs: match p95 < 15s, location freshness < 5s"
+          },
+          "detail": {
+            "ar": {
+              "why": "ده قلب تجربة المنتج.",
+              "how": "Per-city dashboards.",
+              "tradeoffs": "City outliers تتخفى في المتوسط العالمي.",
+              "examples": "Real-time city ops views.",
+              "mistakes": "خطأ: metric عالمي واحد."
+            },
+            "en": {
+              "why": "This is the core product experience.",
+              "how": "Per-city dashboards.",
+              "tradeoffs": "City outliers hide in a global average.",
+              "examples": "Real-time city ops views.",
+              "mistakes": "Mistake: one global metric."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "ETA error tracking",
+            "en": "ETA error tracking"
+          },
+          "detail": {
+            "ar": {
+              "why": "وعود غلط تكسر الثقة.",
+              "how": "Predicted vs actual arrive.",
+              "tradeoffs": "Map data quality خارجية.",
+              "examples": "ETA model monitors.",
+              "mistakes": "خطأ: مفيش feedback loop على ETA."
+            },
+            "en": {
+              "why": "Wrong promises break trust.",
+              "how": "Predicted vs actual arrive.",
+              "tradeoffs": "External map data quality.",
+              "examples": "ETA model monitors.",
+              "mistakes": "Mistake: no ETA feedback loop."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cancel rates بعد match وdriver reject rates",
+            "en": "Post-match cancel rates and driver reject rates"
+          },
+          "detail": {
+            "ar": {
+              "why": "جودة المطابقة.",
+              "how": "Alert على spike في rejects.",
+              "tradeoffs": "Surge يرفع cancels أحيانًا.",
+              "examples": "Marketplace health metrics.",
+              "mistakes": "خطأ: تهتم بـ match speed بس."
+            },
+            "en": {
+              "why": "Match quality.",
+              "how": "Alert on reject spikes.",
+              "tradeoffs": "Surge sometimes raises cancels.",
+              "examples": "Marketplace health metrics.",
+              "mistakes": "Mistake: caring about match speed only."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "Matching storms، GPS spoofing، region partition.",
+        "en": "Matching storms, GPS spoofing, region partition."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Downtown geohash hotspot",
+            "en": "Downtown geohash hotspot"
+          },
+          "detail": {
+            "ar": {
+              "why": "خلية واحدة بتتشبع.",
+              "how": "Subdivide cells، replicate matchers، shed load.",
+              "tradeoffs": "Subdivision يزوّد fanout للجيران.",
+              "examples": "Dynamic cell sizing.",
+              "mistakes": "خطأ: cell ثابت لكل المدينة."
+            },
+            "en": {
+              "why": "One cell saturates.",
+              "how": "Subdivide cells, replicate matchers, shed load.",
+              "tradeoffs": "Subdivision increases neighbor fanout.",
+              "examples": "Dynamic cell sizing.",
+              "mistakes": "Mistake: one fixed cell size for the whole city."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Thundering herd بعد مطر/حفلة",
+            "en": "Thundering herd after rain/concert"
+          },
+          "detail": {
+            "ar": {
+              "why": "طلبات كتير مرة واحدة.",
+              "how": "Surge، queue riders، broaden supply incentives.",
+              "tradeoffs": "Surge يزعل الركاب.",
+              "examples": "Demand shaping.",
+              "mistakes": "خطأ: تقبل كل الطلبات من غير supply."
+            },
+            "en": {
+              "why": "Many requests at once.",
+              "how": "Surge, queue riders, broaden supply incentives.",
+              "tradeoffs": "Surge upsets riders.",
+              "examples": "Demand shaping.",
+              "mistakes": "Mistake: accepting all requests with no supply."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Stale driver locations → bad matches",
+            "en": "Stale driver locations → bad matches"
+          },
+          "detail": {
+            "ar": {
+              "why": "GPS يقطع في الأنفاق.",
+              "how": "Freshness TTL؛ استبعد stale؛ predict path.",
+              "tradeoffs": "استبعاد زايد يقلل العرض.",
+              "examples": "Dead reckoning short window.",
+              "mistakes": "خطأ: تثق بآخر موقع من دقايق."
+            },
+            "en": {
+              "why": "GPS drops in tunnels.",
+              "how": "Freshness TTL; exclude stale; predict path.",
+              "tradeoffs": "Over-exclusion reduces supply.",
+              "examples": "Dead reckoning short window.",
+              "mistakes": "Mistake: trusting a location from minutes ago."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "Push match vs pull؛ geohash vs quadtree.",
+        "en": "Push match vs pull; geohash vs quadtree."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Push offer للسواق vs auto-assign",
+            "en": "Push offer to driver vs auto-assign"
+          },
+          "detail": {
+            "ar": {
+              "why": "قبول السواق vs سرعة المطابقة.",
+              "how": "Offers أحسن للـ marketplace؛ auto أسرع.",
+              "tradeoffs": "Offers تزيد latency.",
+              "examples": "Many markets use offer with short timeout.",
+              "mistakes": "خطأ: auto-assign من غير اعتبار تفضيلات السواق."
+            },
+            "en": {
+              "why": "Driver accept vs match speed.",
+              "how": "Offers better for marketplace; auto faster.",
+              "tradeoffs": "Offers increase latency.",
+              "examples": "Many markets use offer with short timeout.",
+              "mistakes": "Mistake: auto-assign ignoring driver preferences."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Geohash vs quadtree/S2",
+            "en": "Geohash vs quadtree/S2"
+          },
+          "detail": {
+            "ar": {
+              "why": "البساطة vs دقة الخلايا.",
+              "how": "Geohash سريع للبداية؛ S2 أدق عند القطبين/الحواف.",
+              "tradeoffs": "S2 أعقد.",
+              "examples": "Uber famously used Google S2.",
+              "mistakes": "خطأ: تتعمق في S2 من غير ما تحل matching basics."
+            },
+            "en": {
+              "why": "Simplicity vs cell accuracy.",
+              "how": "Geohash is fast to start; S2 is better at poles/edges.",
+              "tradeoffs": "S2 is more complex.",
+              "examples": "Uber famously used Google S2.",
+              "mistakes": "Mistake: deep-diving S2 without solving matching basics."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Strong consistency على trip vs eventual location",
+            "en": "Strong consistency on trip vs eventual location"
+          },
+          "detail": {
+            "ar": {
+              "why": "الحالة المالية/الرحلات vs الموقع.",
+              "how": "Trip strong. Location eventual OK.",
+              "tradeoffs": "Strong على الموقع يقتل الـ scale.",
+              "examples": "Separate stores.",
+              "mistakes": "خطأ: نفس DB consistency لكل شيء."
+            },
+            "en": {
+              "why": "Money/trip state vs location.",
+              "how": "Trip strong. Location eventual OK.",
+              "tradeoffs": "Strong on location kills scale.",
+              "examples": "Separate stores.",
+              "mistakes": "Mistake: same DB consistency for everything."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "Surge pricing وfairness.",
+        "en": "Surge pricing and fairness."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Surge pricing signals",
+            "en": "Surge pricing signals"
+          },
+          "detail": {
+            "ar": {
+              "why": "وازن العرض والطلب.",
+              "how": "Demand/supply per cell → multiplier. Clear client UX.",
+              "tradeoffs": "Surge سيء يضر الثقة.",
+              "examples": "Cell-level multipliers.",
+              "mistakes": "خطأ: surge عالمي على مدينة كاملة بنفس الرقم."
+            },
+            "en": {
+              "why": "Balance supply and demand.",
+              "how": "Demand/supply per cell → multiplier. Clear client UX.",
+              "tradeoffs": "Bad surge hurts trust.",
+              "examples": "Cell-level multipliers.",
+              "mistakes": "Mistake: one surge number for an entire city."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Pooled rides matching",
+            "en": "Pooled rides matching"
+          },
+          "detail": {
+            "ar": {
+              "why": "تعقيد هائل في الـ routing.",
+              "how": "Separate pool matcher؛ constraints على detour.",
+              "tradeoffs": "قد يؤخر المطابقة.",
+              "examples": "Carpool products.",
+              "mistakes": "خطأ: تلزق pool في نفس matcher البسيط."
+            },
+            "en": {
+              "why": "Huge routing complexity.",
+              "how": "Separate pool matcher; detour constraints.",
+              "tradeoffs": "May delay matching.",
+              "examples": "Carpool products.",
+              "mistakes": "Mistake: bolting pool onto the simple matcher."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Idle driver repositioning hints",
+            "en": "Idle driver repositioning hints"
+          },
+          "detail": {
+            "ar": {
+              "why": "يحسّن العرض.",
+              "how": "Heatmaps للسواقين. مش أوامر إجبارية.",
+              "tradeoffs": "Privacy/ops concerns.",
+              "examples": "Supply positioning.",
+              "mistakes": "خطأ: تجبر السواق يتحرك بطرق غير آمنة."
+            },
+            "en": {
+              "why": "Improves supply.",
+              "how": "Driver heatmaps. Not forced commands.",
+              "tradeoffs": "Privacy/ops concerns.",
+              "examples": "Supply positioning.",
+              "mistakes": "Mistake: forcing drivers into unsafe moves."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "تكلفة location stream وmatching workers.",
+        "en": "Cost of location stream and matching workers."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Location ingest هو غالب التكلفة",
+            "en": "Location ingest dominates cost"
+          },
+          "detail": {
+            "ar": {
+              "why": "ملايين التحديثات/دقيقة.",
+              "how": "Adaptive frequency + compression + sampling idle.",
+              "tradeoffs": "أقل تحديثات = ETA أسوأ.",
+              "examples": "Binary location frames.",
+              "mistakes": "خطأ: JSON ضخم لكل ping."
+            },
+            "en": {
+              "why": "Millions of updates/minute.",
+              "how": "Adaptive frequency + compression + sampling idle.",
+              "tradeoffs": "Fewer updates = worse ETA.",
+              "examples": "Binary location frames.",
+              "mistakes": "Mistake: huge JSON on every ping."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Matching compute يتناسب مع demand² محليًا لو brute",
+            "en": "Matching compute scales ~demand² locally if brute"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم candidate caps.",
+              "how": "Limit K nearest. Early exit.",
+              "tradeoffs": "K صغير يفوّت سواقين.",
+              "examples": "Bounded candidate generation.",
+              "mistakes": "خطأ: O(n) على كل سواقين المدينة لكل طلب."
+            },
+            "en": {
+              "why": "Need candidate caps.",
+              "how": "Limit K nearest. Early exit.",
+              "tradeoffs": "Small K misses drivers.",
+              "examples": "Bounded candidate generation.",
+              "mistakes": "Mistake: O(n) over all city drivers per request."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Separate idle analytics cluster عن hot path",
+            "en": "Separate idle analytics cluster from hot path"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ heatmaps غالية.",
+              "how": "Stream to analytics؛ لا تعرقل dispatch.",
+              "tradeoffs": "نسختين من البيانات.",
+              "examples": "OLAP from location stream.",
+              "mistakes": "خطأ: تجمع analytics جوّا matcher."
+            },
+            "en": {
+              "why": "Heatmaps are expensive.",
+              "how": "Stream to analytics; do not stall dispatch.",
+              "tradeoffs": "Two copies of data.",
+              "examples": "OLAP from location stream.",
+              "mistakes": "Mistake: aggregating analytics inside the matcher."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "Safety، spoofing، PII للمواقع.",
+        "en": "Safety, spoofing, location PII."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Anti-spoofing للمواقع",
+            "en": "Location anti-spoofing"
+          },
+          "detail": {
+            "ar": {
+              "why": "احتيال في الرحلات.",
+              "how": "Sensors heuristics، OS attestation، anomaly detection.",
+              "tradeoffs": "False positives على أجهزة ضعيفة.",
+              "examples": "Fraud teams + device signals.",
+              "mistakes": "خطأ: تثق بإحداثيات العميل عمياء."
+            },
+            "en": {
+              "why": "Trip fraud.",
+              "how": "Sensor heuristics, OS attestation, anomaly detection.",
+              "tradeoffs": "False positives on weak devices.",
+              "examples": "Fraud teams + device signals.",
+              "mistakes": "Mistake: blindly trusting client coordinates."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "حماية PII للمواقع ومسارات الرحلات",
+            "en": "Protect location PII and trip traces"
+          },
+          "detail": {
+            "ar": {
+              "why": "بيانات حساسة جدًا.",
+              "how": "Encryption، retention قصيرة للـ raw traces، access control.",
+              "tradeoffs": "Retention أطول للتحقيقات/القانون.",
+              "examples": "Privacy-preserving analytics.",
+              "mistakes": "خطأ: raw GPS مفتوح لكل الموظفين."
+            },
+            "en": {
+              "why": "Highly sensitive data.",
+              "how": "Encryption, short retention for raw traces, access control.",
+              "tradeoffs": "Longer retention for investigations/legal.",
+              "examples": "Privacy-preserving analytics.",
+              "mistakes": "Mistake: raw GPS open to all employees."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Safety features: share trip، emergency",
+            "en": "Safety features: share trip, emergency"
+          },
+          "detail": {
+            "ar": {
+              "why": "جزء من الثقة في المنتج.",
+              "how": "Secure share links، rate limits، audit.",
+              "tradeoffs": "يزيد سطح الهجوم لو الروابط ضعيفة.",
+              "examples": "Trip sharing tokens.",
+              "mistakes": "خطأ: روابط مشاركة أبدية من غير authz."
+            },
+            "en": {
+              "why": "Part of product trust.",
+              "how": "Secure share links, rate limits, audit.",
+              "tradeoffs": "Increases attack surface if links are weak.",
+              "examples": "Trip sharing tokens.",
+              "mistakes": "Mistake: eternal share links without authz."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "Multi-city isolation وDR.",
+        "en": "Multi-city isolation and DR."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "City-level blast radius: اعزل الفشل",
+            "en": "City-level blast radius: isolate failure"
+          },
+          "detail": {
+            "ar": {
+              "why": "سقوط مدينة مش لازم يسقط كل المدن.",
+              "how": "Independent cell deployments.",
+              "tradeoffs": "أكتر عزل = أكتر ops.",
+              "examples": "Cellular architecture.",
+              "mistakes": "خطأ: control plane واحد يوقف كل المدن."
+            },
+            "en": {
+              "why": "One city failing should not take down all cities.",
+              "how": "Independent cell deployments.",
+              "tradeoffs": "More isolation = more ops.",
+              "examples": "Cellular architecture.",
+              "mistakes": "Mistake: one control plane stopping all cities."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Degraded mode: queued matching / manual dispatch tools",
+            "en": "Degraded mode: queued matching / manual dispatch tools"
+          },
+          "detail": {
+            "ar": {
+              "why": "أحسن من توقف تام.",
+              "how": "Serve ETAs conservative. Pause non-critical features.",
+              "tradeoffs": "Degraded يضر الإيرادات.",
+              "examples": "Ops consoles.",
+              "mistakes": "خطأ: مفيش وضع degrade موثّق."
+            },
+            "en": {
+              "why": "Better than full stop.",
+              "how": "Serve conservative ETAs. Pause non-critical features.",
+              "tradeoffs": "Degraded hurts revenue.",
+              "examples": "Ops consoles.",
+              "mistakes": "Mistake: no documented degrade mode."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Backups للـ trip ledger وreplay للمواقع الحديثة",
+            "en": "Backups for trip ledger and replay of recent locations"
+          },
+          "detail": {
+            "ar": {
+              "why": "الرحلات/الأموال أهم من كل ping.",
+              "how": "RPO صارم على trips؛ locations نافذة قصيرة.",
+              "tradeoffs": "إعادة بناء العرض اللحظي صعبة.",
+              "examples": "Trip DB PITR.",
+              "mistakes": "خطأ: تعامل location stream زي ledger."
+            },
+            "en": {
+              "why": "Trips/money matter more than every ping.",
+              "how": "Strict RPO on trips; short window on locations.",
+              "tradeoffs": "Rebuilding realtime supply is hard.",
+              "examples": "Trip DB PITR.",
+              "mistakes": "Mistake: treating location stream like a ledger."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "tripsDay",
+        "label": {
+          "ar": "رحلات/يوم",
+          "en": "Trips/day"
+        },
+        "unit": {
+          "ar": "رحلة",
+          "en": "trips"
+        },
+        "default": 5000000,
+        "role": "input"
+      },
+      {
+        "id": "peakDrivers",
+        "label": {
+          "ar": "سواقين الذروة",
+          "en": "Peak drivers"
+        },
+        "unit": {
+          "ar": "سواق",
+          "en": "drivers"
+        },
+        "default": 200000,
+        "role": "input"
+      },
+      {
+        "id": "locHz",
+        "label": {
+          "ar": "تحديثات موقع/ث لكل سواق",
+          "en": "Location Hz per driver"
+        },
+        "unit": {
+          "ar": "Hz",
+          "en": "Hz"
+        },
+        "default": 1,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل ذروة الرحلات",
+          "en": "Trip peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 4,
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 6,
+          "okMin": 1.5,
+          "okMax": 10
+        },
+        "rangeHint": {
+          "ar": "ذروة المدن غالبًا ٢–٦×.",
+          "en": "City peaks are often 2–6×."
+        }
+      },
+      {
+        "id": "candidates",
+        "label": {
+          "ar": "مرشحين لكل match",
+          "en": "Candidates per match"
+        },
+        "unit": {
+          "ar": "سواق",
+          "en": "drivers"
+        },
+        "default": 20,
+        "role": "assumption",
+        "range": {
+          "goodMin": 10,
+          "goodMax": 40,
+          "okMin": 5,
+          "okMax": 80
+        },
+        "rangeHint": {
+          "ar": "Candidate set صغير عادة عشرات.",
+          "en": "Candidate sets are usually tens."
+        }
+      },
+      {
+        "id": "matchWorkersQps",
+        "label": {
+          "ar": "Matches لكل worker",
+          "en": "Matches per worker"
+        },
+        "unit": {
+          "ar": "/ث",
+          "en": "/s"
+        },
+        "default": 50,
+        "role": "assumption",
+        "range": {
+          "goodMin": 20,
+          "goodMax": 100,
+          "okMin": 10,
+          "okMax": 200
+        },
+        "rangeHint": {
+          "ar": "Worker المطابقة غالبًا عشرات/ث حسب الـ ranking.",
+          "en": "A match worker often does tens/s depending on ranking."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "avgTripQps",
+        "label": {
+          "ar": "متوسط طلبات الرحلات",
+          "en": "Average trip QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "format": "qps",
+        "expr": "tripsDay / 86400",
+        "display": [
+          {
+            "var": "tripsDay"
+          },
+          {
+            "text": " ÷ 86400"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "peakTripQps",
+        "label": {
+          "ar": "Peak trip QPS",
+          "en": "Peak trip QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "format": "qps",
+        "expr": "avgTripQps * peakFactor",
+        "display": [
+          {
+            "ref": "avgTripQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "locQps",
+        "label": {
+          "ar": "Location QPS",
+          "en": "Location QPS"
+        },
+        "unit": {
+          "ar": "تحديث/ث",
+          "en": "updates/s"
+        },
+        "format": "qps",
+        "expr": "peakDrivers * locHz",
+        "display": [
+          {
+            "var": "peakDrivers"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "locHz"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "matchCpuUnits",
+        "label": {
+          "ar": "وحدات عمل المطابقة",
+          "en": "Match work units"
+        },
+        "unit": {
+          "ar": "وحدة",
+          "en": "units"
+        },
+        "format": "count",
+        "expr": "peakTripQps * candidates",
+        "display": [
+          {
+            "ref": "peakTripQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "candidates"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "matchWorkers",
+        "label": {
+          "ar": "عدد match workers",
+          "en": "Match workers"
+        },
+        "unit": {
+          "ar": "نسخة",
+          "en": "workers"
+        },
+        "format": "count",
+        "expr": "peakTripQps / matchWorkersQps",
+        "display": [
+          {
+            "ref": "peakTripQps"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "matchWorkersQps"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Trip QPS = trips/day ÷ 86400؛ peak × factor.",
+        "en": "1) Trip QPS = trips/day ÷ 86400; peak × factor."
+      },
+      {
+        "ar": "2) Location QPS = active drivers × Hz.",
+        "en": "2) Location QPS = active drivers × Hz."
+      },
+      {
+        "ar": "3) Match workers من peak trip QPS ÷ per-worker capacity.",
+        "en": "3) Match workers from peak trip QPS ÷ per-worker capacity."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "match-storm",
+      "title": {
+        "ar": "عاصفة مطابقة بعد مطر",
+        "en": "Match storm after rain"
+      },
+      "description": {
+        "ar": "الطلبات ×5 في 10 دقايق. الـ match latency طالع فوق الدقيقة.",
+        "en": "Requests ×5 in 10 minutes. Match latency above a minute."
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Pre-widen radius + surge",
+          "en": "Pre-widen radius + surge"
+        },
+        {
+          "ar": "Scale matchers / shed non-critical ranking",
+          "en": "Scale matchers / shed non-critical ranking"
+        },
+        {
+          "ar": "Queue riders with honest ETA",
+          "en": "Queue riders with honest ETA"
+        },
+        {
+          "ar": "City ops war room",
+          "en": "City ops war room"
+        }
+      ]
+    },
+    {
+      "id": "location-bus",
+      "title": {
+        "ar": "Location bus متأخر",
+        "en": "Location bus lagging"
+      },
+      "description": {
+        "ar": "Kafka lag على تحديثات الموقع. الـ geo index قديم.",
+        "en": "Kafka lag on location updates. Geo index is stale."
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Exclude stale supply",
+          "en": "Exclude stale supply"
+        },
+        {
+          "ar": "Scale presence consumers",
+          "en": "Scale presence consumers"
+        },
+        {
+          "ar": "Degrade to coarser cells",
+          "en": "Degrade to coarser cells"
+        },
+        {
+          "ar": "Pause idle analytics consumers",
+          "en": "Pause idle analytics consumers"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "offer-assign",
+      "question": {
+        "ar": "مطابقة: offer للسواق ولا auto-assign؟",
+        "en": "Matching: driver offer or auto-assign?"
+      },
+      "optionA": {
+        "ar": "Offer + timeout",
+        "en": "Offer + timeout"
+      },
+      "optionB": {
+        "ar": "Auto-assign",
+        "en": "Auto-assign"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "Offer شائع لأنه يحترم السواق ويقلل cancels.",
+        "en": "Offer is common because it respects drivers and reduces cancels."
+      },
+      "prosA": {
+        "ar": "أعلى قبول فعلي",
+        "en": "Higher effective acceptance"
+      },
+      "consA": {
+        "ar": "أبطأ شوية",
+        "en": "A bit slower"
+      },
+      "prosB": {
+        "ar": "أسرع",
+        "en": "Faster"
+      },
+      "consB": {
+        "ar": "Rejects/cancels أعلى",
+        "en": "Higher rejects/cancels"
+      },
+      "whenOtherWins": {
+        "ar": "Auto-assign في أسواق موظفين/أسطول مملوك.",
+        "en": "Auto-assign in employee/owned-fleet markets."
+      }
+    },
+    {
+      "id": "geo",
+      "question": {
+        "ar": "الفهرس الجغرافي: geohash ولا S2؟",
+        "en": "Geo index: geohash or S2?"
+      },
+      "optionA": {
+        "ar": "Geohash",
+        "en": "Geohash"
+      },
+      "optionB": {
+        "ar": "S2/quadtree",
+        "en": "S2/quadtree"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "الاتنين مقبولين؛ وضّح neighbor search.",
+        "en": "Both are acceptable; explain neighbor search."
+      },
+      "prosA": {
+        "ar": "أبسط في الشرح والتنفيذ",
+        "en": "Simpler to explain and implement"
+      },
+      "consA": {
+        "ar": "تشوه عند الحواف",
+        "en": "Distortion at edges"
+      },
+      "prosB": {
+        "ar": "خلايا أدق ومتساوية أكثر",
+        "en": "More equal accurate cells"
+      },
+      "consB": {
+        "ar": "أعقد",
+        "en": "More complex"
+      },
+      "whenOtherWins": {
+        "ar": "S2 لو عندك خبرة وخرائط دقيقة عالميًا.",
+        "en": "S2 if you have expertise and need precise global maps."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "websocket",
+      "router",
+      "api",
+      "presence",
+      "queue",
+      "worker",
+      "db",
+      "cache",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "app",
+          "en": "app"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "websocket",
+        "label": {
+          "ar": "realtime",
+          "en": "realtime"
+        }
+      },
+      {
+        "from": "websocket",
+        "to": "router",
+        "label": {
+          "ar": "route",
+          "en": "route"
+        }
+      },
+      {
+        "from": "router",
+        "to": "api",
+        "label": {
+          "ar": "trip APIs",
+          "en": "trip APIs"
+        }
+      },
+      {
+        "from": "websocket",
+        "to": "presence",
+        "label": {
+          "ar": "location",
+          "en": "location"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "match jobs",
+          "en": "match jobs"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "worker",
+        "label": {
+          "ar": "match",
+          "en": "match"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "cache",
+        "label": {
+          "ar": "geo index",
+          "en": "geo index"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "trip state",
+          "en": "trip state"
+        }
+      },
+      {
+        "from": "presence",
+        "to": "cache",
+        "label": {
+          "ar": "update supply",
+          "en": "update supply"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 40
+      },
+      {
+        "type": "lb",
+        "x": 120,
+        "y": 40
+      },
+      {
+        "type": "websocket",
+        "x": 240,
+        "y": 40
+      },
+      {
+        "type": "router",
+        "x": 360,
+        "y": 20
+      },
+      {
+        "type": "api",
+        "x": 360,
+        "y": 100
+      },
+      {
+        "type": "presence",
+        "x": 240,
+        "y": 140
+      },
+      {
+        "type": "queue",
+        "x": 480,
+        "y": 60
+      },
+      {
+        "type": "worker",
+        "x": 600,
+        "y": 60
+      },
+      {
+        "type": "cache",
+        "x": 600,
+        "y": 140
+      },
+      {
+        "type": "db",
+        "x": 480,
+        "y": 160
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 160
+      }
+    ],
+    "containers": [
+      {
+        "id": "city",
+        "label": {
+          "ar": "City cell",
+          "en": "City cell"
+        },
+        "x": 200,
+        "y": 10,
+        "w": 460,
+        "h": 200
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار طلب رحلة / المطابقة",
+        "en": "Trip request / matching path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "الراكب يطلب رحلة",
+            "en": "Rider requests a trip"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "WS/API يوصل الطلب",
+            "en": "WS/API receives the request"
+          },
+          "nodes": [
+            "lb",
+            "websocket"
+          ],
+          "edgeKeys": [
+            "lb->websocket"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "websocket"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "Trip intent يتسجل",
+            "en": "Trip intent is recorded"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Match job على الـ queue",
+            "en": "Match job on the queue"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Worker يبحث في geo index",
+            "en": "Worker searches the geo index"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w6",
+          "caption": {
+            "ar": "عرض/تعيين للسواق عبر realtime",
+            "en": "Offer/assign to driver over realtime"
+          },
+          "nodes": [
+            "websocket",
+            "presence"
+          ],
+          "edgeKeys": [
+            "websocket->presence"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "presence"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار تحديث الموقع",
+        "en": "Location update path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "السواق يبعت موقع",
+            "en": "Driver sends location"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "WebSocket يستقبل",
+            "en": "WebSocket receives"
+          },
+          "nodes": [
+            "lb",
+            "websocket"
+          ],
+          "edgeKeys": [
+            "lb->websocket"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "websocket"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "Presence يتحدث",
+            "en": "Presence updates"
+          },
+          "nodes": [
+            "websocket",
+            "presence"
+          ],
+          "edgeKeys": [
+            "websocket->presence"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "presence"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Geo index يتحدث",
+            "en": "Geo index updates"
+          },
+          "nodes": [
+            "presence",
+            "cache"
+          ],
+          "edgeKeys": [
+            "presence->cache"
+          ],
+          "packet": {
+            "from": "presence",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "الراكب يستلم موقع السواق أثناء الرحلة",
+            "en": "Rider receives driver location during trip"
+          },
+          "nodes": [
+            "websocket",
+            "router"
+          ],
+          "edgeKeys": [
+            "websocket->router"
+          ],
+          "packet": {
+            "from": "websocket",
+            "to": "router"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Matching متأخر في الذروة",
+            "en": "Matching is delayed at peak"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "وسّع نصف القطر / فعّل surge",
+            "en": "Widen radius / enable surge"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Location stale — استبعد السواق",
+            "en": "Stale location — exclude driver"
+          },
+          "nodes": [
+            "presence",
+            "cache"
+          ],
+          "edgeKeys": [
+            "presence->cache"
+          ],
+          "packet": {
+            "from": "presence",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "City cell degrade mode",
+            "en": "City cell degrade mode"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Alert ops للمدينة",
+            "en": "Alert city ops"
+          },
+          "nodes": [
+            "router",
+            "api"
+          ],
+          "edgeKeys": [
+            "router->api"
+          ],
+          "packet": {
+            "from": "router",
+            "to": "api"
+          }
+        }
+      ]
+    }
+  ]
+}

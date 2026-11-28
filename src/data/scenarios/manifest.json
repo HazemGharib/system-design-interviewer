@@ -56,6 +56,120 @@
         "ar": "50 دقيقة",
         "en": "50 minutes"
       }
+    },
+    {
+      "id": "rate-limiter",
+      "title": {
+        "ar": "نظام الـ Rate Limiting",
+        "en": "Rate Limiter System"
+      },
+      "description": {
+        "ar": "صمم خدمة rate limiting موزعة لـ API gateway",
+        "en": "Design a distributed rate limiting service for an API gateway"
+      },
+      "difficulty": {
+        "ar": "متوسط soft",
+        "en": "Easy"
+      },
+      "estimatedTime": {
+        "ar": "40 دقيقة",
+        "en": "40 minutes"
+      }
+    },
+    {
+      "id": "news-feed",
+      "title": {
+        "ar": "نظام الـ News Feed",
+        "en": "News Feed System"
+      },
+      "description": {
+        "ar": "صمم news feed سوشيال زي Twitter/Instagram",
+        "en": "Design a social news feed like Twitter/Instagram"
+      },
+      "difficulty": {
+        "ar": "صعب",
+        "en": "Hard"
+      },
+      "estimatedTime": {
+        "ar": "50 دقيقة",
+        "en": "50 minutes"
+      }
+    },
+    {
+      "id": "notification-system",
+      "title": {
+        "ar": "نظام الإشعارات",
+        "en": "Notification System"
+      },
+      "description": {
+        "ar": "صمم منصة إشعارات multi-channel (push/email/SMS)",
+        "en": "Design a multi-channel notification platform (push/email/SMS)"
+      },
+      "difficulty": {
+        "ar": "متوسط",
+        "en": "Medium"
+      },
+      "estimatedTime": {
+        "ar": "45 دقيقة",
+        "en": "45 minutes"
+      }
+    },
+    {
+      "id": "typeahead",
+      "title": {
+        "ar": "البحث التوقعي (Typeahead)",
+        "en": "Typeahead / Autocomplete"
+      },
+      "description": {
+        "ar": "صمم typeahead سريع للبحث والاقتراحات",
+        "en": "Design a fast typeahead for search suggestions"
+      },
+      "difficulty": {
+        "ar": "متوسط soft",
+        "en": "Easy"
+      },
+      "estimatedTime": {
+        "ar": "40 دقيقة",
+        "en": "40 minutes"
+      }
+    },
+    {
+      "id": "payment-system",
+      "title": {
+        "ar": "نظام المدفوعات",
+        "en": "Payment System"
+      },
+      "description": {
+        "ar": "صمم نظام دفع مع ledger وidempotency وتكامل PSP",
+        "en": "Design a payment system with ledger, idempotency, and PSP integration"
+      },
+      "difficulty": {
+        "ar": "صعب",
+        "en": "Hard"
+      },
+      "estimatedTime": {
+        "ar": "50 دقيقة",
+        "en": "50 minutes"
+      }
+    },
+    {
+      "id": "ride-sharing",
+      "title": {
+        "ar": "نظام طلب السيارات",
+        "en": "Ride-Sharing System"
+      },
+      "description": {
+        "ar": "صمم نظام matching وتتبع لمسارح الرحلات",
+        "en": "Design a matching and tracking system for ride-sharing"
+      },
+      "difficulty": {
+        "ar": "صعب",
+        "en": "Hard"
+      },
+      "estimatedTime": {
+        "ar": "50 دقيقة",
+        "en": "50 minutes"
+      }
     }
   ]
 }

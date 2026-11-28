@@ -1875,6 +1875,336 @@
         "x": 20,
         "y": 180
       }
+    ],
+    "containers": [
+      {
+        "id": "core",
+        "label": {
+          "ar": "Core services",
+          "en": "Core services"
+        },
+        "x": 120,
+        "y": 10,
+        "w": 360,
+        "h": 220
+      }
     ]
-  }
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار إنشاء رابط",
+        "en": "Create link path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "العميل يطلب اختصار رابط",
+            "en": "Client requests URL shorten"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "الـ LB يوزّع على الـ API",
+            "en": "LB distributes to API"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "الـ API يطلب مفتاح من KGS",
+            "en": "API asks KGS for a key"
+          },
+          "nodes": [
+            "api",
+            "kgs"
+          ],
+          "edgeKeys": [
+            "api->kgs"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "kgs"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "حفظ الـ mapping في DB",
+            "en": "Store mapping in DB"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Warm الـ cache للـ key الجديد",
+            "en": "Warm cache for the new key"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w6",
+          "caption": {
+            "ar": "Event تحليلي على الـ queue",
+            "en": "Analytics event on the queue"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار الـ redirect",
+        "en": "Redirect path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "حد يفتح الرابط القصير",
+            "en": "Someone opens the short link"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "الطلب يوصل للـ API",
+            "en": "Request reaches API"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "Lookup cache-first",
+            "en": "Cache-first lookup"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "لو miss: من DB ثم املأ الـ cache",
+            "en": "On miss: DB then fill cache"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "سجل analytics event",
+            "en": "Record analytics event"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "DB primary واقع — الـ creates بتفشل",
+            "en": "DB primary down — creates fail"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "الـ redirects تفضل من الـ cache",
+            "en": "Redirects continue from cache"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Queue يحتفظ بالـ analytics",
+            "en": "Queue retains analytics"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Promote replica / degrade creates",
+            "en": "Promote replica / degrade creates"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "Monitoring يطلق صفحة الحادثة",
+            "en": "Monitoring pages the incident"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        }
+      ]
+    }
+  ]
 }

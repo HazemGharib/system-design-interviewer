@@ -1,0 +1,1839 @@
+{
+  "id": "rate-limiter",
+  "title": {
+    "ar": "نظام الـ Rate Limiting",
+    "en": "Rate Limiter System"
+  },
+  "description": {
+    "ar": "صمم خدمة rate limiting موزعة لـ API gateway",
+    "en": "Design a distributed rate limiting service for an API gateway"
+  },
+  "difficulty": {
+    "ar": "متوسط soft",
+    "en": "Easy"
+  },
+  "estimatedTime": {
+    "ar": "40 دقيقة",
+    "en": "40 minutes"
+  },
+  "problemStatement": {
+    "ar": "عايزينك تصمم نظام rate limiting لـ API عام. لازم تدعم حدود per-user وper-IP، bursts معقولة، وردود 429 واضحة. الـ decision لازم يبقى سريع جدًا لأنه على الـ critical path.",
+    "en": "Design a rate limiting system for a public API. Support per-user and per-IP limits, reasonable bursts, and clear 429 responses. Decisions must be very fast because they sit on the critical path."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "Peak decision QPS",
+        "en": "Peak decision QPS"
+      },
+      "value": {
+        "ar": "حوالي 1 مليون",
+        "en": "~1 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "هويات نشطة",
+        "en": "Active identities"
+      },
+      "value": {
+        "ar": "حوالي 50 مليون",
+        "en": "~50 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "هدف latency للقرار",
+        "en": "Decision latency target"
+      },
+      "value": {
+        "ar": "أقل من 5ms p99",
+        "en": "< 5ms p99"
+      }
+    },
+    {
+      "label": {
+        "ar": "نافذة شائعة",
+        "en": "Common window"
+      },
+      "value": {
+        "ar": "60 ثانية",
+        "en": "60 seconds"
+      }
+    },
+    {
+      "label": {
+        "ar": "Availability",
+        "en": "Availability"
+      },
+      "value": {
+        "ar": "99.99%",
+        "en": "99.99%"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن الـ scope (per-user/IP/key)، الـ algorithms، والـ accuracy vs latency. اعمل حسبة للـ QPS.",
+        "en": "Before designing: ask about scope (per-user/IP/key), algorithms, and accuracy vs latency. Estimate QPS."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن الوحدة: per API key، per user، per IP، ولا global?",
+            "en": "Asked about unit: per API key, per user, per IP, or global?"
+          },
+          "detail": {
+            "ar": {
+              "why": "الوحدة بتحدد الـ key design والـ storage.",
+              "how": "اسأل: هل الـ limits مختلفة لكل tier؟ هل في burst؟",
+              "tradeoffs": "Global أبسط بس مش عادل. Per-key أدق بس أكتر keys.",
+              "examples": "Stripe: per API key. Cloudflare: per IP + bot score.",
+              "mistakes": "خطأ: تفترض per-IP بس وتنسى shared NAT في الشركات."
+            },
+            "en": {
+              "why": "The unit drives key design and storage.",
+              "how": "Ask: different limits per tier? Are bursts allowed?",
+              "tradeoffs": "Global is simpler but unfair. Per-key is precise but more keys.",
+              "examples": "Stripe: per API key. Cloudflare: per IP + bot score.",
+              "mistakes": "Mistake: assuming per-IP only and forgetting corporate shared NAT."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت الـ decision QPS: ~1M peak checks/sec على الـ edge",
+            "en": "Estimated decision QPS: ~1M peak checks/sec at the edge"
+          },
+          "detail": {
+            "ar": {
+              "why": "الرقم بيحدد Redis shards وgateway capacity.",
+              "how": "100M DAU × 100 req/day ÷ 86400 × peak 3 ≈ مئات الآلاف؛ APIs تقدر توصل مليون.",
+              "tradeoffs": "Over-estimate بيغلي التكلفة. Under-estimate بيعمل denies غلط تحت الضغط.",
+              "examples": "AWS API Gateway، Kong، Envoy rate-limit service.",
+              "mistakes": "خطأ: تحسب average بس وتنسى الـ peak factor."
+            },
+            "en": {
+              "why": "The number sizes Redis shards and gateway capacity.",
+              "how": "100M DAU × 100 req/day ÷ 86400 × peak 3 ≈ hundreds of thousands; APIs can hit a million.",
+              "tradeoffs": "Over-estimate inflates cost. Under-estimate causes bad denies under load.",
+              "examples": "AWS API Gateway, Kong, Envoy rate-limit service.",
+              "mistakes": "Mistake: using average only and forgetting the peak factor."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت accuracy requirement: exact ولا approximate (±5% OK)?",
+            "en": "Clarified accuracy: exact or approximate (±5% OK)?"
+          },
+          "detail": {
+            "ar": {
+              "why": "Exact محتاج sync أقوى. Approximate يسمح local counters.",
+              "how": "اسأل الـ product: هل 5% over-limit مقبول في الـ burst؟",
+              "tradeoffs": "Exact أدق وأغلى. Approximate أرخص وأسرع.",
+              "examples": "Redis INCR exact. Local token buckets + sync approximate.",
+              "mistakes": "خطأ: تعد exact من غير ما تحدد clock/consistency model."
+            },
+            "en": {
+              "why": "Exact needs stronger sync. Approximate allows local counters.",
+              "how": "Ask product: is 5% over-limit acceptable during bursts?",
+              "tradeoffs": "Exact is more precise and costlier. Approximate is cheaper and faster.",
+              "examples": "Redis INCR exact. Local token buckets + sync approximate.",
+              "mistakes": "Mistake: promising exact without a clock/consistency model."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن soft vs hard limit وسلوك الـ 429 (Retry-After)",
+            "en": "Asked about soft vs hard limits and 429 behavior (Retry-After)"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ UX والـ client SDKs بتعتمد على الـ headers.",
+              "how": "رجّع X-RateLimit-Remaining وRetry-After. Soft: warn قبل hard deny.",
+              "tradeoffs": "Hard فوري يحمي النظام. Soft أحسن للـ DX.",
+              "examples": "GitHub API headers. Stripe 429 + idempotent retries.",
+              "mistakes": "خطأ: 429 من غير Retry-After → clients بتعمل thundering herd."
+            },
+            "en": {
+              "why": "UX and client SDKs depend on the headers.",
+              "how": "Return X-RateLimit-Remaining and Retry-After. Soft: warn before hard deny.",
+              "tradeoffs": "Hard protects the system immediately. Soft is better for DX.",
+              "examples": "GitHub API headers. Stripe 429 + idempotent retries.",
+              "mistakes": "Mistake: 429 without Retry-After → clients stampede."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف gateway + rate-limit service + Redis counters. وضّح decision path للـ allow/deny.",
+        "en": "Describe gateway + rate-limit service + Redis counters. Explain the allow/deny decision path."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 الرسم: Client → LB → API Gateway → Rate Limiter → Redis → Backend",
+            "en": "📊 Diagram: Client → LB → API Gateway → Rate Limiter → Redis → Backend"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ check لازم يبقى قبل الـ expensive work.",
+              "how": "Gateway يستدعي limiter sync. Allow → forward. Deny → 429.",
+              "tradeoffs": "Inline middleware أبسط. Sidecar/service أدق للـ shared policy.",
+              "examples": "Envoy ratelimit service + Redis. Kong rate-limiting plugin.",
+              "mistakes": "خطأ: تعمل limit بعد الـ DB query — اتأخرت وخسرت capacity."
+            },
+            "en": {
+              "why": "The check must happen before expensive work.",
+              "how": "Gateway calls limiter sync. Allow → forward. Deny → 429.",
+              "tradeoffs": "Inline middleware is simpler. Sidecar/service is better for shared policy.",
+              "examples": "Envoy ratelimit service + Redis. Kong rate-limiting plugin.",
+              "mistakes": "Mistake: limiting after the DB query — too late, capacity already spent."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Algorithm: Token Bucket مع burst + refill rate",
+            "en": "Algorithm: Token Bucket with burst + refill rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "Token bucket بيسمح بـ bursts مع متوسط مضبوط.",
+              "how": "خزّن tokens + last_refill في Redis. Lua script للـ atomicity.",
+              "tradeoffs": "Fixed window أرخص بس فيه boundary burst. Sliding أدق وأغلى.",
+              "examples": "AWS، Cloudflare، وNginx كلهم بيدعموا token/leaky variants.",
+              "mistakes": "خطأ: fixed window من غير ما تذكر الـ double-burst عند الحدود."
+            },
+            "en": {
+              "why": "Token bucket allows bursts with a controlled average.",
+              "how": "Store tokens + last_refill in Redis. Lua script for atomicity.",
+              "tradeoffs": "Fixed window is cheaper but has boundary bursts. Sliding is precise and costlier.",
+              "examples": "AWS, Cloudflare, and Nginx all support token/leaky variants.",
+              "mistakes": "Mistake: fixed window without mentioning double-burst at boundaries."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Redis key design: rl:{scope}:{id}:{window} مع TTL",
+            "en": "Redis key design: rl:{scope}:{id}:{window} with TTL"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ key schema بيحدد cardinality والـ memory.",
+              "how": "TTL = window + jitter. Hash tags للـ clustering لو multi-key.",
+              "tradeoffs": "Fine keys أدق. Coarse keys أوفر في الـ memory.",
+              "examples": "rl:user:42:2025-01-01T12:00 ZSET للـ sliding window.",
+              "mistakes": "خطأ: مفاتيح من غير TTL → memory leak."
+            },
+            "en": {
+              "why": "Key schema determines cardinality and memory.",
+              "how": "TTL = window + jitter. Hash tags for clustering on multi-key ops.",
+              "tradeoffs": "Fine keys are precise. Coarse keys save memory.",
+              "examples": "rl:user:42:2025-01-01T12:00 ZSET for sliding window.",
+              "mistakes": "Mistake: keys without TTL → memory leak."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Fail policy واضحة: fail-open تحت Redis outage للـ read path العام، fail-closed للـ auth-sensitive",
+            "en": "Clear fail policy: fail-open on Redis outage for public reads, fail-closed for auth-sensitive"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ availability vs abuse tradeoff لازم يتقال صراحة.",
+              "how": "Circuit breaker على Redis. Local short cache للـ last decision.",
+              "tradeoffs": "Fail-open يحمي UX. Fail-closed يحمي النظام من الهجمات.",
+              "examples": "Payments: fail-closed. Public CDN assets: fail-open.",
+              "mistakes": "خطأ: fail-open لكل حاجة وقت هجوم — النظام بينهار."
+            },
+            "en": {
+              "why": "Availability vs abuse tradeoff must be stated explicitly.",
+              "how": "Circuit breaker on Redis. Local short cache of last decision.",
+              "tradeoffs": "Fail-open protects UX. Fail-closed protects against attacks.",
+              "examples": "Payments: fail-closed. Public CDN assets: fail-open.",
+              "mistakes": "Mistake: fail-open for everything during an attack — system collapses."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale مع hot keys والـ multi-region؟ اتكلم عن sharding والـ eventual consistency للـ counters.",
+        "en": "How do you scale with hot keys and multi-region? Cover sharding and eventual consistency of counters."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Shard Redis by key hash؛ isolate hot VIP keys على dedicated nodes",
+            "en": "Shard Redis by key hash; isolate hot VIP keys on dedicated nodes"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hot celebrity keys بتكسر shard واحد.",
+              "how": "Consistent hashing. Local in-process limiter قدام Redis للـ hottest keys.",
+              "tradeoffs": "Local limiter يزوّد approximation. Global Redis أدق.",
+              "examples": "Twitter/X style local + global hybrid limits.",
+              "mistakes": "خطأ: shard واحد لكل الـ counters."
+            },
+            "en": {
+              "why": "Hot celebrity keys melt a single shard.",
+              "how": "Consistent hashing. Local in-process limiter in front of Redis for hottest keys.",
+              "tradeoffs": "Local limiter adds approximation. Global Redis is more accurate.",
+              "examples": "Twitter/X style local + global hybrid limits.",
+              "mistakes": "Mistake: one shard for all counters."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Multi-region: regional counters + optional global budget sync",
+            "en": "Multi-region: regional counters + optional global budget sync"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cross-region RTT يقتل الـ latency لو كل check global.",
+              "how": "80% budget محلي، 20% global reserved. Sync كل ثواني.",
+              "tradeoffs": "Regional أرخص وأسرع. Global أدق ضد abuse عابر للقارات.",
+              "examples": "Cloudflare edge limits + central reconciliation.",
+              "mistakes": "خطأ: Redis واحد globally sync لكل request."
+            },
+            "en": {
+              "why": "Cross-region RTT kills latency if every check is global.",
+              "how": "80% budget local, 20% global reserved. Sync every few seconds.",
+              "tradeoffs": "Regional is cheaper/faster. Global is better against cross-region abuse.",
+              "examples": "Cloudflare edge limits + central reconciliation.",
+              "mistakes": "Mistake: one global Redis sync on every request."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Horizontal gateway scale؛ sticky ليس مطلوب لو state في Redis",
+            "en": "Horizontal gateway scale; stickiness not required if state is in Redis"
+          },
+          "detail": {
+            "ar": {
+              "why": "Stateless gateways تـ scale بسهولة.",
+              "how": "Autoscaling على CPU + 429 rate. Shared Redis cluster.",
+              "tradeoffs": "Local-only state محتاج sticky sessions.",
+              "examples": "K8s HPA على gateway pods.",
+              "mistakes": "خطأ: تخزن counters في memory الـ pod من غير sync."
+            },
+            "en": {
+              "why": "Stateless gateways scale easily.",
+              "how": "Autoscale on CPU + 429 rate. Shared Redis cluster.",
+              "tradeoffs": "Local-only state needs sticky sessions.",
+              "examples": "K8s HPA on gateway pods.",
+              "mistakes": "Mistake: storing counters in pod memory without sync."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "إيه الـ metrics والـ alerts: allow rate، deny rate، Redis latency، clock skew؟",
+        "en": "What metrics and alerts: allow rate, deny rate, Redis latency, clock skew?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "SLIs: decision latency p99، allow/deny ratio، Redis error rate",
+            "en": "SLIs: decision latency p99, allow/deny ratio, Redis error rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "من غير SLIs مش هتعرف الإساءة من الـ outage.",
+              "how": "Prometheus histograms + alerts على spike في deny أو latency.",
+              "tradeoffs": "Tight SLOs بتزوّد false alerts.",
+              "examples": "p99 decision < 5ms داخل الـ region.",
+              "mistakes": "خطأ: تراقب QPS بس وتنسى deny ratio."
+            },
+            "en": {
+              "why": "Without SLIs you cannot tell abuse from outage.",
+              "how": "Prometheus histograms + alerts on deny or latency spikes.",
+              "tradeoffs": "Tight SLOs increase false alerts.",
+              "examples": "p99 decision < 5ms inside the region.",
+              "mistakes": "Mistake: watching QPS only and ignoring deny ratio."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Alert على clock skew بين nodes أكتر من 100ms",
+            "en": "Alert on clock skew between nodes > 100ms"
+          },
+          "detail": {
+            "ar": {
+              "why": "Sliding window وTTL بيعتمدوا على الوقت.",
+              "how": "NTP monitoring. Prefer Redis TIME أو logical tokens.",
+              "tradeoffs": "Logical clocks أعقد. NTP أبسط لو منضبط.",
+              "examples": "Use Redis server time in Lua scripts.",
+              "mistakes": "خطأ: تعتمد على client clock في الـ windowing."
+            },
+            "en": {
+              "why": "Sliding windows and TTLs depend on time.",
+              "how": "NTP monitoring. Prefer Redis TIME or logical tokens.",
+              "tradeoffs": "Logical clocks are more complex. NTP is simpler if healthy.",
+              "examples": "Use Redis server time in Lua scripts.",
+              "mistakes": "Mistake: trusting client clocks for windowing."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Dashboards per tenant/tier لـ quota burn rate",
+            "en": "Dashboards per tenant/tier for quota burn rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ enterprise customers محتاجين شفافية.",
+              "how": "Export remaining quota metrics. Warn عند 80% burn.",
+              "tradeoffs": "Per-tenant cardinality غالية — sample أو aggregate.",
+              "examples": "Stripe dashboard usage meters.",
+              "mistakes": "خطأ: مفيش رؤية للـ customer → support tickets كتير."
+            },
+            "en": {
+              "why": "Enterprise customers need transparency.",
+              "how": "Export remaining quota metrics. Warn at 80% burn.",
+              "tradeoffs": "Per-tenant cardinality is expensive — sample or aggregate.",
+              "examples": "Stripe dashboard usage meters.",
+              "mistakes": "Mistake: no customer visibility → many support tickets."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "فين الـ bottlenecks: Redis hotspot، network RTT، clock sync، false positives؟",
+        "en": "Where are bottlenecks: Redis hotspot, network RTT, clock sync, false positives?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Redis hotspot على مفتاح مشهور أو VIP tenant",
+            "en": "Redis hotspot on a famous key or VIP tenant"
+          },
+          "detail": {
+            "ar": {
+              "why": "مفتاح واحد يقدر يشبع CPU لـ shard.",
+              "how": "Local rate cache، key salting، أو dedicated shard.",
+              "tradeoffs": "Salting يقلل accuracy عبر الـ subkeys.",
+              "examples": "Hot-key replication في Redis Cluster proxies.",
+              "mistakes": "خطأ: تزود replicas من غير ما تعالج الـ write hotspot."
+            },
+            "en": {
+              "why": "One key can saturate a shard CPU.",
+              "how": "Local rate cache, key salting, or dedicated shard.",
+              "tradeoffs": "Salting reduces accuracy across subkeys.",
+              "examples": "Hot-key replication in Redis Cluster proxies.",
+              "mistakes": "Mistake: adding replicas without fixing the write hotspot."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Network RTT بين gateway وRedis في path حرج",
+            "en": "Network RTT between gateway and Redis on the critical path"
+          },
+          "detail": {
+            "ar": {
+              "why": "كل request بيستنى الـ limiter.",
+              "how": "Co-locate gateway وRedis. Pipeline / local approximation.",
+              "tradeoffs": "Local approximation أسرع وأقل دقة.",
+              "examples": "Sidecar Redis على نفس AZ.",
+              "mistakes": "خطأ: Redis في region تانية للـ sync checks."
+            },
+            "en": {
+              "why": "Every request waits on the limiter.",
+              "how": "Co-locate gateway and Redis. Pipeline / local approximation.",
+              "tradeoffs": "Local approximation is faster and less accurate.",
+              "examples": "Sidecar Redis in the same AZ.",
+              "mistakes": "Mistake: Redis in another region for sync checks."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "False positives من shared NAT / carrier-grade NAT",
+            "en": "False positives from shared NAT / carrier-grade NAT"
+          },
+          "detail": {
+            "ar": {
+              "why": "آلاف المستخدمين ورا IP واحد.",
+              "how": "Prefer API keys/user ids. Soft limits على IP.",
+              "tradeoffs": "IP limits لسه مفيدة ضد bots غير المسجّلين.",
+              "examples": "Mobile apps: device attestation + user token.",
+              "mistakes": "خطأ: hard IP ban يعدّي على شركة كاملة."
+            },
+            "en": {
+              "why": "Thousands of users behind one IP.",
+              "how": "Prefer API keys/user ids. Soft limits on IP.",
+              "tradeoffs": "IP limits are still useful against anonymous bots.",
+              "examples": "Mobile apps: device attestation + user token.",
+              "mistakes": "Mistake: hard IP ban taking down an entire company."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "Token bucket vs sliding window vs fixed window. Accuracy vs memory vs latency.",
+        "en": "Token bucket vs sliding window vs fixed window. Accuracy vs memory vs latency."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Fixed window vs sliding window vs token bucket",
+            "en": "Fixed window vs sliding window vs token bucket"
+          },
+          "detail": {
+            "ar": {
+              "why": "كل algorithm ليه cost/accuracy profile مختلف.",
+              "how": "Fixed: INCR+TTL. Sliding: ZSET. Token: Lua tokens+refill.",
+              "tradeoffs": "Fixed أرخص. Sliding أدق. Token أفضل للـ bursts.",
+              "examples": "API Gateways غالبًا token bucket. Analytics APIs sliding.",
+              "mistakes": "خطأ: تختار algorithm من غير workload shape."
+            },
+            "en": {
+              "why": "Each algorithm has a different cost/accuracy profile.",
+              "how": "Fixed: INCR+TTL. Sliding: ZSET. Token: Lua tokens+refill.",
+              "tradeoffs": "Fixed is cheaper. Sliding is precise. Token is best for bursts.",
+              "examples": "API Gateways often token bucket. Analytics APIs sliding.",
+              "mistakes": "Mistake: choosing an algorithm without the workload shape."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Centralized Redis vs gossip/local limits",
+            "en": "Centralized Redis vs gossip/local limits"
+          },
+          "detail": {
+            "ar": {
+              "why": "المركزية vs الـ edge latency.",
+              "how": "ابدأ Redis مركزي. لو edge-heavy، hybrid.",
+              "tradeoffs": "Central أدق. Edge أسرع وأقرب للـ user.",
+              "examples": "Cloudflare edge + core reconciliation.",
+              "mistakes": "خطأ: gossip من غير bound على over-limit."
+            },
+            "en": {
+              "why": "Centralization vs edge latency.",
+              "how": "Start with central Redis. If edge-heavy, hybrid.",
+              "tradeoffs": "Central is accurate. Edge is faster and closer to users.",
+              "examples": "Cloudflare edge + core reconciliation.",
+              "mistakes": "Mistake: gossip without a bound on over-limit."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Sync check vs async sampling",
+            "en": "Sync check vs async sampling"
+          },
+          "detail": {
+            "ar": {
+              "why": "Sync يحمي بدقة. Async أرخص على الـ path.",
+              "how": "Critical writes: sync. Bulk reads: sample + soft enforce.",
+              "tradeoffs": "Async ممكن يعدّي spikes قصيرة.",
+              "examples": "Ads bidding: sync. Metrics ingest: async.",
+              "mistakes": "خطأ: async على payment authorize."
+            },
+            "en": {
+              "why": "Sync protects accurately. Async is cheaper on the path.",
+              "how": "Critical writes: sync. Bulk reads: sample + soft enforce.",
+              "tradeoffs": "Async can let short spikes through.",
+              "examples": "Ads bidding: sync. Metrics ingest: async.",
+              "mistakes": "Mistake: async on payment authorize."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "الـ interviewer بيسأل: إزاي تعمل distributed rate limit من غير single Redis؟",
+        "en": "Interviewer asks: how do you do distributed rate limiting without a single Redis?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Distributed limit من غير Redis: sticky + local أو Dynomite/CRDT counters",
+            "en": "Distributed limit without Redis: sticky + local or Dynomite/CRDT counters"
+          },
+          "detail": {
+            "ar": {
+              "why": "أحيانًا Redis مش available أو غالي.",
+              "how": "CRDT PN-counters أو approximate count-min sketch.",
+              "tradeoffs": "CRDTs أعقد في الـ ops. Sticky أبسط وأقل fairness.",
+              "examples": "Riak/CRDT counters، Redis CRDT (enterprise).",
+              "mistakes": "خطأ: تقول 'مستحيل' من غير alternatives."
+            },
+            "en": {
+              "why": "Sometimes Redis is unavailable or expensive.",
+              "how": "CRDT PN-counters or approximate count-min sketch.",
+              "tradeoffs": "CRDTs are ops-heavy. Sticky is simpler and less fair.",
+              "examples": "Riak/CRDT counters, Redis CRDT (enterprise).",
+              "mistakes": "Mistake: saying 'impossible' without alternatives."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Per-endpoint budgets مختلفة وpriority classes",
+            "en": "Different per-endpoint budgets and priority classes"
+          },
+          "detail": {
+            "ar": {
+              "why": "مش كل الـ endpoints سواسية.",
+              "how": "Separate buckets: auth، read، write، admin.",
+              "tradeoffs": "أكتر buckets = أكتر config complexity.",
+              "examples": "Google Cloud Quotas per method.",
+              "mistakes": "خطأ: quota واحد يخنق login مع الـ list APIs."
+            },
+            "en": {
+              "why": "Not all endpoints are equal.",
+              "how": "Separate buckets: auth, read, write, admin.",
+              "tradeoffs": "More buckets = more config complexity.",
+              "examples": "Google Cloud Quotas per method.",
+              "mistakes": "Mistake: one quota choking login with list APIs."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Idempotent clients: احترم Retry-After وقدّم jitter",
+            "en": "Idempotent clients: honor Retry-After and add jitter"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ server لوحده مش كفاية وقت الـ 429 storms.",
+              "how": "SDK: exponential backoff + jitter + respect headers.",
+              "tradeoffs": "عدواني SDK يضغط أكتر. محافظ يبطّئ recovery perception.",
+              "examples": "AWS SDKs built-in retry modes.",
+              "mistakes": "خطأ: retry فوري على 429."
+            },
+            "en": {
+              "why": "Server alone is not enough during 429 storms.",
+              "how": "SDK: exponential backoff + jitter + respect headers.",
+              "tradeoffs": "Aggressive SDKs add pressure. Conservative ones feel slow.",
+              "examples": "AWS SDKs built-in retry modes.",
+              "mistakes": "Mistake: immediate retry on 429."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "قدّر تكلفة Redis clusters والـ gateway compute عند 1M QPS peak.",
+        "en": "Estimate Redis cluster and gateway compute cost at 1M peak QPS."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Redis memory: ~key_count × 200B؛ 50M active keys ≈ 10GB → cluster cost",
+            "en": "Redis memory: ~key_count × 200B; 50M active keys ≈ 10GB → cluster cost"
+          },
+          "detail": {
+            "ar": {
+              "why": "Memory هو غالب تكلفة الـ limiter.",
+              "how": "Estimate cardinality = active identities × windows. Add replica factor.",
+              "tradeoffs": "Sliding ZSET أغلى من counter بسيط.",
+              "examples": "r6g.xlarge multi-AZ ElastiCache.",
+              "mistakes": "خطأ: تنسى replicas وsnapshots في الـ bill."
+            },
+            "en": {
+              "why": "Memory is usually the limiter's dominant cost.",
+              "how": "Estimate cardinality = active identities × windows. Add replica factor.",
+              "tradeoffs": "Sliding ZSET costs more than a simple counter.",
+              "examples": "r6g.xlarge multi-AZ ElastiCache.",
+              "mistakes": "Mistake: forgetting replicas and snapshots in the bill."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Gateway compute: 1M QPS ÷ 50k QPS/instance ≈ 20 instances + HA",
+            "en": "Gateway compute: 1M QPS ÷ 50k QPS/instance ≈ 20 instances + HA"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ sync check بيزوّد CPU على الـ path.",
+              "how": "Load-test Lua/Redis RTT. Size من p99 مش average.",
+              "tradeoffs": "أكتر instances = أعلى availability وcost.",
+              "examples": "Envoy + ratelimit service pods.",
+              "mistakes": "خطأ: sizing من average QPS بس."
+            },
+            "en": {
+              "why": "Sync checks add CPU on the path.",
+              "how": "Load-test Lua/Redis RTT. Size from p99 not average.",
+              "tradeoffs": "More instances = higher availability and cost.",
+              "examples": "Envoy + ratelimit service pods.",
+              "mistakes": "Mistake: sizing from average QPS only."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cost controls: shorter windows، approximate counters، tiered accuracy",
+            "en": "Cost controls: shorter windows, approximate counters, tiered accuracy"
+          },
+          "detail": {
+            "ar": {
+              "why": "مش كل tenant محتاج exact global.",
+              "how": "Free tier: fixed window. Enterprise: sliding exact.",
+              "tradeoffs": "Complexity في الـ product packaging.",
+              "examples": "Cloud provider quota tiers.",
+              "mistakes": "خطأ: exact sliding لكل العملاء من يوم 1."
+            },
+            "en": {
+              "why": "Not every tenant needs exact global.",
+              "how": "Free tier: fixed window. Enterprise: sliding exact.",
+              "tradeoffs": "Complexity in product packaging.",
+              "examples": "Cloud provider quota tiers.",
+              "mistakes": "Mistake: exact sliding for all customers from day 1."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "Abuse: spoofed IPs، shared NAT، credential stuffing. إزاي تحمي من bypass؟",
+        "en": "Abuse: spoofed IPs, shared NAT, credential stuffing. How do you prevent bypass?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Bind limits to authenticated identity مش IP لو ممكن",
+            "en": "Bind limits to authenticated identity rather than IP when possible"
+          },
+          "detail": {
+            "ar": {
+              "why": "IP spoofing وCGNAT بيضعفوا IP limits.",
+              "how": "API keys / OAuth client ids كـ primary bucket.",
+              "tradeoffs": "Anonymous endpoints لسه محتاجة IP/device signals.",
+              "examples": "GitHub token-scoped rate limits.",
+              "mistakes": "خطأ: trust X-Forwarded-For من غير trusted proxy."
+            },
+            "en": {
+              "why": "IP spoofing and CGNAT weaken IP limits.",
+              "how": "API keys / OAuth client ids as primary bucket.",
+              "tradeoffs": "Anonymous endpoints still need IP/device signals.",
+              "examples": "GitHub token-scoped rate limits.",
+              "mistakes": "Mistake: trusting X-Forwarded-For without a trusted proxy."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Protect limiter itself من amplification (auth on admin, separate plane)",
+            "en": "Protect the limiter itself from amplification (auth on admin, separate plane)"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو المهاجم ضرب Redis، كل الـ limits تقع.",
+              "how": "Private network، IAM، rate-limit الـ management APIs.",
+              "tradeoffs": "عزل أقوى = ops أثقل.",
+              "examples": "Control-plane vs data-plane separation.",
+              "mistakes": "خطأ: Redis مكشوف على internet."
+            },
+            "en": {
+              "why": "If an attacker hits Redis, all limits fall.",
+              "how": "Private network, IAM, rate-limit the management APIs.",
+              "tradeoffs": "Stronger isolation = heavier ops.",
+              "examples": "Control-plane vs data-plane separation.",
+              "mistakes": "Mistake: Redis exposed to the internet."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Audit denials للـ security investigations من غير PII زائد",
+            "en": "Audit denials for security investigations without excess PII"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ deny logs مهمة ضد credential stuffing.",
+              "how": "Log key hash + endpoint + reason. Retention محدودة.",
+              "tradeoffs": "أكتر logs = privacy risk وstorage cost.",
+              "examples": "SIEM integration على spikes في 401/429.",
+              "mistakes": "خطأ: تخزن tokens كاملة في الـ logs."
+            },
+            "en": {
+              "why": "Deny logs matter against credential stuffing.",
+              "how": "Log key hash + endpoint + reason. Limited retention.",
+              "tradeoffs": "More logs = privacy risk and storage cost.",
+              "examples": "SIEM integration on 401/429 spikes.",
+              "mistakes": "Mistake: storing full tokens in logs."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "لو Redis region وقع، إيه الـ fail-open vs fail-closed policy؟",
+        "en": "If the Redis region fails, what is the fail-open vs fail-closed policy?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Multi-AZ Redis مع automatic failover؛ RPO≈0 للـ counters الحديثة مش ضروري",
+            "en": "Multi-AZ Redis with automatic failover; RPO≈0 for recent counters is not mandatory"
+          },
+          "detail": {
+            "ar": {
+              "why": "Counter loss قصير غالبًا مقبول.",
+              "how": "Use managed Redis HA. Document cold-start budgets.",
+              "tradeoffs": "أقوى durability أغلى وممكن يبطّئ writes.",
+              "examples": "ElastiCache Multi-AZ.",
+              "mistakes": "خطأ: تعامل counters زي payment ledger."
+            },
+            "en": {
+              "why": "Brief counter loss is usually acceptable.",
+              "how": "Use managed Redis HA. Document cold-start budgets.",
+              "tradeoffs": "Stronger durability is costlier and can slow writes.",
+              "examples": "ElastiCache Multi-AZ.",
+              "mistakes": "Mistake: treating counters like a payment ledger."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Region failover playbook: default fail-closed للـ sensitive، degrade quotas",
+            "en": "Region failover playbook: default fail-closed for sensitive, degrade quotas"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ DR لازم يحدد سلوك الـ limit صراحة.",
+              "how": "Runbook: switch DNS، warm regional Redis، temporary lower global cap.",
+              "tradeoffs": "Fail-open أثناء DR خطر لو الهجوم هو السبب.",
+              "examples": "Active-passive limiter regions.",
+              "mistakes": "خطأ: مفيش playbook → onboard on-call يرتجل."
+            },
+            "en": {
+              "why": "DR must explicitly define limit behavior.",
+              "how": "Runbook: switch DNS, warm regional Redis, temporary lower global cap.",
+              "tradeoffs": "Fail-open during DR is risky if the cause is an attack.",
+              "examples": "Active-passive limiter regions.",
+              "mistakes": "Mistake: no playbook → on-call improvises."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Chaos test: Redis latency injection وتتبع 429/5xx ratios",
+            "en": "Chaos test: Redis latency injection and track 429/5xx ratios"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ circuit breaker لازم يتأكد قبل الحادثة.",
+              "how": "GameDay ربع سنوي. Validate headers وclient SDKs.",
+              "tradeoffs": "أكتر chaos = أكتر engineering time.",
+              "examples": "Gremlin/Litmus على Redis dependencies.",
+              "mistakes": "خطأ: أول مرة تجرب failover في production حقيقي."
+            },
+            "en": {
+              "why": "Circuit breakers must be proven before an incident.",
+              "how": "Quarterly GameDay. Validate headers and client SDKs.",
+              "tradeoffs": "More chaos = more engineering time.",
+              "examples": "Gremlin/Litmus on Redis dependencies.",
+              "mistakes": "Mistake: first failover attempt is a real production incident."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "peakQpsIn",
+        "label": {
+          "ar": "Peak QPS",
+          "en": "Peak QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "default": 1000000,
+        "role": "input"
+      },
+      {
+        "id": "activeKeys",
+        "label": {
+          "ar": "هويات نشطة",
+          "en": "Active identities"
+        },
+        "unit": {
+          "ar": "مفتاح",
+          "en": "keys"
+        },
+        "default": 50000000,
+        "role": "input"
+      },
+      {
+        "id": "windowSec",
+        "label": {
+          "ar": "طول النافذة",
+          "en": "Window length"
+        },
+        "unit": {
+          "ar": "ث",
+          "en": "s"
+        },
+        "default": 60,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 3,
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 4,
+          "okMin": 1.5,
+          "okMax": 6
+        },
+        "rangeHint": {
+          "ar": "معامل الذروة المعتاد حوالي ٢–٤× متوسط الحمل.",
+          "en": "Typical peak factor is about 2–4× average load."
+        }
+      },
+      {
+        "id": "bytesPerKey",
+        "label": {
+          "ar": "بايت لكل مفتاح",
+          "en": "Bytes per key"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 200,
+        "role": "assumption",
+        "range": {
+          "goodMin": 100,
+          "goodMax": 400,
+          "okMin": 64,
+          "okMax": 800
+        },
+        "rangeHint": {
+          "ar": "عداد بسيط غالبًا ١٠٠–٤٠٠ بايت مع metadata.",
+          "en": "A simple counter is usually 100–400 bytes with metadata."
+        }
+      },
+      {
+        "id": "qpsPerGateway",
+        "label": {
+          "ar": "QPS لكل gateway",
+          "en": "QPS per gateway"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "default": 50000,
+        "role": "assumption",
+        "range": {
+          "goodMin": 20000,
+          "goodMax": 80000,
+          "okMin": 10000,
+          "okMax": 120000
+        },
+        "rangeHint": {
+          "ar": "Gateway واحد غالبًا عشرات الآلاف QPS حسب الـ Lua/RTT.",
+          "en": "One gateway often handles tens of thousands of QPS depending on Lua/RTT."
+        }
+      },
+      {
+        "id": "replicaFactor",
+        "label": {
+          "ar": "عامل النسخ",
+          "en": "Replica factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 2,
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 3,
+          "okMin": 1,
+          "okMax": 4
+        },
+        "rangeHint": {
+          "ar": "نسخ Redis للـ HA عادة ٢–٣.",
+          "en": "Redis replicas for HA are usually 2–3."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "avgQps",
+        "label": {
+          "ar": "متوسط QPS",
+          "en": "Average QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "format": "qps",
+        "expr": "peakQpsIn / peakFactor",
+        "display": [
+          {
+            "var": "peakQpsIn"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "checksDay",
+        "label": {
+          "ar": "فحوصات/يوم",
+          "en": "Checks/day"
+        },
+        "unit": {
+          "ar": "فحص",
+          "en": "checks"
+        },
+        "format": "count",
+        "expr": "avgQps * 86400",
+        "display": [
+          {
+            "ref": "avgQps"
+          },
+          {
+            "text": " × 86400"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "redisMemoryGb",
+        "label": {
+          "ar": "ذاكرة Redis",
+          "en": "Redis memory"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "activeKeys * bytesPerKey * replicaFactor / 1000000000",
+        "display": [
+          {
+            "var": "activeKeys"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "bytesPerKey"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "replicaFactor"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "gateways",
+        "label": {
+          "ar": "عدد الـ Gateways",
+          "en": "Gateway count"
+        },
+        "unit": {
+          "ar": "نسخة",
+          "en": "instances"
+        },
+        "format": "count",
+        "expr": "peakQpsIn / qpsPerGateway",
+        "display": [
+          {
+            "var": "peakQpsIn"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "qpsPerGateway"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "keysPerWindow",
+        "label": {
+          "ar": "عمليات لكل نافذة",
+          "en": "Ops per window"
+        },
+        "unit": {
+          "ar": "عملية",
+          "en": "ops"
+        },
+        "format": "count",
+        "expr": "peakQpsIn * windowSec",
+        "display": [
+          {
+            "var": "peakQpsIn"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "windowSec"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Average QPS = peak ÷ peak factor. Checks/day = avg × 86400.",
+        "en": "1) Average QPS = peak ÷ peak factor. Checks/day = avg × 86400."
+      },
+      {
+        "ar": "2) Redis memory ≈ active keys × bytes × replicas.",
+        "en": "2) Redis memory ≈ active keys × bytes × replicas."
+      },
+      {
+        "ar": "3) Gateways = peak QPS ÷ capacity per instance.",
+        "en": "3) Gateways = peak QPS ÷ capacity per instance."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "redis-outage",
+      "title": {
+        "ar": "Redis وقع",
+        "en": "Redis outage"
+      },
+      "description": {
+        "ar": "Cluster الـ counters مش بيرد. الـ API لسه شغال. تفتح ولا تقفل؟",
+        "en": "Counter cluster is not responding. API is still up. Fail open or closed?"
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "طبّق fail policy حسب حساسية الـ endpoint",
+          "en": "Apply fail policy by endpoint sensitivity"
+        },
+        {
+          "ar": "افتح circuit breaker وقلل TTLs المحلية",
+          "en": "Open circuit breaker and shorten local TTLs"
+        },
+        {
+          "ar": "Alert فوري + status page لو الـ denies اتأثرت",
+          "en": "Immediate alert + status page if denials are affected"
+        },
+        {
+          "ar": "بعد الرجوع: reconcile وراجع spike",
+          "en": "After recovery: reconcile and review the spike"
+        }
+      ]
+    },
+    {
+      "id": "hot-vip",
+      "title": {
+        "ar": "VIP tenant بيولّع shard",
+        "en": "VIP tenant melting a shard"
+      },
+      "description": {
+        "ar": "عميل enterprise واحد بيعمل 20% من الـ checks على مفتاح واحد. الـ latency طالعة.",
+        "en": "One enterprise client is 20% of checks on one key. Latency is climbing."
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Local/edge limiter قدام المفتاح",
+          "en": "Local/edge limiter in front of the key"
+        },
+        {
+          "ar": "Dedicated shard أو salting",
+          "en": "Dedicated shard or salting"
+        },
+        {
+          "ar": "Temporary lower burst للـ tenant مع تواصل",
+          "en": "Temporary lower burst for the tenant with communication"
+        },
+        {
+          "ar": "Monitor hotspot metrics",
+          "en": "Monitor hotspot metrics"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "exact-approx",
+      "question": {
+        "ar": "دقة الحد: exact ولا approximate؟",
+        "en": "Limit accuracy: exact or approximate?"
+      },
+      "optionA": {
+        "ar": "Exact (Redis sync)",
+        "en": "Exact (Redis sync)"
+      },
+      "optionB": {
+        "ar": "Approximate (local + sync)",
+        "en": "Approximate (local + sync)"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "Exact للمالية/auth؛ approximate كويس للـ edge العام.",
+        "en": "Exact for billing/auth; approximate is fine for public edge."
+      },
+      "prosA": {
+        "ar": "لا over-limit تقريبًا",
+        "en": "Almost no over-limit"
+      },
+      "consA": {
+        "ar": "أعلى latency وcost",
+        "en": "Higher latency and cost"
+      },
+      "prosB": {
+        "ar": "Latency واطي وscale أسهل",
+        "en": "Low latency and easier scale"
+      },
+      "consB": {
+        "ar": "ممكن تعدّي الحد مؤقتًا",
+        "en": "May temporarily exceed the limit"
+      },
+      "whenOtherWins": {
+        "ar": "اختار exact لو التكلفة المالية للـ overage عالية.",
+        "en": "Choose exact if the financial cost of overage is high."
+      }
+    },
+    {
+      "id": "fail-open-closed",
+      "question": {
+        "ar": "وقت Redis down: fail-open ولا fail-closed؟",
+        "en": "When Redis is down: fail-open or fail-closed?"
+      },
+      "optionA": {
+        "ar": "Fail-open",
+        "en": "Fail-open"
+      },
+      "optionB": {
+        "ar": "Fail-closed",
+        "en": "Fail-closed"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "يعتمد على حساسية الـ endpoint؛ غالبًا سياسة مختلطة.",
+        "en": "Depends on endpoint sensitivity; usually a mixed policy."
+      },
+      "prosA": {
+        "ar": "يحافظ على الـ availability",
+        "en": "Preserves availability"
+      },
+      "consA": {
+        "ar": "خطر abuse وقت الحادثة",
+        "en": "Abuse risk during the incident"
+      },
+      "prosB": {
+        "ar": "يحمي النظام من الهجوم",
+        "en": "Protects the system from attack"
+      },
+      "consB": {
+        "ar": "Outage يبان كـ 429 جماعي",
+        "en": "Outage looks like a mass 429"
+      },
+      "whenOtherWins": {
+        "ar": "Fail-closed للدفع/login، fail-open للمحتوى العام.",
+        "en": "Fail-closed for pay/login, fail-open for public content."
+      }
+    },
+    {
+      "id": "algo",
+      "question": {
+        "ar": "Algorithm: token bucket ولا sliding window؟",
+        "en": "Algorithm: token bucket or sliding window?"
+      },
+      "optionA": {
+        "ar": "Token bucket",
+        "en": "Token bucket"
+      },
+      "optionB": {
+        "ar": "Sliding window",
+        "en": "Sliding window"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "Token bucket أوضح للـ bursts في معظم الـ APIs.",
+        "en": "Token bucket is clearer for bursts in most APIs."
+      },
+      "prosA": {
+        "ar": "Bursts طبيعية وmemory قليل",
+        "en": "Natural bursts and low memory"
+      },
+      "consA": {
+        "ar": "محتاج ضبط refill/burst",
+        "en": "Needs refill/burst tuning"
+      },
+      "prosB": {
+        "ar": "دقة أعلى عبر الزمن",
+        "en": "Higher accuracy over time"
+      },
+      "consB": {
+        "ar": "Memory/CPU أعلى (ZSET)",
+        "en": "Higher memory/CPU (ZSET)"
+      },
+      "whenOtherWins": {
+        "ar": "Sliding لو الـ product بيحاسب بالثانية بدقة صارمة.",
+        "en": "Sliding if the product bills with strict per-second accuracy."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "api",
+      "cache",
+      "db",
+      "queue",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "طلب",
+          "en": "request"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "توزيع",
+          "en": "distribute"
+        }
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "label": {
+          "ar": "check quota",
+          "en": "check quota"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "allow → business",
+          "en": "allow → business"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "deny/audit events",
+          "en": "deny/audit events"
+        }
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": {
+          "ar": "miss / hydrate",
+          "en": "miss / hydrate"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 80
+      },
+      {
+        "type": "lb",
+        "x": 150,
+        "y": 80
+      },
+      {
+        "type": "api",
+        "x": 280,
+        "y": 80
+      },
+      {
+        "type": "cache",
+        "x": 430,
+        "y": 40
+      },
+      {
+        "type": "db",
+        "x": 430,
+        "y": 140
+      },
+      {
+        "type": "queue",
+        "x": 280,
+        "y": 200
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 200
+      }
+    ],
+    "containers": [
+      {
+        "id": "edge",
+        "label": {
+          "ar": "Edge / Gateway",
+          "en": "Edge / Gateway"
+        },
+        "x": 120,
+        "y": 20,
+        "w": 260,
+        "h": 160
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار السماح/الرفض",
+        "en": "Allow / deny path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "العميل بيبعت طلب API للـ load balancer",
+            "en": "Client sends an API request to the load balancer"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "الـ LB يوجّه للـ API/gateway اللي فيه سياسة الـ rate limit",
+            "en": "LB routes to the API/gateway that owns rate-limit policy"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "الـ API يعمل atomic check على Redis counters (token/window)",
+            "en": "API performs an atomic Redis counter check (token/window)"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "لو مسموح: كمّل للـ business DB/service",
+            "en": "If allowed: continue to the business DB/service"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "لو مرفوض: سجّل audit event على الـ queue وارجع 429",
+            "en": "If denied: emit audit event to the queue and return 429"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار قراءة الحصة",
+        "en": "Quota read path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "عميل/SDK يسأل عن المتبقي قبل batch كبير",
+            "en": "Client/SDK asks for remaining quota before a large batch"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "الطلب يوصل للـ API",
+            "en": "Request reaches the API"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "قراءة سريعة من Redis للـ remaining/reset",
+            "en": "Fast Redis read for remaining/reset"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "لو cache miss نادر: hydrate من DB policy store",
+            "en": "On rare cache miss: hydrate from DB policy store"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "الـ headers تترجع للعميل (Remaining/Reset)",
+            "en": "Headers returned to the client (Remaining/Reset)"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Redis بطيء أو واقع — الـ API بيحس بالـ errors",
+            "en": "Redis is slow/down — API observes errors"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Circuit breaker يتفتح حسب السياسة",
+            "en": "Circuit breaker opens according to policy"
+          },
+          "nodes": [
+            "api",
+            "monitoring"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Fail-closed للمسارات الحساسة؛ Fail-open محدود للعامة",
+            "en": "Fail-closed for sensitive paths; limited fail-open for public"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Audit/alert يتبعت للـ queue وon-call",
+            "en": "Audit/alert emitted to queue and on-call"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "بعد رجوع Redis: reconcile وامسح soft state",
+            "en": "After Redis recovers: reconcile and clear soft state"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1849 @@
+{
+  "id": "news-feed",
+  "title": {
+    "ar": "نظام الـ News Feed",
+    "en": "News Feed System"
+  },
+  "description": {
+    "ar": "صمم news feed سوشيال زي Twitter/Instagram",
+    "en": "Design a social news feed like Twitter/Instagram"
+  },
+  "difficulty": {
+    "ar": "صعب",
+    "en": "Hard"
+  },
+  "estimatedTime": {
+    "ar": "50 دقيقة",
+    "en": "50 minutes"
+  },
+  "problemStatement": {
+    "ar": "صمم نظام news feed ليوزرز يتابعوا بعض. لازم تدعم نشر بوست، قراءة home feed بسرعة، وتعامل مع مشاهير عندهم ملايين المتابعين. رتّب النقاش حوالين fan-out وranking.",
+    "en": "Design a news feed for users who follow each other. Support publishing, fast home feed reads, and celebrities with millions of followers. Focus discussion on fan-out and ranking."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "DAU",
+        "en": "DAU"
+      },
+      "value": {
+        "ar": "100 مليون",
+        "en": "100 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "متوسط المتابَعين",
+        "en": "Avg followees"
+      },
+      "value": {
+        "ar": "200",
+        "en": "200"
+      }
+    },
+    {
+      "label": {
+        "ar": "Posts/يوزر/يوم",
+        "en": "Posts/user/day"
+      },
+      "value": {
+        "ar": "0.2",
+        "en": "0.2"
+      }
+    },
+    {
+      "label": {
+        "ar": "هدف feed latency",
+        "en": "Feed latency target"
+      },
+      "value": {
+        "ar": "< 200ms p99",
+        "en": "< 200ms p99"
+      }
+    },
+    {
+      "label": {
+        "ar": "Freshness",
+        "en": "Freshness"
+      },
+      "value": {
+        "ar": "< 5 ثوانٍ",
+        "en": "< 5 seconds"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن scope الـ الـ news feed واعمل حسبة سريعة.",
+        "en": "Before designing: clarify the news feed scope and do a quick estimate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن DAU، متوسط المتابَعين، وposts/user/day",
+            "en": "Asked about DAU, avg followees, and posts/user/day"
+          },
+          "detail": {
+            "ar": {
+              "why": "الأرقام بتحدد push vs pull.",
+              "how": "اسأل كمان عن celebrity threshold وranking requirements.",
+              "tradeoffs": "Feed مرتب زمني أبسط من ranked.",
+              "examples": "Twitter/X، Instagram، LinkedIn.",
+              "mistakes": "خطأ: تصمم fanout من غير distribution الـ graph."
+            },
+            "en": {
+              "why": "Numbers decide push vs pull.",
+              "how": "Also ask celebrity threshold and ranking needs.",
+              "tradeoffs": "Chronological is simpler than ranked.",
+              "examples": "Twitter/X, Instagram, LinkedIn.",
+              "mistakes": "Mistake: designing fanout without graph distribution."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت write fanout: posts/sec × avg followers",
+            "en": "Estimated write fanout: posts/sec × avg followers"
+          },
+          "detail": {
+            "ar": {
+              "why": "ده حجم الشغل على الـ timeline store.",
+              "how": "100M DAU × 0.2 post × avg 200 followers… قسّم على اليوم.",
+              "tradeoffs": "Celebrity outliers بيفسدوا المتوسط.",
+              "examples": "Hybrid: push للعادي، pull للـ celebs.",
+              "mistakes": "خطأ: تستخدم المتوسط من غير percentile للـ celebs."
+            },
+            "en": {
+              "why": "That is the work volume on the timeline store.",
+              "how": "100M DAU × 0.2 post × avg 200 followers… divide by day.",
+              "tradeoffs": "Celebrity outliers break the average.",
+              "examples": "Hybrid: push normal, pull celebs.",
+              "mistakes": "Mistake: using the mean without celeb percentiles."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت freshness SLO: ثواني قليلة للـ home feed",
+            "en": "Clarified freshness SLO: a few seconds for home feed"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ product expectation بتقود الـ architecture.",
+              "how": "اسأل: هل OK تأخير 30 ث للـ ranked؟",
+              "tradeoffs": "أصرّ freshness = أكتر infra.",
+              "examples": "Instagram near-real-time؛ LinkedIn أهدى.",
+              "mistakes": "خطأ: تعد real-time من غير budget."
+            },
+            "en": {
+              "why": "Product expectation drives architecture.",
+              "how": "Ask: is 30s delay OK for ranked?",
+              "tradeoffs": "Stricter freshness = more infra.",
+              "examples": "Instagram near-real-time; LinkedIn calmer.",
+              "mistakes": "Mistake: promising real-time without a budget."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن media vs text-only وads injection",
+            "en": "Asked about media vs text-only and ads injection"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ payload والـ fanout مختلفين.",
+              "how": "Pointers للـ media مش binary في الـ timeline.",
+              "tradeoffs": "Ads بتزوّد ranking complexity.",
+              "examples": "Feed leaf = post_id + score + actor.",
+              "mistakes": "خطأ: تخزن صورة كاملة في Cassandra row."
+            },
+            "en": {
+              "why": "Payload and fanout differ.",
+              "how": "Pointers to media, not binaries in the timeline.",
+              "tradeoffs": "Ads add ranking complexity.",
+              "examples": "Feed leaf = post_id + score + actor.",
+              "mistakes": "Mistake: storing full images in a Cassandra row."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف fan-out on write vs read، الـ timeline store، والـ ranking pipeline.",
+        "en": "Describe fan-out on write vs read, the timeline store, and ranking pipeline."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 Client → LB → API → Queue/Worker fanout → Timeline DB + Cache",
+            "en": "📊 Client → LB → API → Queue/Worker fanout → Timeline DB + Cache"
+          },
+          "detail": {
+            "ar": {
+              "why": "فصل الـ publish عن الـ serve.",
+              "how": "Publish يكتب post DB ويـ enqueue fanout. Read يقرأ timeline + hydrate.",
+              "tradeoffs": "Sync fanout أبسط وأبطأ للـ user.",
+              "examples": "Twitter early timeline، IG feed services.",
+              "mistakes": "خطأ: fanout sync جوّا request الـ post."
+            },
+            "en": {
+              "why": "Decouple publish from serve.",
+              "how": "Publish writes post DB and enqueues fanout. Read reads timeline + hydrate.",
+              "tradeoffs": "Sync fanout is simpler and slower for the user.",
+              "examples": "Twitter early timeline, IG feed services.",
+              "mistakes": "Mistake: sync fanout inside the post request."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Fan-out on write للـ regular users؛ pull للـ celebrities",
+            "en": "Fan-out on write for regular users; pull for celebrities"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hybrid بيحمي من hot celebrities.",
+              "how": "Threshold مثلاً 10k followers → لا تدفع، اقرأ عند الطلب.",
+              "tradeoffs": "Threshold غلط = إما تكلفة أو latency.",
+              "examples": "Famous hybrid feeds at scale.",
+              "mistakes": "خطأ: push لكل celebrities."
+            },
+            "en": {
+              "why": "Hybrid protects against hot celebrities.",
+              "how": "Threshold e.g. 10k followers → don't push; pull on read.",
+              "tradeoffs": "Wrong threshold = either cost or latency.",
+              "examples": "Famous hybrid feeds at scale.",
+              "mistakes": "Mistake: pushing for all celebrities."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Timeline store: Cassandra/Dynamo key=user_id, clustered by time/score",
+            "en": "Timeline store: Cassandra/Dynamo key=user_id, clustered by time/score"
+          },
+          "detail": {
+            "ar": {
+              "why": "Access pattern: أحدث N لـ user.",
+              "how": "Wide-row أو bucketed partitions. TTL اختياري.",
+              "tradeoffs": "SQL ممكن للصغر؛ NoSQL للـ huge fanout.",
+              "examples": "Cassandra feeds، Redis cache للـ hot users.",
+              "mistakes": "خطأ: جدول SQL فيه row لكل (user,post) من غير sharding."
+            },
+            "en": {
+              "why": "Access pattern: latest N for a user.",
+              "how": "Wide-row or bucketed partitions. Optional TTL.",
+              "tradeoffs": "SQL OK when small; NoSQL for huge fanout.",
+              "examples": "Cassandra feeds, Redis cache for hot users.",
+              "mistakes": "Mistake: SQL row per (user,post) without sharding."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Hydration service: post content + social proof من caches",
+            "en": "Hydration service: post content + social proof from caches"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ timeline فيه IDs؛ المحتوى يتجاب منفصل.",
+              "how": "Batch get posts. Cache-aside. Filter blocks/mutes.",
+              "tradeoffs": "Over-fetch vs under-fetch tradeoff.",
+              "examples": "Leaf + mixer pattern.",
+              "mistakes": "خطأ: تخزن النص الكامل في كل timeline copy."
+            },
+            "en": {
+              "why": "Timeline has IDs; content is fetched separately.",
+              "how": "Batch get posts. Cache-aside. Filter blocks/mutes.",
+              "tradeoffs": "Over-fetch vs under-fetch tradeoff.",
+              "examples": "Leaf + mixer pattern.",
+              "mistakes": "Mistake: storing full text in every timeline copy."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale للـ celebrities والـ dense graphs؟",
+        "en": "How do you scale for celebrities and dense graphs?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Shard timelines by user_id؛ workers يتقسموا على partitions",
+            "en": "Shard timelines by user_id; workers partitioned"
+          },
+          "detail": {
+            "ar": {
+              "why": "User locality مهمة للـ reads.",
+              "how": "Kafka partitions by actor أو by follower shards.",
+              "tradeoffs": "Rebalance صعب وقت نمو الـ graph.",
+              "examples": "Consistent hashing على user id.",
+              "mistakes": "خطأ: queue واحدة من غير partitioning."
+            },
+            "en": {
+              "why": "User locality matters for reads.",
+              "how": "Kafka partitions by actor or follower shards.",
+              "tradeoffs": "Rebalance is hard as the graph grows.",
+              "examples": "Consistent hashing on user id.",
+              "mistakes": "Mistake: one queue without partitioning."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Celebrity spillover: pull + cache ranked recent posts",
+            "en": "Celebrity spillover: pull + cache ranked recent posts"
+          },
+          "detail": {
+            "ar": {
+              "why": "مش هتقدر تكتب لملايين الـ timelines.",
+              "how": "عند read: merge user timeline + celeb recent.",
+              "tradeoffs": "Merge بيزوّد read CPU.",
+              "examples": "Push/pull hybrid classic.",
+              "mistakes": "خطأ: نفس path للـ celeb والعادي."
+            },
+            "en": {
+              "why": "You cannot write to millions of timelines.",
+              "how": "On read: merge user timeline + celeb recent.",
+              "tradeoffs": "Merge increases read CPU.",
+              "examples": "Classic push/pull hybrid.",
+              "mistakes": "Mistake: same path for celeb and normal."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache home feed للـ active users مع short TTL + invalidation",
+            "en": "Cache home feed for active users with short TTL + invalidation"
+          },
+          "detail": {
+            "ar": {
+              "why": "معظم الـ reads متكررة.",
+              "how": "Redis list/ZSET. Invalidate على post جديد مهم.",
+              "tradeoffs": "TTL قصير = load أعلى. طويل = stale.",
+              "examples": "Cached feed pages.",
+              "mistakes": "خطأ: cache من غير invalidation للـ deletes."
+            },
+            "en": {
+              "why": "Most reads are repeated.",
+              "how": "Redis list/ZSET. Invalidate on important new posts.",
+              "tradeoffs": "Short TTL = more load. Long = stale.",
+              "examples": "Cached feed pages.",
+              "mistakes": "Mistake: cache without invalidation for deletes."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "إيه SLIs: feed freshness، p99 latency، fanout lag؟",
+        "en": "What SLIs: feed freshness, p99 latency, fanout lag?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "SLOs: feed p99 < 200ms، freshness < 5s للـ 99%",
+            "en": "SLOs: feed p99 < 200ms, freshness < 5s for 99%"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم تقيس تجربة اليوزر مش بس QPS.",
+              "how": "Trace publish→fanout→visible.",
+              "tradeoffs": "SLO صارم يغلي الـ infra.",
+              "examples": "Lightstep/Datadog traces على fanout.",
+              "mistakes": "خطأ: تراقب API latency بس وتنسى fanout lag."
+            },
+            "en": {
+              "why": "Measure user experience, not just QPS.",
+              "how": "Trace publish→fanout→visible.",
+              "tradeoffs": "Strict SLO inflates infra.",
+              "examples": "Lightstep/Datadog traces on fanout.",
+              "mistakes": "Mistake: watching API latency only and ignoring fanout lag."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Alert على fanout lag وDLQ depth",
+            "en": "Alert on fanout lag and DLQ depth"
+          },
+          "detail": {
+            "ar": {
+              "why": "Lag = feeds قديمة.",
+              "how": "Lag > 30s page. DLQ > N investigate.",
+              "tradeoffs": "Noise vs signal في الـ alerts.",
+              "examples": "Consumer lag dashboards.",
+              "mistakes": "خطأ: مفيش DLQ → رسائل ضايعة صامتة."
+            },
+            "en": {
+              "why": "Lag = stale feeds.",
+              "how": "Lag > 30s page. DLQ > N investigate.",
+              "tradeoffs": "Noise vs signal in alerts.",
+              "examples": "Consumer lag dashboards.",
+              "mistakes": "Mistake: no DLQ → silent message loss."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Track empty-feed وhydration miss rates",
+            "en": "Track empty-feed and hydration miss rates"
+          },
+          "detail": {
+            "ar": {
+              "why": "Bugs الخصوصية/الحذف بتظهر هنا.",
+              "how": "Monitor % empty و% broken leaves.",
+              "tradeoffs": "Cardinality عالية — aggregate.",
+              "examples": "Quality dashboards.",
+              "mistakes": "خطأ: تعتبر empty feed طبيعي دايمًا."
+            },
+            "en": {
+              "why": "Privacy/delete bugs show up here.",
+              "how": "Monitor % empty and % broken leaves.",
+              "tradeoffs": "High cardinality — aggregate.",
+              "examples": "Quality dashboards.",
+              "mistakes": "Mistake: treating empty feed as always normal."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "اختناقات: hot celebrities، ranking CPU، cache stampedes؟",
+        "en": "Bottlenecks: hot celebrities, ranking CPU, cache stampedes?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Hot celebrity publish storms",
+            "en": "Hot celebrity publish storms"
+          },
+          "detail": {
+            "ar": {
+              "why": "Post واحد يولّع الـ workers.",
+              "how": "Detect celebs، skip push، pull path.",
+              "tradeoffs": "Pull يزوّد read fan-in.",
+              "examples": "Olympics/world cup spikes.",
+              "mistakes": "خطأ: autoscale بس من غير celeb policy."
+            },
+            "en": {
+              "why": "One post can melt workers.",
+              "how": "Detect celebs, skip push, pull path.",
+              "tradeoffs": "Pull increases read fan-in.",
+              "examples": "Olympics/world cup spikes.",
+              "mistakes": "Mistake: only autoscaling without celeb policy."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Ranking CPU على read path",
+            "en": "Ranking CPU on the read path"
+          },
+          "detail": {
+            "ar": {
+              "why": "ML features غالية لو sync.",
+              "how": "Precompute scores async. Light re-rank online.",
+              "tradeoffs": "Precompute = stale ranking.",
+              "examples": "Two-stage retrieval + rank.",
+              "mistakes": "خطأ: deep model على كل scroll."
+            },
+            "en": {
+              "why": "ML features are expensive if sync.",
+              "how": "Precompute scores async. Light re-rank online.",
+              "tradeoffs": "Precompute = staler ranking.",
+              "examples": "Two-stage retrieval + rank.",
+              "mistakes": "Mistake: deep model on every scroll."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache stampede بعد deploy أو mass invalidation",
+            "en": "Cache stampede after deploy or mass invalidation"
+          },
+          "detail": {
+            "ar": {
+              "why": "كل الناس تضرب DB مع بعض.",
+              "how": "Request coalescing، soft TTL، jitter.",
+              "tradeoffs": "Locking بيزوّد complexity.",
+              "examples": "Dogpile prevention patterns.",
+              "mistakes": "خطأ: flush كل الـ cache مرة واحدة."
+            },
+            "en": {
+              "why": "Everyone hits DB together.",
+              "how": "Request coalescing, soft TTL, jitter.",
+              "tradeoffs": "Locking adds complexity.",
+              "examples": "Dogpile prevention patterns.",
+              "mistakes": "Mistake: flushing the entire cache at once."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "Fan-out on write vs read، وpush vs pull hybrid.",
+        "en": "Fan-out on write vs read, and push vs pull hybrid."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Fan-out on write vs fan-out on read",
+            "en": "Fan-out on write vs fan-out on read"
+          },
+          "detail": {
+            "ar": {
+              "why": "Write amplification vs read amplification.",
+              "how": "ارسم الـ graph density واختار hybrid.",
+              "tradeoffs": "Write أحسن للـ read-heavy. Read أحسن للـ write-heavy celebs.",
+              "examples": "Classic social feed tradeoff.",
+              "mistakes": "خطأ: تختار واحد بس لكل اليوزرز."
+            },
+            "en": {
+              "why": "Write amplification vs read amplification.",
+              "how": "Plot graph density and choose hybrid.",
+              "tradeoffs": "Write better for read-heavy. Read better for write-heavy celebs.",
+              "examples": "Classic social feed tradeoff.",
+              "mistakes": "Mistake: picking only one for all users."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Chronological vs ranked feed",
+            "en": "Chronological vs ranked feed"
+          },
+          "detail": {
+            "ar": {
+              "why": "البساطة vs engagement.",
+              "how": "ابدأ chronological، زوّد ranking تدريجي.",
+              "tradeoffs": "Ranked أعقد في الخصوصية والـ debugging.",
+              "examples": "IG ranked؛ some apps still chrono.",
+              "mistakes": "خطأ: ranking من غير explainability/debug tools."
+            },
+            "en": {
+              "why": "Simplicity vs engagement.",
+              "how": "Start chronological, add ranking gradually.",
+              "tradeoffs": "Ranked is harder for privacy and debugging.",
+              "examples": "IG ranked; some apps still chrono.",
+              "mistakes": "Mistake: ranking without explainability/debug tools."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Strong vs eventual visibility بعد الـ post",
+            "en": "Strong vs eventual visibility after posting"
+          },
+          "detail": {
+            "ar": {
+              "why": "الكاتب عايز يشوف فورًا؛ المتابعين eventual OK.",
+              "how": "Read-your-writes من cache محلي للكاتب.",
+              "tradeoffs": "Strong لكل المتابعين غالي.",
+              "examples": "Session consistency patterns.",
+              "mistakes": "خطأ: تعد linearizability على كل الـ feeds."
+            },
+            "en": {
+              "why": "Author wants immediate; followers eventual OK.",
+              "how": "Read-your-writes via author local cache.",
+              "tradeoffs": "Strong for all followers is expensive.",
+              "examples": "Session consistency patterns.",
+              "mistakes": "Mistake: promising linearizability on all feeds."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "إزاي تعمل soft-delete وprivacy على posts اتوزعت؟",
+        "en": "How do you handle soft-delete and privacy on already-fanned posts?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "حذف/تعديل post بعد الـ fanout",
+            "en": "Delete/edit a post after fanout"
+          },
+          "detail": {
+            "ar": {
+              "why": "النسخ اتكتبت خلاص.",
+              "how": "Tombstones + lazy cleanup + hydration filter.",
+              "tradeoffs": "Eager cleanup أغلى.",
+              "examples": "Soft delete flags on post store.",
+              "mistakes": "خطأ: تمسح من post DB بس والـ timelines تفضل."
+            },
+            "en": {
+              "why": "Copies are already written.",
+              "how": "Tombstones + lazy cleanup + hydration filter.",
+              "tradeoffs": "Eager cleanup is costlier.",
+              "examples": "Soft delete flags on post store.",
+              "mistakes": "Mistake: deleting only post DB while timelines remain."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Mute/block realtime enforcement",
+            "en": "Mute/block realtime enforcement"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم الاختفاء يبقى سريع.",
+              "how": "Filter عند hydration + invalidate caches.",
+              "tradeoffs": "Strict realtime أصعب.",
+              "examples": "Edge filters on viewer graph.",
+              "mistakes": "خطأ: تعتمد على fanout rewrite بس."
+            },
+            "en": {
+              "why": "Disappearance must be fast.",
+              "how": "Filter at hydration + invalidate caches.",
+              "tradeoffs": "Strict realtime is harder.",
+              "examples": "Edge filters on viewer graph.",
+              "mistakes": "Mistake: relying only on fanout rewrite."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Pagination: cursor based مش offset",
+            "en": "Pagination: cursor-based not offset"
+          },
+          "detail": {
+            "ar": {
+              "why": "Offset ينكسر مع inserts.",
+              "how": "Cursor = (score, post_id).",
+              "tradeoffs": "Cursor أصعب في الـ ranked mixes.",
+              "examples": "Keyset pagination.",
+              "mistakes": "خطأ: OFFSET كبير على Cassandra."
+            },
+            "en": {
+              "why": "Offset breaks with inserts.",
+              "how": "Cursor = (score, post_id).",
+              "tradeoffs": "Cursors are harder with ranked mixes.",
+              "examples": "Keyset pagination.",
+              "mistakes": "Mistake: large OFFSET on Cassandra."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "قدّر تكلفة timeline storage والـ fanout workers.",
+        "en": "Estimate timeline storage and fanout worker cost."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Timeline storage ≈ fanout writes/day × bytes × retention",
+            "en": "Timeline storage ≈ fanout writes/day × bytes × retention"
+          },
+          "detail": {
+            "ar": {
+              "why": "النسخ المكررة هي التكلفة الكبيرة.",
+              "how": "احسب avg fanout × posts × 100B × days.",
+              "tradeoffs": "TTL أقصر يوفّر فلوس.",
+              "examples": "Dynamo/Cassandra bills.",
+              "mistakes": "خطأ: تنسى replication factor ×3."
+            },
+            "en": {
+              "why": "Duplicated copies are the big cost.",
+              "how": "Compute avg fanout × posts × 100B × days.",
+              "tradeoffs": "Shorter TTL saves money.",
+              "examples": "Dynamo/Cassandra bills.",
+              "mistakes": "Mistake: forgetting ×3 replication factor."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Worker cost يتناسب مع celebrity policy",
+            "en": "Worker cost scales with celebrity policy"
+          },
+          "detail": {
+            "ar": {
+              "why": "Push للـ celebs بيفجر الـ bill.",
+              "how": "Simulate cost عند thresholds مختلفة.",
+              "tradeoffs": "أكتر pull = أكتر read cost.",
+              "examples": "Cost models per 1k posts.",
+              "mistakes": "خطأ: تحسب workers من average بس."
+            },
+            "en": {
+              "why": "Pushing celebs explodes the bill.",
+              "how": "Simulate cost at different thresholds.",
+              "tradeoffs": "More pull = more read cost.",
+              "examples": "Cost models per 1k posts.",
+              "mistakes": "Mistake: sizing workers from average only."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache hit rate هدف >90% لـ active DAU",
+            "en": "Cache hit rate target >90% for active DAU"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cache بيوفر DB reads غالية.",
+              "how": "Size cache لـ online users × page.",
+              "tradeoffs": "أكبر cache = فلوس أكتر.",
+              "examples": "Redis cluster sizing.",
+              "mistakes": "خطأ: cache صغير ويتحول stampede."
+            },
+            "en": {
+              "why": "Cache saves expensive DB reads.",
+              "how": "Size cache for online users × page.",
+              "tradeoffs": "Bigger cache = more money.",
+              "examples": "Redis cluster sizing.",
+              "mistakes": "Mistake: tiny cache that becomes a stampede."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "Privacy: block lists، GDPR delete، visibility rules.",
+        "en": "Privacy: block lists, GDPR delete, visibility rules."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Visibility rules: public/followers/private تتفرض عند hydration",
+            "en": "Visibility rules: public/followers/private enforced at hydration"
+          },
+          "detail": {
+            "ar": {
+              "why": "النسخ في timelines مش كافية كـ authz.",
+              "how": "Central post authz check قبل الرجوع.",
+              "tradeoffs": "Check إضافي = latency.",
+              "examples": "ACL on post id.",
+              "mistakes": "خطأ: تثق إن وجود leaf = مسموح بالعرض."
+            },
+            "en": {
+              "why": "Timeline copies are not enough for authz.",
+              "how": "Central post authz check before return.",
+              "tradeoffs": "Extra check = latency.",
+              "examples": "ACL on post id.",
+              "mistakes": "Mistake: trusting leaf presence as view permission."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "GDPR delete: erase post + async scrub timelines",
+            "en": "GDPR delete: erase post + async scrub timelines"
+          },
+          "detail": {
+            "ar": {
+              "why": "الحق في النسيان.",
+              "how": "Authoritative delete + tombstone + batch scrub.",
+              "tradeoffs": "فوري 100% scrub صعب عند fanout ضخم.",
+              "examples": "Privacy pipelines.",
+              "mistakes": "خطأ: soft delete من غير scrub plan."
+            },
+            "en": {
+              "why": "Right to be forgotten.",
+              "how": "Authoritative delete + tombstone + batch scrub.",
+              "tradeoffs": "Immediate 100% scrub is hard at huge fanout.",
+              "examples": "Privacy pipelines.",
+              "mistakes": "Mistake: soft delete without a scrub plan."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Abuse: spam fanout rate limits على publish",
+            "en": "Abuse: spam fanout rate limits on publish"
+          },
+          "detail": {
+            "ar": {
+              "why": "Spam يضاعف تكلفة الـ fanout.",
+              "how": "Per-user publish limits + spam models.",
+              "tradeoffs": "False positives تزعل creators.",
+              "examples": "Gradual rollout of spam scores.",
+              "mistakes": "خطأ: مفيش cap على publish rate."
+            },
+            "en": {
+              "why": "Spam multiplies fanout cost.",
+              "how": "Per-user publish limits + spam models.",
+              "tradeoffs": "False positives upset creators.",
+              "examples": "Gradual rollout of spam scores.",
+              "mistakes": "Mistake: no cap on publish rate."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "Multi-region feeds وRPO للـ timeline replicas.",
+        "en": "Multi-region feeds and RPO for timeline replicas."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Timeline replicas multi-AZ؛ post store مصدر الحقيقة",
+            "en": "Timeline replicas multi-AZ; post store is source of truth"
+          },
+          "detail": {
+            "ar": {
+              "why": "تقدر تعيد بناء الـ timelines.",
+              "how": "RPO صغير للـ posts؛ timelines تعيد fanout.",
+              "tradeoffs": "Rebuild بطيء بعد فقدان كبير.",
+              "examples": "Backup + rebuild tool.",
+              "mistakes": "خطأ: تعتبر timeline irreparable state من غير rebuild."
+            },
+            "en": {
+              "why": "You can rebuild timelines.",
+              "how": "Small RPO for posts; timelines can re-fanout.",
+              "tradeoffs": "Rebuild is slow after major loss.",
+              "examples": "Backup + rebuild tool.",
+              "mistakes": "Mistake: treating timeline as irreparable without rebuild."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Active-active read regions مع sticky writers",
+            "en": "Active-active read regions with sticky writers"
+          },
+          "detail": {
+            "ar": {
+              "why": "القراءة قريبة لليوزر.",
+              "how": "Replicate posts؛ regional timelines أو shared.",
+              "tradeoffs": "Active-active conflicts على edits.",
+              "examples": "Geo feed serving.",
+              "mistakes": "خطأ: dual write من غير conflict policy."
+            },
+            "en": {
+              "why": "Reads close to users.",
+              "how": "Replicate posts; regional or shared timelines.",
+              "tradeoffs": "Active-active conflicts on edits.",
+              "examples": "Geo feed serving.",
+              "mistakes": "Mistake: dual write without conflict policy."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "GameDay: اقتل fanout workers وقيس freshness SLO",
+            "en": "GameDay: kill fanout workers and measure freshness SLO"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم تعرف سلوك الـ degrade.",
+              "how": "Serve cached/stale with banner metrics.",
+              "tradeoffs": "Stale OK لحد معيّن.",
+              "examples": "Chaos on Kafka consumers.",
+              "mistakes": "خطأ: مفيش stale fallback."
+            },
+            "en": {
+              "why": "You must know degrade behavior.",
+              "how": "Serve cached/stale with banner metrics.",
+              "tradeoffs": "Stale OK up to a point.",
+              "examples": "Chaos on Kafka consumers.",
+              "mistakes": "Mistake: no stale fallback."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "dau",
+        "label": {
+          "ar": "DAU",
+          "en": "DAU"
+        },
+        "unit": {
+          "ar": "يوزر",
+          "en": "users"
+        },
+        "default": 100000000,
+        "role": "input"
+      },
+      {
+        "id": "postsPerUser",
+        "label": {
+          "ar": "Posts/يوزر/يوم",
+          "en": "Posts/user/day"
+        },
+        "unit": {
+          "ar": "بوست",
+          "en": "posts"
+        },
+        "default": 0.2,
+        "role": "input"
+      },
+      {
+        "id": "avgFollowers",
+        "label": {
+          "ar": "متوسط المتابعين",
+          "en": "Avg followers"
+        },
+        "unit": {
+          "ar": "متابع",
+          "en": "followers"
+        },
+        "default": 200,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 3,
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 4,
+          "okMin": 1.5,
+          "okMax": 6
+        },
+        "rangeHint": {
+          "ar": "الذروة عادة ٢–٤×.",
+          "en": "Peak is usually 2–4×."
+        }
+      },
+      {
+        "id": "leafBytes",
+        "label": {
+          "ar": "حجم leaf",
+          "en": "Leaf bytes"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 100,
+        "role": "assumption",
+        "range": {
+          "goodMin": 64,
+          "goodMax": 200,
+          "okMin": 32,
+          "okMax": 400
+        },
+        "rangeHint": {
+          "ar": "Leaf غالبًا عشرات لمئات البايت.",
+          "en": "A leaf is usually tens to hundreds of bytes."
+        }
+      },
+      {
+        "id": "retentionDays",
+        "label": {
+          "ar": "أيام الاحتفاظ",
+          "en": "Retention days"
+        },
+        "unit": {
+          "ar": "يوم",
+          "en": "days"
+        },
+        "default": 30,
+        "role": "assumption",
+        "range": {
+          "goodMin": 14,
+          "goodMax": 90,
+          "okMin": 7,
+          "okMax": 180
+        },
+        "rangeHint": {
+          "ar": "Timeline retention شائع ٢–١٢ أسبوع.",
+          "en": "Timeline retention is commonly 2–12 weeks."
+        }
+      },
+      {
+        "id": "cacheUserPct",
+        "label": {
+          "ar": "نسبة اليوزرز في الـ cache",
+          "en": "Cached user %"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 10,
+        "role": "assumption",
+        "range": {
+          "goodMin": 5,
+          "goodMax": 20,
+          "okMin": 2,
+          "okMax": 40
+        },
+        "rangeHint": {
+          "ar": "Active online set أصغر من DAU.",
+          "en": "Active online set is smaller than DAU."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "postsDay",
+        "label": {
+          "ar": "بوستات/يوم",
+          "en": "Posts/day"
+        },
+        "unit": {
+          "ar": "بوست",
+          "en": "posts"
+        },
+        "format": "count",
+        "expr": "dau * postsPerUser",
+        "display": [
+          {
+            "var": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "postsPerUser"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "fanoutDay",
+        "label": {
+          "ar": "كتابات timeline/يوم",
+          "en": "Timeline writes/day"
+        },
+        "unit": {
+          "ar": "كتابة",
+          "en": "writes"
+        },
+        "format": "count",
+        "expr": "postsDay * avgFollowers",
+        "display": [
+          {
+            "ref": "postsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "avgFollowers"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "fanoutQps",
+        "label": {
+          "ar": "Fanout QPS",
+          "en": "Fanout QPS"
+        },
+        "unit": {
+          "ar": "كتابة/ث",
+          "en": "writes/s"
+        },
+        "format": "qps",
+        "expr": "fanoutDay / 86400",
+        "display": [
+          {
+            "ref": "fanoutDay"
+          },
+          {
+            "text": " ÷ 86400"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "peakFanoutQps",
+        "label": {
+          "ar": "Peak fanout QPS",
+          "en": "Peak fanout QPS"
+        },
+        "unit": {
+          "ar": "كتابة/ث",
+          "en": "writes/s"
+        },
+        "format": "qps",
+        "expr": "fanoutQps * peakFactor",
+        "display": [
+          {
+            "ref": "fanoutQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "timelineStorage",
+        "label": {
+          "ar": "تخزين timelines",
+          "en": "Timeline storage"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "fanoutDay * leafBytes * retentionDays / 1000000000",
+        "display": [
+          {
+            "ref": "fanoutDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "leafBytes"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "retentionDays"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "cacheUsers",
+        "label": {
+          "ar": "يوزرز في الـ cache",
+          "en": "Users in cache"
+        },
+        "unit": {
+          "ar": "يوزر",
+          "en": "users"
+        },
+        "format": "count",
+        "expr": "dau * cacheUserPct / 100",
+        "display": [
+          {
+            "var": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "cacheUserPct"
+          },
+          {
+            "text": "%"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Posts/day = DAU × posts/user. Fanout writes = posts × avg followers.",
+        "en": "1) Posts/day = DAU × posts/user. Fanout writes = posts × avg followers."
+      },
+      {
+        "ar": "2) QPS = fanout/day ÷ 86400؛ peak × factor.",
+        "en": "2) QPS = fanout/day ÷ 86400; peak × factor."
+      },
+      {
+        "ar": "3) Storage = writes × leaf bytes × retention.",
+        "en": "3) Storage = writes × leaf bytes × retention."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "fanout-lag",
+      "title": {
+        "ar": "Fanout lag ساعتين",
+        "en": "Fanout lag of two hours"
+      },
+      "description": {
+        "ar": "الـ workers مش لاحقين. البوستات بتظهر متأخر. إيه الأولوية؟",
+        "en": "Workers cannot keep up. Posts appear late. What is the priority?"
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Serve stale cache بوضوح في المقاييس",
+          "en": "Serve stale cache with clear metrics"
+        },
+        {
+          "ar": "Scale workers وpause non-critical ranking",
+          "en": "Scale workers and pause non-critical ranking"
+        },
+        {
+          "ar": "Skip push للـ celebs فورًا",
+          "en": "Skip push for celebs immediately"
+        },
+        {
+          "ar": "Monitor freshness SLO",
+          "en": "Monitor freshness SLO"
+        }
+      ]
+    },
+    {
+      "id": "celeb-storm",
+      "title": {
+        "ar": "مشهور نزل بوست وقت حدث",
+        "en": "Celebrity posts during an event"
+      },
+      "description": {
+        "ar": "حساب عليه 50M متابع نشر. الـ queue بتولّع.",
+        "en": "An account with 50M followers posted. The queue is on fire."
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "حوّل الحساب لـ pull path",
+          "en": "Switch the account to pull path"
+        },
+        {
+          "ar": "Rate limit fanout jobs لنفس الـ actor",
+          "en": "Rate limit fanout jobs for the same actor"
+        },
+        {
+          "ar": "Pre-cache recent celeb posts",
+          "en": "Pre-cache recent celeb posts"
+        },
+        {
+          "ar": "Communicate status لو الـ freshness اتأثرت",
+          "en": "Communicate status if freshness is impacted"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "push-pull",
+      "question": {
+        "ar": "Fan-out: push ولا pull؟",
+        "en": "Fan-out: push or pull?"
+      },
+      "optionA": {
+        "ar": "Push (write)",
+        "en": "Push (write)"
+      },
+      "optionB": {
+        "ar": "Pull (read)",
+        "en": "Pull (read)"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "Hybrid هو الجواب العملي: push للعادي وpull للـ celebs.",
+        "en": "Hybrid is the practical answer: push for normal, pull for celebs."
+      },
+      "prosA": {
+        "ar": "Read سريع وبسيط",
+        "en": "Fast simple reads"
+      },
+      "consA": {
+        "ar": "Write amplification",
+        "en": "Write amplification"
+      },
+      "prosB": {
+        "ar": "مفيش write explosion",
+        "en": "No write explosion"
+      },
+      "consB": {
+        "ar": "Read أثقل وmerge أعقد",
+        "en": "Heavier reads and harder merge"
+      },
+      "whenOtherWins": {
+        "ar": "Pull لما توزيع المتابعين heavy-tailed جدًا.",
+        "en": "Pull when follower distribution is very heavy-tailed."
+      }
+    },
+    {
+      "id": "chrono-rank",
+      "question": {
+        "ar": "الترتيب: زمني ولا ranked؟",
+        "en": "Ordering: chronological or ranked?"
+      },
+      "optionA": {
+        "ar": "Chronological",
+        "en": "Chronological"
+      },
+      "optionB": {
+        "ar": "Ranked",
+        "en": "Ranked"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "ابدأ زمني لو الفريق صغير؛ ranked لما الـ engagement هدف.",
+        "en": "Start chronological if the team is small; ranked when engagement is the goal."
+      },
+      "prosA": {
+        "ar": "سهل التفسير والـ debug",
+        "en": "Easy to explain and debug"
+      },
+      "consA": {
+        "ar": "أقل engagement غالبًا",
+        "en": "Often less engagement"
+      },
+      "prosB": {
+        "ar": "أحسن engagement",
+        "en": "Better engagement"
+      },
+      "consB": {
+        "ar": "تعقيد وbias risks",
+        "en": "Complexity and bias risks"
+      },
+      "whenOtherWins": {
+        "ar": "Ranked لو الـ ads/discovery جزء من الـ product.",
+        "en": "Ranked if ads/discovery are part of the product."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "api",
+      "queue",
+      "worker",
+      "db",
+      "cache",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "read/write",
+          "en": "read/write"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "توزيع",
+          "en": "distribute"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "posts",
+          "en": "posts"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "fanout jobs",
+          "en": "fanout jobs"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "worker",
+        "label": {
+          "ar": "consume",
+          "en": "consume"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "cache",
+        "label": {
+          "ar": "timeline write",
+          "en": "timeline write"
+        }
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "label": {
+          "ar": "feed read",
+          "en": "feed read"
+        }
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": {
+          "ar": "hydrate",
+          "en": "hydrate"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 60
+      },
+      {
+        "type": "lb",
+        "x": 140,
+        "y": 60
+      },
+      {
+        "type": "api",
+        "x": 260,
+        "y": 60
+      },
+      {
+        "type": "db",
+        "x": 420,
+        "y": 20
+      },
+      {
+        "type": "queue",
+        "x": 260,
+        "y": 160
+      },
+      {
+        "type": "worker",
+        "x": 400,
+        "y": 160
+      },
+      {
+        "type": "cache",
+        "x": 520,
+        "y": 100
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 180
+      }
+    ],
+    "containers": [
+      {
+        "id": "ingest",
+        "label": {
+          "ar": "Publish path",
+          "en": "Publish path"
+        },
+        "x": 220,
+        "y": 10,
+        "w": 320,
+        "h": 220
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار الكتابة / النشر",
+        "en": "Write / publish path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "اليوزر بينشر بوست",
+            "en": "User publishes a post"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "الـ API يخزن البوست",
+            "en": "API stores the post"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "Job يتتحط على queue للـ fanout",
+            "en": "Fanout job enqueued"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Worker يستهلك الشغل",
+            "en": "Worker consumes the job"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Worker يكتب على timelines في الـ cache/store",
+            "en": "Worker writes follower timelines in cache/store"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار قراءة الـ Feed",
+        "en": "Feed read path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "اليوزر يفتح الـ home",
+            "en": "User opens home"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "API يطلب صفحة الـ timeline",
+            "en": "API requests a timeline page"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "قراءة IDs من cache/timeline",
+            "en": "Read IDs from cache/timeline"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Hydrate محتوى البوست من DB",
+            "en": "Hydrate post bodies from DB"
+          },
+          "nodes": [
+            "cache",
+            "db"
+          ],
+          "edgeKeys": [
+            "cache->db"
+          ],
+          "packet": {
+            "from": "cache",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "Merge celeb pull + filters وارجع",
+            "en": "Merge celeb pull + filters and return"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "Fanout workers متأخرين",
+            "en": "Fanout workers are lagging"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Monitoring يلتقط consumer lag",
+            "en": "Monitoring catches consumer lag"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "Serve stale cached feed",
+            "en": "Serve stale cached feed"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Scale workers / replay DLQ",
+            "en": "Scale workers / replay DLQ"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "بعد اللحاق: backfill timelines",
+            "en": "After catch-up: backfill timelines"
+          },
+          "nodes": [
+            "worker",
+            "cache"
+          ],
+          "edgeKeys": [
+            "worker->cache"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "cache"
+          }
+        }
+      ]
+    }
+  ]
+}

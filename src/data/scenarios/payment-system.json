@@ -1,0 +1,1866 @@
+{
+  "id": "payment-system",
+  "title": {
+    "ar": "نظام المدفوعات",
+    "en": "Payment System"
+  },
+  "description": {
+    "ar": "صمم نظام دفع مع ledger وidempotency وتكامل PSP",
+    "en": "Design a payment system with ledger, idempotency, and PSP integration"
+  },
+  "difficulty": {
+    "ar": "صعب",
+    "en": "Hard"
+  },
+  "estimatedTime": {
+    "ar": "50 دقيقة",
+    "en": "50 minutes"
+  },
+  "problemStatement": {
+    "ar": "صمم نظام مدفوعات لتطبيق تجارة. لازم authorize/capture، منع double-charge، ledger للمحاسبة، وrefunds. افترض تكامل مع PSP خارجي.",
+    "en": "Design a payments system for a commerce app. Need authorize/capture, no double-charge, an accounting ledger, and refunds. Assume an external PSP integration."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "طلبات دفع/يوم",
+        "en": "Payment intents/day"
+      },
+      "value": {
+        "ar": "10 مليون",
+        "en": "10 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "Peak factor",
+        "en": "Peak factor"
+      },
+      "value": {
+        "ar": "10×",
+        "en": "10×"
+      }
+    },
+    {
+      "label": {
+        "ar": "هدف authorize latency",
+        "en": "Authorize latency target"
+      },
+      "value": {
+        "ar": "< 1s p99",
+        "en": "< 1s p99"
+      }
+    },
+    {
+      "label": {
+        "ar": "Consistency",
+        "en": "Consistency"
+      },
+      "value": {
+        "ar": "مفيش double charge",
+        "en": "No double charge"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل التصميم: اسأل عن الـ scope واعمل حسبة.",
+        "en": "Before designing: clarify scope and estimate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن payment methods وauthorize/capture",
+            "en": "Asked about payment methods and authorize/capture"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ flow بيتغيّر تمامًا.",
+              "how": "اسأل: marketplace split؟ refunds؟ multi-currency؟",
+              "tradeoffs": "أكتر methods = أكتر PSPs.",
+              "examples": "Cards، wallets، BNPL.",
+              "mistakes": "خطأ: تفترض charge واحد sync وخلاص."
+            },
+            "en": {
+              "why": "The flow changes completely.",
+              "how": "Ask: marketplace split? refunds? multi-currency?",
+              "tradeoffs": "More methods = more PSPs.",
+              "examples": "Cards, wallets, BNPL.",
+              "mistakes": "Mistake: assuming one sync charge and done."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت TPS للـ authorize وpeak sales events",
+            "en": "Estimated authorize TPS and peak sales events"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hot paths وقت الحملات.",
+              "how": "Orders/day ÷ 86400 × peak.",
+              "tradeoffs": "Payment TPS أقل من browse بس أحرج.",
+              "examples": "Flash sale checkout spikes.",
+              "mistakes": "خطأ: sizing من average اليومي بس."
+            },
+            "en": {
+              "why": "Hot paths during campaigns.",
+              "how": "Orders/day ÷ 86400 × peak.",
+              "tradeoffs": "Payment TPS is lower than browse but more critical.",
+              "examples": "Flash sale checkout spikes.",
+              "mistakes": "Mistake: sizing from daily average only."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "وضّحت consistency: مفيش double charge أبدًا",
+            "en": "Clarified consistency: never double charge"
+          },
+          "detail": {
+            "ar": {
+              "why": "ده أقوى constraint في النظام.",
+              "how": "Idempotency key من العميل + ledger unique constraints.",
+              "tradeoffs": "Exactly-once عبر الشبكة مستحيل؛ exactly-once effect ممكن.",
+              "examples": "Stripe Idempotency-Key header.",
+              "mistakes": "خطأ: تقول 2PC على PSP خارجي."
+            },
+            "en": {
+              "why": "This is the system's strongest constraint.",
+              "how": "Client idempotency key + ledger unique constraints.",
+              "tradeoffs": "Exactly-once over the network is impossible; exactly-once effect is possible.",
+              "examples": "Stripe Idempotency-Key header.",
+              "mistakes": "Mistake: proposing 2PC with an external PSP."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "سألت عن ledger requirements وaudit",
+            "en": "Asked about ledger requirements and audit"
+          },
+          "detail": {
+            "ar": {
+              "why": "المحاسبة مش مجرد صف order.",
+              "how": "Double-entry، immutable entries، reconcile يومي.",
+              "tradeoffs": "Mutable balances من غير journal خطر.",
+              "examples": "Append-only ledger tables.",
+              "mistakes": "خطأ: UPDATE balance in place من غير journal."
+            },
+            "en": {
+              "why": "Accounting is not just an order row.",
+              "how": "Double-entry, immutable entries, daily reconcile.",
+              "tradeoffs": "Mutable balances without a journal are dangerous.",
+              "examples": "Append-only ledger tables.",
+              "mistakes": "Mistake: UPDATE balance in place without a journal."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف ledger، PSP integration، idempotency، وoutbox/saga.",
+        "en": "Describe ledger, PSP integration, idempotency, and outbox/saga."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 Client → LB → API → Ledger DB + Queue/Outbox → PSP + Worker",
+            "en": "📊 Client → LB → API → Ledger DB + Queue/Outbox → PSP + Worker"
+          },
+          "detail": {
+            "ar": {
+              "why": "فصل قرار الدفع عن التكامل الخارجي.",
+              "how": "API يكتب intent + outbox. Worker يكلّم PSP ويحدّث الحالة.",
+              "tradeoffs": "Sync PSP أبسط وأهش تحت الـ timeout.",
+              "examples": "Stripe-like intent model.",
+              "mistakes": "خطأ: charge في الـ request من غير idempotency store."
+            },
+            "en": {
+              "why": "Decouple payment decision from external integration.",
+              "how": "API writes intent + outbox. Worker calls PSP and updates state.",
+              "tradeoffs": "Sync PSP is simpler and more fragile under timeouts.",
+              "examples": "Stripe-like intent model.",
+              "mistakes": "Mistake: charging in-request without an idempotency store."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Idempotency keys مع تخزين الرد الأول",
+            "en": "Idempotency keys storing the first response"
+          },
+          "detail": {
+            "ar": {
+              "why": "Retries من الموبايل/الشبكة شائعة.",
+              "how": "Key → request hash + response. Conflict لو body مختلف.",
+              "tradeoffs": "TTL للـ keys بعد اكتمال آمن.",
+              "examples": "Stripe/PayPal idempotency.",
+              "mistakes": "خطأ: تعتمد على client وحده من غير server store."
+            },
+            "en": {
+              "why": "Mobile/network retries are common.",
+              "how": "Key → request hash + response. Conflict if body differs.",
+              "tradeoffs": "TTL keys after safe completion.",
+              "examples": "Stripe/PayPal idempotency.",
+              "mistakes": "Mistake: relying on the client alone without a server store."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Double-entry ledger: journal entries immutable",
+            "en": "Double-entry ledger: immutable journal entries"
+          },
+          "detail": {
+            "ar": {
+              "why": "Source of truth للمال.",
+              "how": "كل حركة = مدين/دائن. Balances views/materialized.",
+              "tradeoffs": "Strong consistency على الحساب الواحد.",
+              "examples": "Ledger services in fintech.",
+              "mistakes": "خطأ: تطبق saga من غير ledger append."
+            },
+            "en": {
+              "why": "Source of truth for money.",
+              "how": "Every movement = debit/credit. Balances as views/materialized.",
+              "tradeoffs": "Strong consistency per account.",
+              "examples": "Ledger services in fintech.",
+              "mistakes": "Mistake: applying saga without ledger append."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Saga/orchestration للـ capture/refund؛ مش 2PC عبر PSP",
+            "en": "Saga/orchestration for capture/refund; not 2PC across PSP"
+          },
+          "detail": {
+            "ar": {
+              "why": "PSP خارج حدود الـ transaction.",
+              "how": "States: requires_action → authorized → captured → settled.",
+              "tradeoffs": "Compensating refunds للـ failures الجزئية.",
+              "examples": "Order service + payment service saga.",
+              "mistakes": "خطأ: distributed 2PC على خدمات خارجية."
+            },
+            "en": {
+              "why": "PSP is outside your transaction boundary.",
+              "how": "States: requires_action → authorized → captured → settled.",
+              "tradeoffs": "Compensating refunds for partial failures.",
+              "examples": "Order service + payment service saga.",
+              "mistakes": "Mistake: distributed 2PC across external services."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "التوسّع والـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale مع double-entry ledger وhot merchants؟",
+        "en": "How do you scale with a double-entry ledger and hot merchants?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Shard ledger by account/merchant id",
+            "en": "Shard ledger by account/merchant id"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hot merchant يقدر يشبع DB.",
+              "how": "Hash sharding. Serialize per account.",
+              "tradeoffs": "Cross-account transfers أعقد.",
+              "examples": "Merchant-partitioned ledgers.",
+              "mistakes": "خطأ: ledger واحد global lock."
+            },
+            "en": {
+              "why": "A hot merchant can saturate the DB.",
+              "how": "Hash sharding. Serialize per account.",
+              "tradeoffs": "Cross-account transfers are harder.",
+              "examples": "Merchant-partitioned ledgers.",
+              "mistakes": "Mistake: one global ledger lock."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "PSP connection pools + regional endpoints",
+            "en": "PSP connection pools + regional endpoints"
+          },
+          "detail": {
+            "ar": {
+              "why": "Timeouts بتزيد تحت الضغط.",
+              "how": "Limit concurrency. Circuit breakers.",
+              "tradeoffs": "أقل concurrency = طوابير أطول.",
+              "examples": "Per-PSP worker pools.",
+              "mistakes": "خطأ: unlimited parallel authorize."
+            },
+            "en": {
+              "why": "Timeouts rise under pressure.",
+              "how": "Limit concurrency. Circuit breakers.",
+              "tradeoffs": "Lower concurrency = longer queues.",
+              "examples": "Per-PSP worker pools.",
+              "mistakes": "Mistake: unlimited parallel authorize."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Read replicas للـ reporting مش للـ authorize path",
+            "en": "Read replicas for reporting not authorize path"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ authorize محتاج primary.",
+              "how": "OLTP vs OLAP فصل.",
+              "tradeoffs": "Replica lag يفسد التقارير اللحظية.",
+              "examples": "Warehouse ETL من ledger.",
+              "mistakes": "خطأ: authorize على replica."
+            },
+            "en": {
+              "why": "Authorize needs primary.",
+              "how": "Separate OLTP vs OLAP.",
+              "tradeoffs": "Replica lag spoils realtime reports.",
+              "examples": "Warehouse ETL from ledger.",
+              "mistakes": "Mistake: authorizing against a replica."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ SLOs",
+        "en": "Monitoring & SLOs"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "SLIs: authorize p99، reconcile lag، chargeback rate.",
+        "en": "SLIs: authorize p99, reconcile lag, chargeback rate."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "SLO: authorize p99 < 1s، success rate عالية",
+            "en": "SLO: authorize p99 < 1s, high success rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "Checkout حساس.",
+              "how": "Split metrics by PSP/method.",
+              "tradeoffs": "PSP variance خارجية.",
+              "examples": "Synthetic checkout probes.",
+              "mistakes": "خطأ: متوسط latency يخفي PSP واحد وحش."
+            },
+            "en": {
+              "why": "Checkout is sensitive.",
+              "how": "Split metrics by PSP/method.",
+              "tradeoffs": "External PSP variance.",
+              "examples": "Synthetic checkout probes.",
+              "mistakes": "Mistake: average latency hiding one bad PSP."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Reconcile lag وimbalance alerts",
+            "en": "Reconcile lag and imbalance alerts"
+          },
+          "detail": {
+            "ar": {
+              "why": "الفلوس لازم تتطابق مع PSP reports.",
+              "how": "Daily/hourly reconcile jobs + pages.",
+              "tradeoffs": "Noise من timing differences.",
+              "examples": "Automated reconcile pipelines.",
+              "mistakes": "خطأ: reconcile يدوي أسبوعي بس."
+            },
+            "en": {
+              "why": "Money must match PSP reports.",
+              "how": "Daily/hourly reconcile jobs + pages.",
+              "tradeoffs": "Noise from timing differences.",
+              "examples": "Automated reconcile pipelines.",
+              "mistakes": "Mistake: only weekly manual reconcile."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Fraud score / velocity alerts",
+            "en": "Fraud score / velocity alerts"
+          },
+          "detail": {
+            "ar": {
+              "why": "Abuse يكلّف chargebacks.",
+              "how": "Velocity per card/device/account.",
+              "tradeoffs": "False positives تخسر مبيعات.",
+              "examples": "Rules + ML hybrid.",
+              "mistakes": "خطأ: مفيش velocity caps."
+            },
+            "en": {
+              "why": "Abuse costs chargebacks.",
+              "how": "Velocity per card/device/account.",
+              "tradeoffs": "False positives lose sales.",
+              "examples": "Rules + ML hybrid.",
+              "mistakes": "Mistake: no velocity caps."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات والـ Failure Modes",
+        "en": "Bottlenecks & Failure Modes"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "PSP outages، duplicate charges، ledger imbalance.",
+        "en": "PSP outages, duplicate charges, ledger imbalance."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "PSP outage أو latency spike",
+            "en": "PSP outage or latency spike"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ dependency الأكبر.",
+              "how": "Failover PSP، queue captures، clear UX.",
+              "tradeoffs": "Multi-PSP يعقّد reconcile.",
+              "examples": "Payment router.",
+              "mistakes": "خطأ: يوزر يشوف spinner من غير حالة."
+            },
+            "en": {
+              "why": "The biggest dependency.",
+              "how": "Failover PSP, queue captures, clear UX.",
+              "tradeoffs": "Multi-PSP complicates reconcile.",
+              "examples": "Payment router.",
+              "mistakes": "Mistake: user sees a spinner with no state."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Duplicate charge من retries",
+            "en": "Duplicate charge from retries"
+          },
+          "detail": {
+            "ar": {
+              "why": "أسوأ failure mode.",
+              "how": "Idempotency + PSP keys + ledger uniqueness.",
+              "tradeoffs": "Over-strict keys ممكن تمنع retries شرعية.",
+              "examples": "Safe retry design.",
+              "mistakes": "خطأ: retry POST من غير key."
+            },
+            "en": {
+              "why": "Worst failure mode.",
+              "how": "Idempotency + PSP keys + ledger uniqueness.",
+              "tradeoffs": "Over-strict keys can block legit retries.",
+              "examples": "Safe retry design.",
+              "mistakes": "Mistake: retrying POST without a key."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Hot merchant flash sale lock contention",
+            "en": "Hot merchant flash sale lock contention"
+          },
+          "detail": {
+            "ar": {
+              "why": "صف واحد بيتضرب بقوة.",
+              "how": "Per-intent rows، avoid single balance row hotspot، queue.",
+              "tradeoffs": "أقوى serialization = أقل TPS.",
+              "examples": "Intent sharding tricks.",
+              "mistakes": "خطأ: SELECT FOR UPDATE على merchant balance لكل الدفعات."
+            },
+            "en": {
+              "why": "One row gets hammered.",
+              "how": "Per-intent rows, avoid single balance-row hotspot, queue.",
+              "tradeoffs": "Stronger serialization = lower TPS.",
+              "examples": "Intent sharding tricks.",
+              "mistakes": "Mistake: SELECT FOR UPDATE on merchant balance for every payment."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "المقايضات المهمة",
+        "en": "Key Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "المقايضات",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "Saga vs 2PC، وauthorization vs capture.",
+        "en": "Saga vs 2PC, and authorization vs capture."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Saga vs 2PC",
+            "en": "Saga vs 2PC"
+          },
+          "detail": {
+            "ar": {
+              "why": "الواقعية عبر خدمات/PSP.",
+              "how": "Saga + compensations هي الافتراضي.",
+              "tradeoffs": "2PC نادر ومش مع PSP.",
+              "examples": "Orchestated payment sagas.",
+              "mistakes": "خطأ: 2PC كجواب افتراضي في المقابلة."
+            },
+            "en": {
+              "why": "Practicality across services/PSP.",
+              "how": "Saga + compensations is the default.",
+              "tradeoffs": "2PC is rare and not with PSPs.",
+              "examples": "Orchestrated payment sagas.",
+              "mistakes": "Mistake: 2PC as the default interview answer."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Auth+capture منفصل vs sale واحدة",
+            "en": "Separate auth+capture vs single sale"
+          },
+          "detail": {
+            "ar": {
+              "why": "المرونة vs البساطة.",
+              "how": "Auth+capture للـ inventory hold. Sale للـ digital الفوري.",
+              "tradeoffs": "Auth+capture states أكتر.",
+              "examples": "Card-not-present flows.",
+              "mistakes": "خطأ: capture فوري قبل تأكيد المخزون."
+            },
+            "en": {
+              "why": "Flexibility vs simplicity.",
+              "how": "Auth+capture for inventory hold. Sale for instant digital.",
+              "tradeoffs": "Auth+capture has more states.",
+              "examples": "Card-not-present flows.",
+              "mistakes": "Mistake: immediate capture before inventory confirmation."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "In-house ledger vs PSP as source of truth",
+            "en": "In-house ledger vs PSP as source of truth"
+          },
+          "detail": {
+            "ar": {
+              "why": "السيطرة vs السرعة.",
+              "how": "Ledger داخلي ضروري لأي محفظة/marketplace.",
+              "tradeoffs": "Ledger داخلي مسؤولية ثقيلة.",
+              "examples": "Fintech ledgers.",
+              "mistakes": "خطأ: تعتمد على PSP dashboard كـ SoT وحيد."
+            },
+            "en": {
+              "why": "Control vs speed.",
+              "how": "Internal ledger is required for wallets/marketplaces.",
+              "tradeoffs": "Internal ledger is a heavy responsibility.",
+              "examples": "Fintech ledgers.",
+              "mistakes": "Mistake: relying on PSP dashboard as sole SoT."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "أسئلة متابعة",
+        "en": "Follow-up Questions"
+      },
+      "shortTitle": {
+        "ar": "متابعة",
+        "en": "Follow-up"
+      },
+      "prompt": {
+        "ar": "Idempotency keys وexactly-once effects.",
+        "en": "Idempotency keys and exactly-once effects."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Refunds وpartial capture",
+            "en": "Refunds and partial capture"
+          },
+          "detail": {
+            "ar": {
+              "why": "حالات تجارية كثيرة.",
+              "how": "New ledger entries، مش تعديل قديم. Link to original.",
+              "tradeoffs": "Partial أعقد في الرسوم.",
+              "examples": "Refund intents.",
+              "mistakes": "خطأ: DELETE/UPDATE لحركة مالية قديمة."
+            },
+            "en": {
+              "why": "Many business cases.",
+              "how": "New ledger entries, not editing old ones. Link to original.",
+              "tradeoffs": "Partial is harder with fees.",
+              "examples": "Refund intents.",
+              "mistakes": "Mistake: DELETE/UPDATE of an old money movement."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Exactly-once effect عمليًا",
+            "en": "Practical exactly-once effect"
+          },
+          "detail": {
+            "ar": {
+              "why": "مهم توضح الفرق عن network exactly-once.",
+              "how": "Idempotent handlers + unique constraints + outbox.",
+              "tradeoffs": "مش سهل عبر كل الأنظمة الخارجية.",
+              "examples": "Outbox + inbox pattern.",
+              "mistakes": "خطأ: تعد exactly-once من غير آلية."
+            },
+            "en": {
+              "why": "Important to distinguish from network exactly-once.",
+              "how": "Idempotent handlers + unique constraints + outbox.",
+              "tradeoffs": "Not easy across all external systems.",
+              "examples": "Outbox + inbox pattern.",
+              "mistakes": "Mistake: promising exactly-once with no mechanism."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Multi-currency وFX fees",
+            "en": "Multi-currency and FX fees"
+          },
+          "detail": {
+            "ar": {
+              "why": "Ledger accounts per currency.",
+              "how": "لا تخلط العملات في حساب واحد.",
+              "tradeoffs": "FX يزوّد reconcile complexity.",
+              "examples": "Currency-partitioned books.",
+              "mistakes": "خطأ: float واحد لكل العملات."
+            },
+            "en": {
+              "why": "Ledger accounts per currency.",
+              "how": "Do not mix currencies in one account.",
+              "tradeoffs": "FX increases reconcile complexity.",
+              "examples": "Currency-partitioned books.",
+              "mistakes": "Mistake: one float for all currencies."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "تكلفة PSP fees مقابل infra.",
+        "en": "PSP fees vs infra cost."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "PSP fees >> infra عادة",
+            "en": "PSP fees >> infra usually"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ take rate هو البند الأكبر.",
+              "how": "قدّر GMV × fee. Infra ثانوي.",
+              "tradeoffs": "Routing أرخص PSP يزيد المخاطر.",
+              "examples": "Interchange++ pricing.",
+              "mistakes": "خطأ: تركّز على EC2 وتنسى fees."
+            },
+            "en": {
+              "why": "Take rate is the biggest line item.",
+              "how": "Estimate GMV × fee. Infra is secondary.",
+              "tradeoffs": "Routing to cheaper PSP increases risk.",
+              "examples": "Interchange++ pricing.",
+              "mistakes": "Mistake: focusing on EC2 and forgetting fees."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Idempotency/ledger storage نموّه مع الدفعات",
+            "en": "Idempotency/ledger storage grows with payments"
+          },
+          "detail": {
+            "ar": {
+              "why": "Append-only يكبر.",
+              "how": "Partition by month. Hot/cold storage.",
+              "tradeoffs": "أرشفة بحذر مع قيود قانونية.",
+              "examples": "Monthly ledger tables.",
+              "mistakes": "خطأ: جدول واحد بلا نهاية."
+            },
+            "en": {
+              "why": "Append-only grows.",
+              "how": "Partition by month. Hot/cold storage.",
+              "tradeoffs": "Archive carefully under legal constraints.",
+              "examples": "Monthly ledger tables.",
+              "mistakes": "Mistake: one endless table."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Fraud tools تكلفة vs chargeback savings",
+            "en": "Fraud tools cost vs chargeback savings"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم ROI واضح.",
+              "how": "Measure prevented loss vs false-positive lost sales.",
+              "tradeoffs": "Vendor fraud tools غالية.",
+              "examples": "3DS selective.",
+              "mistakes": "خطأ: 3DS على كل عملية صغيرة."
+            },
+            "en": {
+              "why": "Need clear ROI.",
+              "how": "Measure prevented loss vs false-positive lost sales.",
+              "tradeoffs": "Vendor fraud tools are expensive.",
+              "examples": "Selective 3DS.",
+              "mistakes": "Mistake: 3DS on every tiny payment."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Compliance (Staff)",
+        "en": "Security & Compliance (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "PCI scope، tokenization، fraud.",
+        "en": "PCI scope, tokenization, fraud."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "قلّل PCI scope عبر tokenization/PSP elements",
+            "en": "Reduce PCI scope via tokenization/PSP elements"
+          },
+          "detail": {
+            "ar": {
+              "why": "PCI ثقيل جدًا.",
+              "how": "Hosted fields / token vault. متخزنش PAN.",
+              "tradeoffs": "In-house card data نادرًا يستاهل.",
+              "examples": "Stripe Elements / Braintree.",
+              "mistakes": "خطأ: تخزن أرقام كروت في DB التطبيق."
+            },
+            "en": {
+              "why": "PCI is very heavy.",
+              "how": "Hosted fields / token vault. Do not store PAN.",
+              "tradeoffs": "In-house card data rarely worth it.",
+              "examples": "Stripe Elements / Braintree.",
+              "mistakes": "Mistake: storing card numbers in the app DB."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "HSM/KMS للـ secrets وتوقيع webhooks",
+            "en": "HSM/KMS for secrets and webhook signing"
+          },
+          "detail": {
+            "ar": {
+              "why": "المفاتيح هي التاج.",
+              "how": "Rotate. Verify PSP signatures.",
+              "tradeoffs": "Ops overhead.",
+              "examples": "KMS-managed secrets.",
+              "mistakes": "خطأ: webhook من غير signature check."
+            },
+            "en": {
+              "why": "Keys are the crown.",
+              "how": "Rotate. Verify PSP signatures.",
+              "tradeoffs": "Ops overhead.",
+              "examples": "KMS-managed secrets.",
+              "mistakes": "Mistake: webhook without signature check."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Least privilege بين order وpayment وledger",
+            "en": "Least privilege between order, payment, and ledger"
+          },
+          "detail": {
+            "ar": {
+              "why": "Blast radius.",
+              "how": "خدمات منفصلة وصلاحيات ضيقة.",
+              "tradeoffs": "Microservices تزيد latencies.",
+              "examples": "Service authz matrix.",
+              "mistakes": "خطأ: خدمة واحدة تقدر تعمل refund بلا قيود."
+            },
+            "en": {
+              "why": "Blast radius.",
+              "how": "Separate services and narrow permissions.",
+              "tradeoffs": "Microservices add latencies.",
+              "examples": "Service authz matrix.",
+              "mistakes": "Mistake: one service able to refund without constraints."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "DR للـ ledger وRPO≈0 practically.",
+        "en": "Ledger DR and near-zero RPO."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "RPO≈0 للـ ledger عبر sync replication",
+            "en": "Near-zero RPO for ledger via sync replication"
+          },
+          "detail": {
+            "ar": {
+              "why": "فقدان قيود مالية كارثة.",
+              "how": "Multi-AZ sync. Backups + PITR.",
+              "tradeoffs": "Sync replication يأثر على latency.",
+              "examples": "Aurora/Postgres sync standbys.",
+              "mistakes": "خطأ: async فقط على ledger من غير قبول المخاطر."
+            },
+            "en": {
+              "why": "Losing financial postings is catastrophic.",
+              "how": "Multi-AZ sync. Backups + PITR.",
+              "tradeoffs": "Sync replication affects latency.",
+              "examples": "Aurora/Postgres sync standbys.",
+              "mistakes": "Mistake: async-only ledger without accepting the risk."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Runbook: PSP down → queue & reconcile later",
+            "en": "Runbook: PSP down → queue & reconcile later"
+          },
+          "detail": {
+            "ar": {
+              "why": "الحالة لازم تفضل صحيحة.",
+              "how": "Accept intents، delayed capture، customer messaging.",
+              "tradeoffs": "بعض البيزنس مش يقدر يأجّل.",
+              "examples": "Degraded checkout modes.",
+              "mistakes": "خطأ: تفشل الطلب من غير حفظ intent."
+            },
+            "en": {
+              "why": "State must stay correct.",
+              "how": "Accept intents, delayed capture, customer messaging.",
+              "tradeoffs": "Some businesses cannot delay.",
+              "examples": "Degraded checkout modes.",
+              "mistakes": "Mistake: failing the order without saving intent."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "GameDay: replay webhooks وidempotent apply",
+            "en": "GameDay: replay webhooks and idempotent apply"
+          },
+          "detail": {
+            "ar": {
+              "why": "Webhooks بتتكرر.",
+              "how": "Inbox dedupe table. Rehearse replay.",
+              "tradeoffs": "وقت للتمارين.",
+              "examples": "Webhook replay tools.",
+              "mistakes": "خطأ: أول replay في حادثة حقيقية يكرر capture."
+            },
+            "en": {
+              "why": "Webhooks repeat.",
+              "how": "Inbox dedupe table. Rehearse replay.",
+              "tradeoffs": "Time for drills.",
+              "examples": "Webhook replay tools.",
+              "mistakes": "Mistake: first replay in a real incident double-captures."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "variables": [
+      {
+        "id": "intentsDay",
+        "label": {
+          "ar": "Intents/يوم",
+          "en": "Intents/day"
+        },
+        "unit": {
+          "ar": "عملية",
+          "en": "intents"
+        },
+        "default": 10000000,
+        "role": "input"
+      },
+      {
+        "id": "avgTicket",
+        "label": {
+          "ar": "متوسط قيمة العملية",
+          "en": "Avg ticket $"
+        },
+        "unit": {
+          "ar": "$",
+          "en": "$"
+        },
+        "default": 40,
+        "role": "input"
+      },
+      {
+        "id": "pspFeePct",
+        "label": {
+          "ar": "نسبة رسوم PSP",
+          "en": "PSP fee %"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 2.5,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 10,
+        "role": "assumption",
+        "range": {
+          "goodMin": 5,
+          "goodMax": 15,
+          "okMin": 3,
+          "okMax": 25
+        },
+        "rangeHint": {
+          "ar": "Flash sales غالبًا ٥–١٥×.",
+          "en": "Flash sales are often 5–15×."
+        }
+      },
+      {
+        "id": "idemBytes",
+        "label": {
+          "ar": "بايت سجل idempotency",
+          "en": "Idempotency record bytes"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 500,
+        "role": "assumption",
+        "range": {
+          "goodMin": 200,
+          "goodMax": 1000,
+          "okMin": 100,
+          "okMax": 2000
+        },
+        "rangeHint": {
+          "ar": "سجل الرد عادة مئات البايت.",
+          "en": "A response record is usually hundreds of bytes."
+        }
+      },
+      {
+        "id": "idemDays",
+        "label": {
+          "ar": "أيام الاحتفاظ بالـ idempotency",
+          "en": "Idempotency retention days"
+        },
+        "unit": {
+          "ar": "يوم",
+          "en": "days"
+        },
+        "default": 30,
+        "role": "assumption",
+        "range": {
+          "goodMin": 14,
+          "goodMax": 45,
+          "okMin": 7,
+          "okMax": 90
+        },
+        "rangeHint": {
+          "ar": "١٤–٤٥ يوم شائع للمفاتيح.",
+          "en": "14–45 days is common for keys."
+        }
+      },
+      {
+        "id": "ledgerBytes",
+        "label": {
+          "ar": "بايت لكل قيد",
+          "en": "Bytes per ledger entry"
+        },
+        "unit": {
+          "ar": "B",
+          "en": "B"
+        },
+        "default": 300,
+        "role": "assumption",
+        "range": {
+          "goodMin": 150,
+          "goodMax": 600,
+          "okMin": 100,
+          "okMax": 1200
+        },
+        "rangeHint": {
+          "ar": "قيد محاسبي مضغوط غالبًا ١٥٠–٦٠٠ بايت.",
+          "en": "A compact ledger entry is often 150–600 bytes."
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "id": "avgTps",
+        "label": {
+          "ar": "متوسط TPS",
+          "en": "Average TPS"
+        },
+        "unit": {
+          "ar": "عملية/ث",
+          "en": "tps"
+        },
+        "format": "qps",
+        "expr": "intentsDay / 86400",
+        "display": [
+          {
+            "var": "intentsDay"
+          },
+          {
+            "text": " ÷ 86400"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "peakTps",
+        "label": {
+          "ar": "Peak TPS",
+          "en": "Peak TPS"
+        },
+        "unit": {
+          "ar": "عملية/ث",
+          "en": "tps"
+        },
+        "format": "qps",
+        "expr": "avgTps * peakFactor",
+        "display": [
+          {
+            "ref": "avgTps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "gmvDay",
+        "label": {
+          "ar": "GMV/يوم",
+          "en": "GMV/day"
+        },
+        "unit": {
+          "ar": "$",
+          "en": "$"
+        },
+        "format": "count",
+        "expr": "intentsDay * avgTicket",
+        "display": [
+          {
+            "var": "intentsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "avgTicket"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "pspFeesDay",
+        "label": {
+          "ar": "رسوم PSP/يوم",
+          "en": "PSP fees/day"
+        },
+        "unit": {
+          "ar": "$",
+          "en": "$"
+        },
+        "format": "count",
+        "expr": "gmvDay * pspFeePct / 100",
+        "display": [
+          {
+            "ref": "gmvDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "pspFeePct"
+          },
+          {
+            "text": "%"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "idemStorage",
+        "label": {
+          "ar": "تخزين idempotency",
+          "en": "Idempotency storage"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "intentsDay * idemDays * idemBytes / 1000000000",
+        "display": [
+          {
+            "var": "intentsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "idemDays"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "idemBytes"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      },
+      {
+        "id": "ledgerDay",
+        "label": {
+          "ar": "تخزين قيود/يوم",
+          "en": "Ledger storage/day"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "format": "storage",
+        "expr": "intentsDay * 4 * ledgerBytes / 1000000000",
+        "display": [
+          {
+            "var": "intentsDay"
+          },
+          {
+            "text": " × 4 × "
+          },
+          {
+            "var": "ledgerBytes"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) TPS = intents/day ÷ 86400؛ peak × factor.",
+        "en": "1) TPS = intents/day ÷ 86400; peak × factor."
+      },
+      {
+        "ar": "2) GMV = intents × ticket؛ fees = GMV × fee%.",
+        "en": "2) GMV = intents × ticket; fees = GMV × fee%."
+      },
+      {
+        "ar": "3) Storage من idempotency retention وledger entries.",
+        "en": "3) Storage from idempotency retention and ledger entries."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "psp-timeout",
+      "title": {
+        "ar": "PSP timeouts",
+        "en": "PSP timeouts"
+      },
+      "description": {
+        "ar": "نصف طلبات الـ authorize بتـ timeout. مش عارفين اتخصم ولا لأ.",
+        "en": "Half of authorize calls time out. Unclear whether charged."
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "لا تعمل charge جديد — استعلم بالـ idempotency/PSP id",
+          "en": "Do not create a new charge — query by idempotency/PSP id"
+        },
+        {
+          "ar": "علّق الطلبات في حالة pending",
+          "en": "Park orders in pending state"
+        },
+        {
+          "ar": "Circuit breaker + failover",
+          "en": "Circuit breaker + failover"
+        },
+        {
+          "ar": "Reconcile job عاجل",
+          "en": "Urgent reconcile job"
+        }
+      ]
+    },
+    {
+      "id": "ledger-imbalance",
+      "title": {
+        "ar": "Ledger imbalance",
+        "en": "Ledger imbalance"
+      },
+      "description": {
+        "ar": "Reconcile لقى فرق بين مجموع القيود وتقرير PSP.",
+        "en": "Reconcile found a gap between ledger totals and PSP report."
+      },
+      "afterStage": "monitoring",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Freeze payouts لو لازم",
+          "en": "Freeze payouts if needed"
+        },
+        {
+          "ar": "اقفل على intents المشكوك فيها",
+          "en": "Lock suspected intents"
+        },
+        {
+          "ar": "Replay webhooks بحذر",
+          "en": "Replay webhooks carefully"
+        },
+        {
+          "ar": "Incident with finance",
+          "en": "Incident with finance"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "saga-2pc",
+      "question": {
+        "ar": "التنسيق: Saga ولا 2PC؟",
+        "en": "Coordination: Saga or 2PC?"
+      },
+      "optionA": {
+        "ar": "Saga",
+        "en": "Saga"
+      },
+      "optionB": {
+        "ar": "2PC",
+        "en": "2PC"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "Saga هي الإجابة الصحيحة عبر PSP/services.",
+        "en": "Saga is the right answer across PSP/services."
+      },
+      "prosA": {
+        "ar": "يناسب الأنظمة الموزعة",
+        "en": "Fits distributed systems"
+      },
+      "consA": {
+        "ar": "حالات تعويض معقدة",
+        "en": "Complex compensations"
+      },
+      "prosB": {
+        "ar": "قوي نظريًا داخل DB واحد",
+        "en": "Theoretically strong inside one DB"
+      },
+      "consB": {
+        "ar": "لا يعمل مع PSP خارجي",
+        "en": "Does not work with external PSP"
+      },
+      "whenOtherWins": {
+        "ar": "2PC فقط داخل نظام مغلق نادرًا ما يظهر هنا.",
+        "en": "2PC only inside a closed system, rarely applicable here."
+      }
+    },
+    {
+      "id": "auth-capture",
+      "question": {
+        "ar": "Sale فوري ولا auth ثم capture؟",
+        "en": "Immediate sale or auth then capture?"
+      },
+      "optionA": {
+        "ar": "Auth + capture",
+        "en": "Auth + capture"
+      },
+      "optionB": {
+        "ar": "Immediate sale",
+        "en": "Immediate sale"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "يعتمد على المخزون والمخاطر.",
+        "en": "Depends on inventory and risk."
+      },
+      "prosA": {
+        "ar": "مرونة قبل الشحن",
+        "en": "Flexibility before shipping"
+      },
+      "consA": {
+        "ar": "حالات أكتر",
+        "en": "More states"
+      },
+      "prosB": {
+        "ar": "أبسط",
+        "en": "Simpler"
+      },
+      "consB": {
+        "ar": "صعب تلغي بعد الخصم",
+        "en": "Harder to undo after charge"
+      },
+      "whenOtherWins": {
+        "ar": "Sale فوري للخدمات الرقمية الفورية.",
+        "en": "Immediate sale for instant digital goods."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "api",
+      "db",
+      "queue",
+      "worker",
+      "dlq",
+      "cache",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "pay",
+          "en": "pay"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "intent",
+          "en": "intent"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "ledger/idem",
+          "en": "ledger/idem"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "outbox",
+          "en": "outbox"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "worker",
+        "label": {
+          "ar": "PSP call",
+          "en": "PSP call"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "db",
+        "label": {
+          "ar": "settle",
+          "en": "settle"
+        }
+      },
+      {
+        "from": "worker",
+        "to": "dlq",
+        "label": {
+          "ar": "poison",
+          "en": "poison"
+        }
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "label": {
+          "ar": "idem cache",
+          "en": "idem cache"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 60
+      },
+      {
+        "type": "lb",
+        "x": 140,
+        "y": 60
+      },
+      {
+        "type": "api",
+        "x": 260,
+        "y": 60
+      },
+      {
+        "type": "db",
+        "x": 420,
+        "y": 40
+      },
+      {
+        "type": "cache",
+        "x": 420,
+        "y": 120
+      },
+      {
+        "type": "queue",
+        "x": 260,
+        "y": 180
+      },
+      {
+        "type": "worker",
+        "x": 400,
+        "y": 180
+      },
+      {
+        "type": "dlq",
+        "x": 540,
+        "y": 180
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 180
+      }
+    ],
+    "containers": [
+      {
+        "id": "money",
+        "label": {
+          "ar": "Money plane",
+          "en": "Money plane"
+        },
+        "x": 230,
+        "y": 20,
+        "w": 360,
+        "h": 220
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "write",
+      "title": {
+        "ar": "مسار الدفع",
+        "en": "Payment path"
+      },
+      "steps": [
+        {
+          "id": "w1",
+          "caption": {
+            "ar": "العميل يبدأ الدفع",
+            "en": "Client starts payment"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "w2",
+          "caption": {
+            "ar": "API يتحقق من Idempotency-Key",
+            "en": "API checks Idempotency-Key"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "w3",
+          "caption": {
+            "ar": "كتابة intent في الـ ledger/DB",
+            "en": "Write intent to ledger/DB"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "w4",
+          "caption": {
+            "ar": "Outbox ينزل على الـ queue",
+            "en": "Outbox published to queue"
+          },
+          "nodes": [
+            "api",
+            "queue"
+          ],
+          "edgeKeys": [
+            "api->queue"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "queue"
+          }
+        },
+        {
+          "id": "w5",
+          "caption": {
+            "ar": "Worker يكلّم PSP ويسجّل النتيجة",
+            "en": "Worker calls PSP and records result"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "w6",
+          "caption": {
+            "ar": "Settle في الـ ledger",
+            "en": "Settle in the ledger"
+          },
+          "nodes": [
+            "worker",
+            "db"
+          ],
+          "edgeKeys": [
+            "worker->db"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "title": {
+        "ar": "مسار حالة الدفع",
+        "en": "Payment status path"
+      },
+      "steps": [
+        {
+          "id": "r1",
+          "caption": {
+            "ar": "العميل يسأل عن حالة الدفع",
+            "en": "Client asks for payment status"
+          },
+          "nodes": [
+            "client",
+            "lb"
+          ],
+          "edgeKeys": [
+            "client->lb"
+          ],
+          "packet": {
+            "from": "client",
+            "to": "lb"
+          }
+        },
+        {
+          "id": "r2",
+          "caption": {
+            "ar": "API يقرأ من DB/cache",
+            "en": "API reads DB/cache"
+          },
+          "nodes": [
+            "lb",
+            "api"
+          ],
+          "edgeKeys": [
+            "lb->api"
+          ],
+          "packet": {
+            "from": "lb",
+            "to": "api"
+          }
+        },
+        {
+          "id": "r3",
+          "caption": {
+            "ar": "Idempotent replay لنفس المفتاح يرجع نفس الرد",
+            "en": "Idempotent replay of same key returns same response"
+          },
+          "nodes": [
+            "api",
+            "cache"
+          ],
+          "edgeKeys": [
+            "api->cache"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "cache"
+          }
+        },
+        {
+          "id": "r4",
+          "caption": {
+            "ar": "Ledger هو المصدر للحالة المالية",
+            "en": "Ledger is source for money state"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        },
+        {
+          "id": "r5",
+          "caption": {
+            "ar": "Monitoring يطابق PSP webhooks",
+            "en": "Monitoring matches PSP webhooks"
+          },
+          "nodes": [
+            "worker",
+            "db"
+          ],
+          "edgeKeys": [
+            "worker->db"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "db"
+          }
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "title": {
+        "ar": "مسار الفشل",
+        "en": "Failure / fallback"
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "caption": {
+            "ar": "PSP timeout",
+            "en": "PSP timeout"
+          },
+          "nodes": [
+            "worker",
+            "db"
+          ],
+          "edgeKeys": [
+            "worker->db"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "db"
+          }
+        },
+        {
+          "id": "f2",
+          "caption": {
+            "ar": "Retry بحذر مع نفس المفاتيح",
+            "en": "Careful retry with same keys"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f3",
+          "caption": {
+            "ar": "بعد N: DLQ + reconcile",
+            "en": "After N: DLQ + reconcile"
+          },
+          "nodes": [
+            "worker",
+            "dlq"
+          ],
+          "edgeKeys": [
+            "worker->dlq"
+          ],
+          "packet": {
+            "from": "worker",
+            "to": "dlq"
+          }
+        },
+        {
+          "id": "f4",
+          "caption": {
+            "ar": "Failover PSP إن أمكن",
+            "en": "Failover PSP if possible"
+          },
+          "nodes": [
+            "queue",
+            "worker"
+          ],
+          "edgeKeys": [
+            "queue->worker"
+          ],
+          "packet": {
+            "from": "queue",
+            "to": "worker"
+          }
+        },
+        {
+          "id": "f5",
+          "caption": {
+            "ar": "لا تكرر charge — افحص idem/ledger أولًا",
+            "en": "Do not double charge — check idem/ledger first"
+          },
+          "nodes": [
+            "api",
+            "db"
+          ],
+          "edgeKeys": [
+            "api->db"
+          ],
+          "packet": {
+            "from": "api",
+            "to": "db"
+          }
+        }
+      ]
+    }
+  ]
+}

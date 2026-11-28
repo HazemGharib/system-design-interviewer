@@ -1827,7 +1827,8 @@
       "related": [
         "outbox",
         "saga",
-        "dlq"
+        "dlq",
+        "idempotency-key"
       ]
     },
     {
@@ -2772,7 +2773,8 @@
       "related": [
         "token-bucket",
         "leaky-bucket",
-        "load-shedding"
+        "load-shedding",
+        "sliding-window"
       ]
     },
     {
@@ -2808,7 +2810,8 @@
       },
       "related": [
         "rate-limiting",
-        "leaky-bucket"
+        "leaky-bucket",
+        "sliding-window"
       ]
     },
     {
@@ -4146,6 +4149,153 @@
       "related": [
         "observability",
         "stream-processing"
+      ]
+    },
+    {
+      "id": "sliding-window",
+      "category": "resilience",
+      "name": {
+        "ar": "Sliding Window",
+        "en": "Sliding Window"
+      },
+      "short": {
+        "ar": "عدّ الطلبات داخل نافذة زمنية متحركة بدل buckets ثابتة.",
+        "en": "Count requests inside a moving time window instead of fixed buckets."
+      },
+      "definition": {
+        "ar": "خوارزمية rate limiting بتحسب النشاط خلال آخر N ثانية/دقيقة بدقة أعلى من fixed window.",
+        "en": "A rate-limiting algorithm that measures activity over the last N seconds/minutes more accurately than a fixed window."
+      },
+      "when": {
+        "ar": "لما حدود الـ API محتاجة دقة أعلى وتقلل boundary bursts.",
+        "en": "When API quotas need higher accuracy and fewer boundary bursts."
+      },
+      "pros": {
+        "ar": "أدقق من fixed window على الحواف.",
+        "en": "More accurate than fixed window at boundaries."
+      },
+      "cons": {
+        "ar": "أغلى في الـ memory/CPU (ZSET/logs).",
+        "en": "Costlier in memory/CPU (ZSET/logs)."
+      },
+      "example": {
+        "ar": "Redis ZSET timestamps لكل طلب خلال دقيقة.",
+        "en": "Redis ZSET timestamps for each request in a minute."
+      },
+      "related": [
+        "rate-limiting",
+        "token-bucket",
+        "leaky-bucket"
+      ]
+    },
+    {
+      "id": "trie",
+      "category": "search",
+      "name": {
+        "ar": "Trie (Prefix Tree)",
+        "en": "Trie (Prefix Tree)"
+      },
+      "short": {
+        "ar": "شجرة prefix للبحث السريع عن بدايات الكلمات.",
+        "en": "A prefix tree for fast lookup of word beginnings."
+      },
+      "definition": {
+        "ar": "هيكل بيانات بيفرّع الحروف بحيث مسار من الجذر يمثّل prefix، وممتاز للـ typeahead.",
+        "en": "A data structure that branches on characters so a root path represents a prefix; excellent for typeahead."
+      },
+      "when": {
+        "ar": "Autocomplete وقواميس كبيرة محتاجة latency واطي.",
+        "en": "Autocomplete and large dictionaries needing low latency."
+      },
+      "pros": {
+        "ar": "Prefix queries سريعة جدًا في الذاكرة.",
+        "en": "Very fast in-memory prefix queries."
+      },
+      "cons": {
+        "ar": "تحديثات موزعة وmemory ممكن يبقوا صعبين.",
+        "en": "Distributed updates and memory can be hard."
+      },
+      "example": {
+        "ar": "Typeahead service بيحمّل trie في RAM لكل shard.",
+        "en": "A typeahead service loading a trie in RAM per shard."
+      },
+      "related": [
+        "inverted-index",
+        "bloom-filter"
+      ]
+    },
+    {
+      "id": "idempotency-key",
+      "category": "messaging",
+      "name": {
+        "ar": "Idempotency Key",
+        "en": "Idempotency Key"
+      },
+      "short": {
+        "ar": "مفتاح يطلبه العميل عشان إعادة نفس العملية ما تكررش الأثر.",
+        "en": "A client-supplied key so retrying the same operation does not repeat the effect."
+      },
+      "definition": {
+        "ar": "معرّف يربط المحاولة الأولى بإعادة المحاولة؛ السيرفر يخزن الرد الأول ويرجّعه لو المفتاح اتكرر.",
+        "en": "An identifier linking the first attempt to retries; the server stores the first response and returns it if the key repeats."
+      },
+      "when": {
+        "ar": "مدفوعات، إنشاء موارد، وأي POST ممكن يتكرر من الشبكة.",
+        "en": "Payments, resource creation, and any POST that may be retried by the network."
+      },
+      "pros": {
+        "ar": "يمنع double charge/create مع retries.",
+        "en": "Prevents double charge/create under retries."
+      },
+      "cons": {
+        "ar": "محتاج تخزين وTTL وسياسة تعارض الجسم.",
+        "en": "Needs storage, TTL, and body-conflict policy."
+      },
+      "example": {
+        "ar": "Header Idempotency-Key في Stripe-style APIs.",
+        "en": "Idempotency-Key header in Stripe-style APIs."
+      },
+      "related": [
+        "idempotency",
+        "outbox",
+        "saga"
+      ]
+    },
+    {
+      "id": "matching-engine",
+      "category": "realtime",
+      "name": {
+        "ar": "Matching Engine",
+        "en": "Matching Engine"
+      },
+      "short": {
+        "ar": "خدمة بتختار أفضل طرف مقابل لطلب (سواق، تاجر، إلخ).",
+        "en": "A service that selects the best counterpart for a request (driver, merchant, etc.)."
+      },
+      "definition": {
+        "ar": "مكوّن بيبني candidate set (غالبًا geo) ويرتّب حسب ETA/الجودة ويعرض أو يعيّن.",
+        "en": "A component that builds a candidate set (often geo), ranks by ETA/quality, then offers or assigns."
+      },
+      "when": {
+        "ar": "Ride-sharing، delivery، أو marketplaces لحظية.",
+        "en": "Ride-sharing, delivery, or realtime marketplaces."
+      },
+      "pros": {
+        "ar": "يحسّن وقت الانتظار واستخدام العرض.",
+        "en": "Improves wait time and supply utilization."
+      },
+      "cons": {
+        "ar": "Hotspots وخوارزميات معقدة تحت الذروة.",
+        "en": "Hotspots and complex algorithms under peak."
+      },
+      "example": {
+        "ar": "Dispatcher بيستخدم geohash + ranker لاختيار سواق.",
+        "en": "A dispatcher using geohash + ranker to pick a driver."
+      },
+      "related": [
+        "geohash",
+        "websocket",
+        "pub-sub"
       ]
     }
   ]

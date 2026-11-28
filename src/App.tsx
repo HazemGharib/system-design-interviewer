@@ -509,7 +509,7 @@ function ExpandableDetail({ item, expanded, onToggle, lang, onOpenTerm }: {
   );
 }
 
-function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, onOpenTerm, scenarioId }: {
+function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, onOpenTerm }: {
   items: ChecklistItem[];
   values: boolean[];
   expanded: Record<number, boolean>;
@@ -517,13 +517,11 @@ function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, o
   onToggleExpand: (i: number) => void;
   lang: Lang;
   onOpenTerm: (id: string) => void;
-  scenarioId: string;
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 0 }}>
       {items.map((item, i) => {
         const checked = Boolean(values[i]);
-        const isDiagram = localizedText(item.text, lang).includes('📊');
         return (
           <div key={i} style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: checked ? 'var(--accent-soft)' : 'transparent' }}>
             <button
@@ -543,11 +541,6 @@ function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, o
               </span>
               <span style={{ flex: 1 }}>{localizedText(item.text, lang)}</span>
             </button>
-            {isDiagram && (
-              <div style={{ marginTop: 16 }}>
-                <SolutionWalkthrough scenarioId={scenarioId} lang={lang} />
-              </div>
-            )}
             <ExpandableDetail item={item} expanded={!!expanded[i]} onToggle={() => onToggleExpand(i)} lang={lang} onOpenTerm={onOpenTerm} />
           </div>
         );
@@ -1024,7 +1017,6 @@ export default function App() {
                   }}
                   lang={lang}
                   onOpenTerm={(id) => openGlossary(id)}
-                  scenarioId={scenario.id}
                 />
                 <ScoreBadge done={(scenarioState.ticks[stage.id] || []).filter(Boolean).length} total={stage.items.length} lang={lang} />
               </div>

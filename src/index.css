@@ -927,22 +927,20 @@ html, body {
     align-self: flex-start;
   }
 
-  .walkthrough__body {
-    grid-template-columns: 1fr;
-  }
-
   .walkthrough__canvas-wrap {
-    min-height: 240px;
-  }
-
-  .walkthrough__caption-panel {
-    position: sticky;
-    bottom: 0;
+    min-height: 320px;
+    height: min(52vh, 420px);
+    /* keep clear of fixed language toggle */
+    margin-top: 4px;
   }
 
   .walkthrough__btn {
     min-width: 48px;
     min-height: 48px;
+  }
+
+  .architecture-reveal {
+    padding-top: 8px;
   }
 
   .template-picker.is-modal {
@@ -1237,6 +1235,8 @@ html, body {
   padding: 16px;
   background: var(--bg-subtle);
   border-radius: var(--radius-lg);
+  scroll-margin-top: 56px;
+  margin-bottom: 72px; /* clear fixed bottom nav so scrubber stays reachable */
 }
 
 .architecture-reveal__title {
@@ -1244,12 +1244,13 @@ html, body {
   font-weight: 600;
   color: var(--accent);
   margin: 0 0 12px;
+  padding-inline-end: 5rem;
 }
 
 .walkthrough {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
 }
 
@@ -1259,25 +1260,93 @@ html, body {
   font-size: 0.9rem;
 }
 
-.walkthrough__toolbar {
+.walkthrough__canvas-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  height: clamp(300px, 46vh, 480px);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  touch-action: none;
+  cursor: grab;
+}
+
+.walkthrough__canvas-wrap:active {
+  cursor: grabbing;
+}
+
+.walkthrough__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.walkthrough-node.is-active rect:first-of-type {
+  filter: brightness(1.08);
+}
+
+.walkthrough-packet {
+  pointer-events: none;
+}
+
+.walkthrough__panel {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.walkthrough__panel-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+}
+
+.walkthrough__panel-row--controls {
+  justify-content: flex-start;
+}
+
+.walkthrough__panel-row--selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 860px) {
+  .walkthrough {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.85fr);
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .walkthrough__canvas-wrap {
+    min-height: 380px;
+    height: min(56vh, 520px);
+  }
 }
 
 .walkthrough__flow,
 .walkthrough__speed {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--text-secondary);
+  min-width: 0;
 }
 
 .walkthrough__flow select,
 .walkthrough__speed select {
   min-height: 44px;
+  width: 100%;
   border-radius: 10px;
   border: 1px solid var(--border-default);
   background: var(--bg-elevated);
@@ -1286,19 +1355,13 @@ html, body {
   font-size: 0.875rem;
 }
 
-.walkthrough__controls {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .walkthrough__btn {
   min-width: 44px;
   min-height: 44px;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  background: var(--bg-subtle);
   color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 700;
@@ -1315,54 +1378,7 @@ html, body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-}
-
-.walkthrough__body {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-@media (min-width: 860px) {
-  .walkthrough__body {
-    grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
-    align-items: stretch;
-  }
-}
-
-.walkthrough__canvas-wrap {
-  position: relative;
-  width: 100%;
-  min-height: 280px;
-  height: clamp(240px, 42vw, 420px);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--bg-elevated);
-}
-
-.walkthrough__svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.walkthrough-node.is-active rect:first-of-type {
-  filter: brightness(1.05);
-}
-
-.walkthrough-packet {
-  pointer-events: none;
-}
-
-.walkthrough__caption-panel {
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  min-width: 56px;
 }
 
 .walkthrough__step-meta {
@@ -1377,13 +1393,18 @@ html, body {
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--text-primary);
-  min-height: 2.8em;
+}
+
+.walkthrough__scrubber {
+  display: block;
+  width: 100%;
 }
 
 .walkthrough__scrubber input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
-  min-height: 32px;
+  min-height: 36px;
+  margin: 0;
 }
 
 .visually-hidden {

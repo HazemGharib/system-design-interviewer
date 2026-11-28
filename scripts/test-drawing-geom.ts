@@ -66,6 +66,7 @@ import {
   nodesFromEdgeKeys,
   parseEdgeKey,
   synthesizeFlowsFromDrawing,
+  layoutToWalkthroughGraph,
 } from '../src/interactive/solutionFlows';
 import type { ScenarioJson } from '../src/content/types';
 
@@ -120,5 +121,34 @@ assert.ok(syn[0].steps.length >= 1 && syn[0].steps.length <= 3);
 
 const stub = { drawing, flows: undefined } as Pick<ScenarioJson, 'drawing' | 'flows'>;
 assert.equal(flowsForScenario(stub as ScenarioJson).length, 1);
+
+
+const laid = layoutToWalkthroughGraph({
+  components: ['client', 'lb', 'api', 'cache', 'db'],
+  edges: [
+    { from: 'client', to: 'lb', label: { ar: 'a', en: 'a' } },
+    { from: 'lb', to: 'api', label: { ar: 'b', en: 'b' } },
+    { from: 'api', to: 'cache', label: { ar: 'c', en: 'c' } },
+    { from: 'api', to: 'db', label: { ar: 'd', en: 'd' } },
+  ],
+  referenceLayout: [
+    { type: 'client', x: 20, y: 80 },
+    { type: 'lb', x: 150, y: 80 },
+    { type: 'api', x: 280, y: 80 },
+    { type: 'cache', x: 430, y: 40 },
+    { type: 'db', x: 430, y: 140 },
+  ],
+}, 'horizontal');
+assert.equal(laid.blocks.length, 5);
+// boxes should not heavily overlap
+for (let i = 0; i < laid.blocks.length; i++) {
+  for (let j = i + 1; j < laid.blocks.length; j++) {
+    const a = laid.blocks[i], b = laid.blocks[j];
+    const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    const overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    const area = Math.max(0, overlapX) * Math.max(0, overlapY);
+    assert.ok(area < 40, `overlap ${a.id}/${b.id} area=${area}`);
+  }
+}
 
 console.log('test-templates-flows: ok');

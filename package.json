@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "validate": "tsx scripts/validate-content.ts",
-    "build": "npm run validate && tsc -b && vite build",
+    "test": "tsx scripts/test-drawing-geom.ts",
+    "build": "npm run validate && npm test && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },

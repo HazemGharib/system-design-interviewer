@@ -31,7 +31,6 @@ import {
   blockMinSize,
   blockSize,
   cloneDrawingSlice,
-  collectDescendantIds,
   cycleDirection,
   edgePoint,
   findContainerAt,
@@ -43,6 +42,7 @@ import {
   uid,
   type ResizeHandle,
 } from '../interactive/drawingGeom';
+import { applyContainerMoveDelta, collectContainerMoveMembers } from '../interactive/drawingMove';
 import { t } from '../i18n';
 
 type Tool = 'select' | 'connect' | 'container' | 'delete';
@@ -69,8 +69,16 @@ type DragState = {
   startH?: number;
   startX: number;
   startY: number;
+  /** World position of the dragged container at gesture start (for absolute deltas). */
+  originX?: number;
+  originY?: number;
   moved: boolean;
   snapshot?: ReturnType<typeof cloneDrawingSlice>;
+  /** Frozen membership + start coords — computed once on pointerdown. */
+  moveBlockIds?: string[];
+  moveContainerIds?: string[];
+  startBlocks?: Record<string, { x: number; y: number }>;
+  startContainers?: Record<string, { x: number; y: number }>;
 };
 
 function clearWindowSelection() {
@@ -414,15 +422,34 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
           return;
         }
         setSel({ kind: 'container', id: c.id });
+        // Freeze membership at drag start (parentId and/or center-inside).
+        const members = collectContainerMoveMembers(c.id, state.blocks, containers);
+        const moveContainerIds = [c.id, ...members.containerIds];
+        const startContainers: Record<string, { x: number; y: number }> = {};
+        for (const id of moveContainerIds) {
+          const cc = containers.find(x => x.id === id);
+          if (cc) startContainers[id] = { x: cc.x, y: cc.y };
+        }
+        const startBlocks: Record<string, { x: number; y: number }> = {};
+        for (const id of members.blockIds) {
+          const bb = state.blocks.find(x => x.id === id);
+          if (bb) startBlocks[id] = { x: bb.x, y: bb.y };
+        }
         drag.current = {
           kind: 'container',
           id: c.id,
           ox: world.x - c.x,
           oy: world.y - c.y,
+          originX: c.x,
+          originY: c.y,
           startX: world.x,
           startY: world.y,
           moved: false,
           snapshot: cloneDrawingSlice(state),
+          moveBlockIds: members.blockIds,
+          moveContainerIds,
+          startBlocks,
+          startContainers,
         };
         return;
       }
@@ -519,21 +546,28 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         compared: false,
         blocks: state.blocks.map(b => (b.id === d.id ? { ...b, x, y } : b)),
       });
-    } else if (d.kind === 'container' && d.id) {
-      const c0 = containers.find(c => c.id === d.id);
-      if (!c0) return;
+    } else if (d.kind === 'container' && d.id && d.originX != null && d.originY != null) {
       const nx = world.x - d.ox;
       const ny = world.y - d.oy;
-      const dx = nx - c0.x;
-      const dy = ny - c0.y;
-      const { blockIds, containerIds } = collectDescendantIds(d.id, state.blocks, containers);
-      const moveC = new Set([d.id, ...containerIds]);
-      const moveB = new Set(blockIds);
+      const dx = nx - d.originX;
+      const dy = ny - d.originY;
+      const moved = applyContainerMoveDelta(
+        dx,
+        dy,
+        d.moveBlockIds || [],
+        d.moveContainerIds || [d.id],
+        state.blocks,
+        containers,
+        {
+          blocks: d.startBlocks || {},
+          containers: d.startContainers || {},
+        },
+      );
       onChange({
         ...state,
         compared: false,
-        containers: containers.map(c => (moveC.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c)),
-        blocks: state.blocks.map(b => (moveB.has(b.id) ? { ...b, x: b.x + dx, y: b.y + dy } : b)),
+        containers: moved.containers,
+        blocks: moved.blocks,
       });
     }
   };

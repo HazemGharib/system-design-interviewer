@@ -140,7 +140,11 @@ function scoreTone(done: number, total: number): 'success' | 'warning' | undefin
 // UI Components
 function PageContainer({ children, lang }: { children: ReactNode; lang: Lang }) {
   return (
-    <div dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 100px', minHeight: '100vh' }}>
+    <div
+      className="page-container"
+      dir={lang === 'ar' ? 'rtl' : 'ltr'}
+      style={{ maxWidth: 760, margin: '0 auto', padding: '56px 16px 100px', minHeight: '100vh' }}
+    >
       {children}
     </div>
   );
@@ -273,12 +277,22 @@ function Hero({ lang, onOpenCheatsheet, onOpenGlossary }: { lang: Lang; onOpenCh
 function LangToggle({ lang, onToggle }: { lang: Lang; onToggle: () => void }) {
   return (
     <button
+      className="lang-toggle"
       onClick={onToggle}
       style={{
-        position: 'fixed', top: 16, [lang === 'ar' ? 'left' : 'right']: 16, zIndex: 200,
-        padding: '8px 14px', fontSize: '0.8125rem', fontWeight: 600, borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border-default)', background: 'var(--bg-elevated)', color: 'var(--accent)',
-        cursor: 'pointer', boxShadow: 'var(--shadow-card)',
+        position: 'fixed',
+        top: 'max(12px, env(safe-area-inset-top))',
+        [lang === 'ar' ? 'left' : 'right']: 12,
+        zIndex: 200,
+        padding: '8px 14px',
+        fontSize: '0.8125rem',
+        fontWeight: 600,
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-default)',
+        background: 'var(--bg-elevated)',
+        color: 'var(--accent)',
+        cursor: 'pointer',
+        boxShadow: 'var(--shadow-card)',
       }}
     >
       {lang === 'ar' ? 'English' : 'عربي'}

@@ -16,25 +16,34 @@ import type {
   Lang,
 } from '../types';
 import { DrawingPaletteDesktop, DrawingPaletteMobile } from './DrawingPalette';
-import { paletteAws, paletteColor, paletteIconUrl, paletteLabel, paletteShort } from '../interactive/palette';
+import { paletteColor, paletteIconUrl, paletteLabel, paletteShort } from '../interactive/palette';
 import { DRAWING_EXPECTATIONS } from '../interactive/drawingData';
 import {
-  BLOCK_H,
-  BLOCK_W,
   BOARD_H,
   BOARD_W,
+  GAP,
   HANDLE,
+  HANDLE_HIT,
+  ICON,
+  LABEL_SIZE,
   MIN_CONTAINER,
+  PAD_X,
+  PAD_Y,
+  SUB_SIZE,
+  blockMinSize,
+  blockSize,
   cloneDrawingSlice,
   collectDescendantIds,
   cycleDirection,
   edgePoint,
   findContainerAt,
+  fittedBlockSize,
   midpoint,
   nodeBounds,
-  nodeCenter,
   pointInRect,
+  resizeHandles,
   uid,
+  type ResizeHandle,
 } from '../interactive/drawingGeom';
 import { t } from '../i18n';
 
@@ -52,6 +61,26 @@ interface Props {
   onChange: (next: DrawingState) => void;
 }
 
+type DragState = {
+  kind: 'block' | 'container' | 'resize-container' | 'resize-block' | 'pan';
+  id?: string;
+  handle?: ResizeHandle;
+  ox: number;
+  oy: number;
+  startW?: number;
+  startH?: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+  snapshot?: ReturnType<typeof cloneDrawingSlice>;
+};
+
+function clearWindowSelection() {
+  try {
+    window.getSelection()?.removeAllRanges();
+  } catch { /* ignore */ }
+}
+
 export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   const containers = state.containers || [];
   const [tool, setTool] = useState<Tool>('select');
@@ -63,26 +92,18 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   const [deskCollapsed, setDeskCollapsed] = useState(false);
   const [editingLabel, setEditingLabel] = useState<{ kind: 'edge' | 'container'; id: string } | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
+  const didInitialFit = useRef(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const history = useRef<ReturnType<typeof cloneDrawingSlice>[]>([]);
   const future = useRef<ReturnType<typeof cloneDrawingSlice>[]>([]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; scale: number; panX: number; panY: number } | null>(null);
-  const drag = useRef<{
-    kind: 'block' | 'container' | 'resize' | 'pan' | 'connect' | 'place';
-    id?: string;
-    handle?: string;
-    ox: number;
-    oy: number;
-    startX: number;
-    startY: number;
-    moved: boolean;
-    placeType?: ComponentType;
-    snapshot?: ReturnType<typeof cloneDrawingSlice>;
-  } | null>(null);
+  const pinch = useRef<{ dist: number; scale: number } | null>(null);
+  const drag = useRef<DragState | null>(null);
   const longPress = useRef<number | null>(null);
+  /** Live sizes during resize so we don't fight React state lag. */
+  const liveSizes = useRef<Record<string, { w: number; h: number }>>({});
 
   const expected = DRAWING_EXPECTATIONS[scenarioId];
   const rtl = lang === 'ar';
@@ -117,7 +138,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     onChange({ ...state, ...next, compared: false });
   };
 
-  // g transform = translate(pan) scale(scale) → world = (svg - pan) / scale
   const toWorld = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -127,12 +147,15 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   };
 
   const placeBlock = (type: ComponentType, x: number, y: number) => {
-    const parent = findContainerAt(x + BLOCK_W / 2, y + BLOCK_H / 2, containers);
+    const fit = fittedBlockSize(type, lang);
+    const parent = findContainerAt(x, y, containers);
     const block: DrawingBlock = {
       id: uid('b'),
       type,
-      x: Math.max(0, Math.min(BOARD_W - BLOCK_W, x - BLOCK_W / 2)),
-      y: Math.max(0, Math.min(BOARD_H - BLOCK_H, y - BLOCK_H / 2)),
+      x: Math.max(0, Math.min(BOARD_W - fit.w, x - fit.w / 2)),
+      y: Math.max(0, Math.min(BOARD_H - fit.h, y - fit.h / 2)),
+      w: fit.w,
+      h: fit.h,
       parentId: parent?.id ?? null,
     };
     commit({ blocks: [...state.blocks, block] });
@@ -165,7 +188,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         edges: state.edges.filter(e => e.from !== sel.id && e.to !== sel.id),
       });
     } else if (sel.kind === 'container') {
-      // Remove container only; children stay on the board unparented.
       commit({
         containers: containers
           .filter(c => c.id !== sel.id)
@@ -177,9 +199,12 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     setSel(null);
   };
 
-  const fitView = () => {
+  const fitView = useCallback(() => {
     const items = [
-      ...state.blocks.map(b => ({ x: b.x, y: b.y, w: BLOCK_W, h: BLOCK_H })),
+      ...state.blocks.map(b => {
+        const s = blockSize(b, lang);
+        return { x: b.x, y: b.y, w: s.w, h: s.h };
+      }),
       ...containers.map(c => ({ x: c.x, y: c.y, w: c.w, h: c.h })),
     ];
     if (!items.length) {
@@ -194,13 +219,24 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       maxX = Math.max(maxX, it.x + it.w);
       maxY = Math.max(maxY, it.y + it.h);
     }
-    const pad = 40;
+    const pad = 48;
     const w = Math.max(1, maxX - minX + pad * 2);
     const h = Math.max(1, maxY - minY + pad * 2);
-    const s = Math.max(0.35, Math.min(2.2, Math.min(BOARD_W / w, BOARD_H / h)));
+    const s = Math.max(0.8, Math.min(2.2, Math.min(BOARD_W / w, BOARD_H / h)));
     setScale(s);
-    setPan({ x: -minX * s + pad * s, y: -minY * s + pad * s });
-  };
+    setPan({
+      x: (BOARD_W - w * s) / 2 - minX * s + pad * s,
+      y: (BOARD_H - h * s) / 2 - minY * s + pad * s,
+    });
+  }, [containers, lang, state.blocks]);
+
+  useEffect(() => {
+    if (didInitialFit.current) return;
+    if (state.blocks.length || containers.length) {
+      didInitialFit.current = true;
+      fitView();
+    }
+  }, [containers.length, fitView, state.blocks.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -220,16 +256,63 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, state]);
 
+  const suppressSelect = (e: React.SyntheticEvent) => {
+    if ((e.target as HTMLElement)?.closest?.('input, textarea')) return;
+    e.preventDefault();
+    clearWindowSelection();
+  };
+
+  const beginResize = (
+    e: ReactPointerEvent,
+    kind: 'resize-container' | 'resize-block',
+    id: string,
+    handle: ResizeHandle,
+    box: { w: number; h: number },
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    clearWindowSelection();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    const world = toWorld(e.clientX, e.clientY);
+    liveSizes.current[id] = { w: box.w, h: box.h };
+    drag.current = {
+      kind,
+      id,
+      handle,
+      ox: world.x,
+      oy: world.y,
+      startW: box.w,
+      startH: box.h,
+      startX: world.x,
+      startY: world.y,
+      moved: false,
+      snapshot: cloneDrawingSlice(state),
+    };
+    setSel(kind === 'resize-block' ? { kind: 'block', id } : { kind: 'container', id });
+  };
+
+  const fitBlockToContent = (id: string) => {
+    const b = state.blocks.find(x => x.id === id);
+    if (!b) return;
+    const fit = fittedBlockSize(b.type, lang);
+    commit({ blocks: state.blocks.map(x => (x.id === id ? { ...x, w: fit.w, h: fit.h } : x)) });
+  };
+
   const onCanvasPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const target = e.target as Element;
     if (target.closest('.drawing-ui-chrome')) return;
+    if (target.closest('.drawing-resize-handle')) return;
+    if (target.closest('input, textarea')) return;
+
+    e.preventDefault();
+    clearWindowSelection();
 
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
       const pts = [...pointers.current.values()];
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      pinch.current = { dist, scale, panX: pan.x, panY: pan.y };
+      pinch.current = { dist, scale };
       drag.current = null;
       return;
     }
@@ -246,33 +329,10 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       return;
     }
 
-    // Edge hit (wide)
-    for (const edge of [...state.edges].reverse()) {
-      const a = nodeCenter(edge.from, state.blocks, containers);
-      const b = nodeCenter(edge.to, state.blocks, containers);
-      if (!a || !b) continue;
-      const ba = nodeBounds(edge.from, state.blocks, containers)!;
-      const bb = nodeBounds(edge.to, state.blocks, containers)!;
-      const p1 = edgePoint(ba, b);
-      const p2 = edgePoint(bb, a);
-      const dx = p2.x - p1.x, dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const t0 = Math.max(0, Math.min(1, ((world.x - p1.x) * dx + (world.y - p1.y) * dy) / (len * len)));
-      const dist = Math.hypot(world.x - (p1.x + t0 * dx), world.y - (p1.y + t0 * dy));
-      if (dist < 14 / scale) {
-        if (tool === 'delete') {
-          commit({ edges: state.edges.filter(ed => ed.id !== edge.id) });
-          setSel(null);
-          return;
-        }
-        setSel({ kind: 'edge', id: edge.id });
-        return;
-      }
-    }
-
     // Blocks on top
     for (const block of [...state.blocks].reverse()) {
-      if (pointInRect(world.x, world.y, { x: block.x, y: block.y, w: BLOCK_W, h: BLOCK_H })) {
+      const sz = blockSize(block, lang);
+      if (pointInRect(world.x, world.y, { x: block.x, y: block.y, w: sz.w, h: sz.h })) {
         if (tool === 'delete') {
           commit({
             blocks: state.blocks.filter(b => b.id !== block.id),
@@ -306,40 +366,14 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       }
     }
 
-    // Container resize handles / body
+    // Containers (body only — resize via handle layer)
     for (const c of [...containers].sort((a, b) => a.w * a.h - b.w * b.h)) {
-      const handles = [
-        { id: 'se', x: c.x + c.w, y: c.y + c.h },
-        { id: 'e', x: c.x + c.w, y: c.y + c.h / 2 },
-        { id: 's', x: c.x + c.w / 2, y: c.y + c.h },
-      ];
-      for (const h of handles) {
-        if (Math.hypot(world.x - h.x, world.y - h.y) < 18 / scale) {
-          setSel({ kind: 'container', id: c.id });
-          drag.current = {
-            kind: 'resize',
-            id: c.id,
-            handle: h.id,
-            ox: c.w,
-            oy: c.h,
-            startX: world.x,
-            startY: world.y,
-            moved: false,
-            snapshot: cloneDrawingSlice(state),
-          };
-          return;
-        }
-      }
       if (pointInRect(world.x, world.y, c)) {
         if (tool === 'delete') {
-          setSel({ kind: 'container', id: c.id });
-          // defer to deleteSelection semantics via commit unparent
-          const { containerIds } = collectDescendantIds(c.id, state.blocks, containers);
-          const kill = new Set([c.id, ...containerIds]);
           commit({
-            containers: containers.filter(x => !kill.has(x.id)),
-            blocks: state.blocks.map(b => (b.parentId && kill.has(b.parentId) ? { ...b, parentId: null } : b)),
-            edges: state.edges.filter(ed => !kill.has(ed.from) && !kill.has(ed.to)),
+            containers: containers.filter(x => x.id !== c.id),
+            blocks: state.blocks.map(b => (b.parentId === c.id ? { ...b, parentId: null } : b)),
+            edges: state.edges.filter(ed => ed.from !== c.id && ed.to !== c.id),
           });
           setSel(null);
           return;
@@ -368,7 +402,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       }
     }
 
-    // Empty canvas: pan or clear selection
     setSel(null);
     setConnectFrom(null);
     drag.current = {
@@ -381,6 +414,39 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     };
   };
 
+  const applyResizeMove = (world: { x: number; y: number }, d: DragState) => {
+    if (!d.id || d.startW == null || d.startH == null) return;
+    const dx = world.x - d.ox;
+    const dy = world.y - d.oy;
+    let w = d.startW;
+    let h = d.startH;
+    if (d.handle === 'se' || d.handle === 'e') w = d.startW + dx;
+    if (d.handle === 'se' || d.handle === 's') h = d.startH + dy;
+
+    if (d.kind === 'resize-container') {
+      w = Math.max(MIN_CONTAINER, w);
+      h = Math.max(MIN_CONTAINER, h);
+      liveSizes.current[d.id] = { w, h };
+      onChange({
+        ...state,
+        compared: false,
+        containers: containers.map(c => (c.id === d.id ? { ...c, w, h } : c)),
+      });
+    } else if (d.kind === 'resize-block') {
+      const b = state.blocks.find(x => x.id === d.id);
+      if (!b) return;
+      const min = blockMinSize(b, lang);
+      w = Math.max(min.w, w);
+      h = Math.max(min.h, h);
+      liveSizes.current[d.id] = { w, h };
+      onChange({
+        ...state,
+        compared: false,
+        blocks: state.blocks.map(x => (x.id === d.id ? { ...x, w, h } : x)),
+      });
+    }
+  };
+
   const onCanvasPointerMove = (e: ReactPointerEvent) => {
     if (pointers.current.has(e.pointerId)) {
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -389,12 +455,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       const pts = [...pointers.current.values()];
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const ratio = dist / (pinch.current.dist || 1);
-      const next = Math.max(0.35, Math.min(2.5, pinch.current.scale * ratio));
-      setScale(next);
-      // two-finger pan: midpoint delta
-      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-      // approximate using first frame midpoint stored implicitly via pan
-      void mid;
+      setScale(Math.max(0.8, Math.min(2.5, pinch.current.scale * ratio)));
       return;
     }
 
@@ -404,6 +465,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       clearTimeout(longPress.current);
       longPress.current = null;
     }
+
     if (d.kind === 'pan') {
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -415,7 +477,12 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     }
 
     const world = toWorld(e.clientX, e.clientY);
-    if (Math.hypot(world.x - d.startX, world.y - d.startY) > 3) d.moved = true;
+    if (Math.hypot(world.x - d.startX, world.y - d.startY) > 2) d.moved = true;
+
+    if (d.kind === 'resize-container' || d.kind === 'resize-block') {
+      applyResizeMove(world, d);
+      return;
+    }
 
     if (d.kind === 'block' && d.id) {
       const x = world.x - d.ox;
@@ -441,19 +508,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         containers: containers.map(c => (moveC.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c)),
         blocks: state.blocks.map(b => (moveB.has(b.id) ? { ...b, x: b.x + dx, y: b.y + dy } : b)),
       });
-    } else if (d.kind === 'resize' && d.id) {
-      const c0 = containers.find(c => c.id === d.id);
-      if (!c0) return;
-      let w = c0.w, h = c0.h;
-      if (d.handle === 'se' || d.handle === 'e') w = Math.max(MIN_CONTAINER, world.x - c0.x);
-      if (d.handle === 'se' || d.handle === 's') h = Math.max(MIN_CONTAINER, world.y - c0.y);
-      onChange({
-        ...state,
-        compared: false,
-        containers: containers.map(c => (c.id === d.id ? { ...c, w, h } : c)),
-      });
-    } else if (d.kind === 'place' && d.placeType) {
-      // ghost handled via armedType only
     }
   };
 
@@ -475,13 +529,12 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
           history.current.push(d.snapshot);
           future.current = [];
         }
-        const parent = findContainerAt(b.x + BLOCK_W / 2, b.y + BLOCK_H / 2, containers, null);
-        const parentId = parent && parent.id !== b.parentId ? parent.id : parent?.id ?? null;
-        // leave container if center outside previous parent
-        let nextParent = parentId;
+        const sz = blockSize(b, lang);
+        const parent = findContainerAt(b.x + sz.w / 2, b.y + sz.h / 2, containers, null);
+        let nextParent = parent?.id ?? null;
         if (b.parentId) {
           const prev = containers.find(c => c.id === b.parentId);
-          if (prev && !pointInRect(b.x + BLOCK_W / 2, b.y + BLOCK_H / 2, prev)) nextParent = parent?.id ?? null;
+          if (prev && !pointInRect(b.x + sz.w / 2, b.y + sz.h / 2, prev)) nextParent = parent?.id ?? null;
         }
         onChange({
           ...state,
@@ -489,11 +542,15 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
           blocks: state.blocks.map(x => (x.id === d.id ? { ...x, parentId: nextParent } : x)),
         });
       }
-    } else if ((d.kind === 'container' || d.kind === 'resize') && d.moved && d.snapshot) {
+    } else if (
+      (d.kind === 'container' || d.kind === 'resize-container' || d.kind === 'resize-block') &&
+      d.moved &&
+      d.snapshot
+    ) {
       history.current.push(d.snapshot);
       future.current = [];
       if (d.kind === 'container' && d.id) {
-        const c = (state.containers || []).find(x => x.id === d.id);
+        const c = containers.find(x => x.id === d.id);
         if (c) {
           const parent = findContainerAt(c.x + c.w / 2, c.y + c.h / 2, containers, d.id);
           onChange({
@@ -504,6 +561,29 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         }
       }
     }
+    if (d.id) delete liveSizes.current[d.id];
+    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch { /* */ }
+  };
+
+  const onHandlePointerMove = (e: ReactPointerEvent) => {
+    const d = drag.current;
+    if (!d || (d.kind !== 'resize-container' && d.kind !== 'resize-block')) return;
+    e.preventDefault();
+    const world = toWorld(e.clientX, e.clientY);
+    if (Math.hypot(world.x - d.startX, world.y - d.startY) > 1) d.moved = true;
+    applyResizeMove(world, d);
+  };
+
+  const onHandlePointerUp = (e: ReactPointerEvent) => {
+    const d = drag.current;
+    if (!d || (d.kind !== 'resize-container' && d.kind !== 'resize-block')) return;
+    if (d.moved && d.snapshot) {
+      history.current.push(d.snapshot);
+      future.current = [];
+    }
+    if (d.id) delete liveSizes.current[d.id];
+    drag.current = null;
+    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch { /* */ }
   };
 
   const compare = useCallback(() => {
@@ -517,7 +597,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       const a = state.blocks.find(b => b.id === e.from);
       const b = state.blocks.find(b => b.id === e.to);
       if (a && b) userEdges.add(edgeKey(a.type, b.type));
-      // edges to/from containers ignored for scoring
     }
     const matchedEdges = expected.edges.filter(e => userEdges.has(edgeKey(e.from, e.to))).map(e => edgeKey(e.from, e.to));
     const missedEdges = expected.edges.filter(e => !userEdges.has(edgeKey(e.from, e.to))).map(e => edgeKey(e.from, e.to));
@@ -578,6 +657,24 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     placeBlock(type, world.x, world.y);
   };
 
+  const toolbarItems: { id: Tool | 'undo' | 'redo'; labelKey: Parameters<typeof t>[0]; icon: string; action: () => void; active?: boolean; danger?: boolean }[] = [
+    { id: 'select', labelKey: 'toolSelect', icon: '↖', active: tool === 'select', action: () => { setTool('select'); setConnectFrom(null); } },
+    { id: 'connect', labelKey: 'toolConnect', icon: '⟷', active: tool === 'connect', action: () => setTool('connect') },
+    { id: 'container', labelKey: 'toolContainer', icon: '▢', active: tool === 'container', action: () => { setTool('container'); setConnectFrom(null); } },
+    {
+      id: 'delete',
+      labelKey: 'toolDelete',
+      icon: '⌫',
+      danger: true,
+      action: () => {
+        if (sel) deleteSelection();
+        else setTool('delete');
+      },
+    },
+    { id: 'undo', labelKey: 'toolUndo', icon: '↶', action: undo },
+    { id: 'redo', labelKey: 'toolRedo', icon: '↷', action: redo },
+  ];
+
   return (
     <div className="drawing-board" dir={rtl ? 'rtl' : 'ltr'}>
       <div className="drawing-board__header">
@@ -599,7 +696,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         <div className="drawing-board__main">
           <div className="drawing-board__zoom drawing-ui-chrome">
             <button type="button" className="drawing-icon-btn" onClick={() => setScale(s => Math.min(2.5, s * 1.15))} aria-label={t('toolZoomIn', lang)}>+</button>
-            <button type="button" className="drawing-icon-btn" onClick={() => setScale(s => Math.max(0.35, s / 1.15))} aria-label={t('toolZoomOut', lang)}>−</button>
+            <button type="button" className="drawing-icon-btn" onClick={() => setScale(s => Math.max(0.8, s / 1.15))} aria-label={t('toolZoomOut', lang)}>−</button>
             <button type="button" className="drawing-icon-btn" onClick={fitView}>{t('toolFit', lang)}</button>
             <button type="button" className="drawing-icon-btn" onClick={compare}>{t('compareDesign', lang)}</button>
             <button
@@ -629,6 +726,9 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
             onPointerMove={onCanvasPointerMove}
             onPointerUp={onCanvasPointerUp}
             onPointerCancel={onCanvasPointerUp}
+            onMouseDown={suppressSelect}
+            onDoubleClick={suppressSelect}
+            onDragStart={suppressSelect}
           >
             <svg
               ref={svgRef}
@@ -648,13 +748,16 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
               <g transform={`translate(${pan.x} ${pan.y}) scale(${scale})`}>
                 {sortedContainers.map(c => {
                   const selected = sel?.kind === 'container' && sel.id === c.id;
+                  const live = liveSizes.current[c.id];
+                  const cw = live?.w ?? c.w;
+                  const ch = live?.h ?? c.h;
                   return (
                     <g key={c.id} className="drawing-container">
                       <rect
                         x={c.x}
                         y={c.y}
-                        width={c.w}
-                        height={c.h}
+                        width={cw}
+                        height={ch}
                         rx={10}
                         fill="var(--accent-soft)"
                         stroke={selected ? 'var(--color-gold)' : 'var(--accent)'}
@@ -668,27 +771,17 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                         fontSize={12}
                         fontWeight={700}
                         fill="var(--text-primary)"
-                        onDoubleClick={() => startContainerEdit(c)}
-                        style={{ cursor: 'text' }}
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
                       >
                         {c.label}
                       </text>
-                      {selected && (
-                        <>
-                          <rect x={c.x + c.w - HANDLE / 2} y={c.y + c.h - HANDLE / 2} width={HANDLE} height={HANDLE} fill="var(--accent)" rx={2} />
-                          <rect x={c.x + c.w - HANDLE / 2} y={c.y + c.h / 2 - HANDLE / 2} width={HANDLE} height={HANDLE} fill="var(--accent)" rx={2} />
-                          <rect x={c.x + c.w / 2 - HANDLE / 2} y={c.y + c.h - HANDLE / 2} width={HANDLE} height={HANDLE} fill="var(--accent)" rx={2} />
-                          {/* 44px invisible hit pads */}
-                          <circle cx={c.x + c.w} cy={c.y + c.h} r={22} fill="transparent" />
-                        </>
-                      )}
                     </g>
                   );
                 })}
 
                 {state.edges.map(edge => {
-                  const ba = nodeBounds(edge.from, state.blocks, containers);
-                  const bb = nodeBounds(edge.to, state.blocks, containers);
+                  const ba = nodeBounds(edge.from, state.blocks, containers, lang);
+                  const bb = nodeBounds(edge.to, state.blocks, containers, lang);
                   if (!ba || !bb) return null;
                   const ca = { x: ba.x + ba.w / 2, y: ba.y + ba.h / 2 };
                   const cb = { x: bb.x + bb.w / 2, y: bb.y + bb.h / 2 };
@@ -701,7 +794,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                     <g key={edge.id} data-edge-id={edge.id}>
                       <line
                         className="drawing-edge-hit"
-                        data-edge-id={edge.id}
                         x1={p1.x}
                         y1={p1.y}
                         x2={p2.x}
@@ -711,6 +803,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                         style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                         onPointerDown={ev => {
                           ev.stopPropagation();
+                          ev.preventDefault();
+                          clearWindowSelection();
                           if (tool === 'delete') {
                             commit({ edges: state.edges.filter(ed => ed.id !== edge.id) });
                             setSel(null);
@@ -738,8 +832,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                           textAnchor="middle"
                           fontSize={10}
                           fill="var(--text-secondary)"
-                          onDoubleClick={() => startEdgeEdit(edge)}
-                          style={{ pointerEvents: 'none' }}
+                          style={{ pointerEvents: 'none', userSelect: 'none' }}
                         >
                           {edge.label}
                         </text>
@@ -747,7 +840,6 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                       {selected && (
                         <g
                           className="drawing-ui-chrome"
-                          data-edge-delete={edge.id}
                           transform={`translate(${mid.x}, ${mid.y})`}
                           onPointerDown={ev => {
                             ev.stopPropagation();
@@ -769,35 +861,63 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                   const selected = sel?.kind === 'block' && sel.id === block.id;
                   const connecting = connectFrom === block.id;
                   const icon = paletteIconUrl(block.type);
+                  const fit = fittedBlockSize(block.type, lang);
+                  const live = liveSizes.current[block.id];
+                  const sz = live || blockSize(block, lang);
+                  const textX = block.x + PAD_X + ICON + GAP;
+                  const lineY0 = block.y + PAD_Y + LABEL_SIZE;
                   return (
                     <g key={block.id} style={{ cursor: 'grab' }}>
                       <rect
                         x={block.x}
                         y={block.y}
-                        width={BLOCK_W}
-                        height={BLOCK_H}
+                        width={sz.w}
+                        height={sz.h}
                         rx={10}
                         fill={paletteColor(block.type)}
                         stroke={selected || connecting ? 'var(--color-gold)' : 'transparent'}
                         strokeWidth={3}
                       />
                       {icon && (
-                        <image href={icon} x={block.x + 8} y={block.y + 16} width={30} height={30} preserveAspectRatio="xMidYMid meet" />
+                        <image
+                          href={icon}
+                          x={block.x + PAD_X}
+                          y={block.y + (sz.h - ICON) / 2}
+                          width={ICON}
+                          height={ICON}
+                          preserveAspectRatio="xMidYMid meet"
+                          style={{ pointerEvents: 'none' }}
+                        />
                       )}
-                      <text x={block.x + 46} y={block.y + 26} fill="#fff" fontSize={11} fontWeight={700}>
-                        {paletteLabel(block.type, lang).slice(0, 14)}
+                      {fit.lines.map((line, i) => (
+                        <text
+                          key={i}
+                          x={textX}
+                          y={lineY0 + i * (LABEL_SIZE + 3)}
+                          fill="#fff"
+                          fontSize={LABEL_SIZE}
+                          fontWeight={700}
+                          style={{ pointerEvents: 'none', userSelect: 'none' }}
+                        >
+                          {line}
+                        </text>
+                      ))}
+                      <text
+                        x={textX}
+                        y={lineY0 + fit.lines.length * (LABEL_SIZE + 3) + 2}
+                        fill="rgba(255,255,255,0.88)"
+                        fontSize={SUB_SIZE}
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {fit.sub}
                       </text>
-                      <text x={block.x + 46} y={block.y + 42} fill="rgba(255,255,255,0.85)" fontSize={9}>
-                        {paletteAws(block.type, lang).slice(0, 16)}
-                      </text>
-                      {/* connect handles */}
                       {(selected || tool === 'connect') && (
                         <>
                           {[
-                            { x: block.x + BLOCK_W / 2, y: block.y },
-                            { x: block.x + BLOCK_W, y: block.y + BLOCK_H / 2 },
-                            { x: block.x + BLOCK_W / 2, y: block.y + BLOCK_H },
-                            { x: block.x, y: block.y + BLOCK_H / 2 },
+                            { x: block.x + sz.w / 2, y: block.y },
+                            { x: block.x + sz.w, y: block.y + sz.h / 2 },
+                            { x: block.x + sz.w / 2, y: block.y + sz.h },
+                            { x: block.x, y: block.y + sz.h / 2 },
                           ].map((p, i) => (
                             <circle
                               key={i}
@@ -819,6 +939,94 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                     </g>
                   );
                 })}
+
+                {/* Resize handles above everything */}
+                {sel?.kind === 'container' && (() => {
+                  const c = containers.find(x => x.id === sel.id);
+                  if (!c) return null;
+                  const live = liveSizes.current[c.id];
+                  const box = { x: c.x, y: c.y, w: live?.w ?? c.w, h: live?.h ?? c.h };
+                  return resizeHandles(box).map(h => (
+                    <g
+                      key={`ch-${h.id}`}
+                      className="drawing-resize-handle drawing-ui-chrome"
+                      style={{ cursor: h.cursor }}
+                      onPointerDown={ev => beginResize(ev, 'resize-container', c.id, h.id, box)}
+                      onPointerMove={onHandlePointerMove}
+                      onPointerUp={onHandlePointerUp}
+                      onDoubleClick={ev => {
+                        ev.stopPropagation();
+                        ev.preventDefault();
+                      }}
+                    >
+                      <circle cx={h.x} cy={h.y} r={HANDLE_HIT} fill="transparent" />
+                      <rect
+                        x={h.x - HANDLE / 2}
+                        y={h.y - HANDLE / 2}
+                        width={HANDLE}
+                        height={HANDLE}
+                        fill="var(--accent)"
+                        stroke="var(--bg-elevated)"
+                        strokeWidth={1.5}
+                        rx={2}
+                      />
+                    </g>
+                  ));
+                })()}
+
+                {sel?.kind === 'block' && (() => {
+                  const b = state.blocks.find(x => x.id === sel.id);
+                  if (!b) return null;
+                  const live = liveSizes.current[b.id];
+                  const sz = live || blockSize(b, lang);
+                  const box = { x: b.x, y: b.y, w: sz.w, h: sz.h };
+                  return (
+                    <>
+                      {resizeHandles(box).map(h => (
+                        <g
+                          key={`bh-${h.id}`}
+                          className="drawing-resize-handle drawing-ui-chrome"
+                          style={{ cursor: h.cursor }}
+                          onPointerDown={ev => beginResize(ev, 'resize-block', b.id, h.id, box)}
+                          onPointerMove={onHandlePointerMove}
+                          onPointerUp={onHandlePointerUp}
+                          onDoubleClick={ev => {
+                            ev.stopPropagation();
+                            ev.preventDefault();
+                            fitBlockToContent(b.id);
+                          }}
+                        >
+                          <circle cx={h.x} cy={h.y} r={HANDLE_HIT} fill="transparent" />
+                          <rect
+                            x={h.x - HANDLE / 2}
+                            y={h.y - HANDLE / 2}
+                            width={HANDLE}
+                            height={HANDLE}
+                            fill="var(--color-gold)"
+                            stroke="var(--bg-elevated)"
+                            strokeWidth={1.5}
+                            rx={2}
+                          />
+                        </g>
+                      ))}
+                      <g
+                        className="drawing-ui-chrome"
+                        transform={`translate(${box.x + box.w - 28}, ${box.y - 18})`}
+                        onPointerDown={ev => {
+                          ev.stopPropagation();
+                          fitBlockToContent(b.id);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <title>{t('toolFit', lang)}</title>
+                        <rect width={26} height={16} rx={4} fill="var(--bg-elevated)" stroke="var(--accent)" />
+                        <text x={13} y={11} textAnchor="middle" fontSize={8} fill="var(--accent)" fontWeight={700}>
+                          Fit
+                        </text>
+                      </g>
+                    </>
+                  );
+                })()}
               </g>
             </svg>
           </div>
@@ -834,6 +1042,21 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
             </div>
           )}
 
+          {sel?.kind === 'container' && (
+            <div className="drawing-edge-actions drawing-ui-chrome">
+              <button
+                type="button"
+                className="drawing-icon-btn"
+                onClick={() => {
+                  const c = containers.find(x => x.id === sel.id);
+                  if (c) startContainerEdit(c);
+                }}
+              >
+                {t('containerLabel', lang)}
+              </button>
+            </div>
+          )}
+
           <DrawingPaletteMobile
             lang={lang}
             armedType={armedType}
@@ -842,36 +1065,19 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
           />
 
           <div className="drawing-toolbar drawing-ui-chrome" role="toolbar" aria-label={t('drawingBoard', lang)}>
-            {(
-              [
-                ['select', 'toolSelect'],
-                ['connect', 'toolConnect'],
-                ['container', 'toolContainer'],
-                ['delete', 'toolDelete'],
-              ] as const
-            ).map(([id, key]) => (
+            {toolbarItems.map(item => (
               <button
-                key={id}
+                key={item.id}
                 type="button"
-                className={`drawing-toolbar__btn${tool === id ? ' is-active' : ''}`}
-                onClick={() => {
-                  setTool(id);
-                  if (id !== 'connect') setConnectFrom(null);
-                }}
+                className={`drawing-toolbar__btn${item.active ? ' is-active' : ''}${item.danger && tool === 'delete' ? ' is-active' : ''}`}
+                title={t(item.labelKey, lang)}
+                aria-label={t(item.labelKey, lang)}
+                onClick={item.action}
               >
-                {t(key, lang)}
+                <span className="drawing-toolbar__icon" aria-hidden>{item.icon}</span>
+                <span className="drawing-toolbar__label">{t(item.labelKey, lang)}</span>
               </button>
             ))}
-            <button type="button" className="drawing-toolbar__btn" onClick={undo}>{t('toolUndo', lang)}</button>
-            <button type="button" className="drawing-toolbar__btn" onClick={redo}>{t('toolRedo', lang)}</button>
-            <button
-              type="button"
-              className="drawing-toolbar__btn"
-              disabled={!sel}
-              onClick={deleteSelection}
-            >
-              {t('deleteSelected', lang)}
-            </button>
           </div>
         </div>
       </div>
@@ -904,10 +1110,10 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                 return (
                   <line
                     key={i}
-                    x1={from.x + BLOCK_W / 2}
-                    y1={from.y + BLOCK_H / 2}
-                    x2={to.x + BLOCK_W / 2}
-                    y2={to.y + BLOCK_H / 2}
+                    x1={from.x + 60}
+                    y1={from.y + 32}
+                    x2={to.x + 60}
+                    y2={to.y + 32}
                     stroke="#155E57"
                     strokeWidth={1.5}
                     opacity={0.5}
@@ -916,7 +1122,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
               })}
               {expected.referenceLayout.map(block => (
                 <g key={`${block.type}-${block.x}`}>
-                  <rect x={block.x} y={block.y} width={BLOCK_W} height={BLOCK_H} rx={8} fill={paletteColor(block.type)} opacity={0.9} />
+                  <rect x={block.x} y={block.y} width={120} height={64} rx={8} fill={paletteColor(block.type)} opacity={0.9} />
                   <image href={paletteIconUrl(block.type)} x={block.x + 8} y={block.y + 16} width={28} height={28} />
                   <text x={block.x + 44} y={block.y + 36} fill="#fff" fontSize={10} fontWeight={600}>
                     {paletteShort(block.type)}

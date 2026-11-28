@@ -1,18 +1,105 @@
-import type { DrawingBlock, DrawingContainer, DrawingEdge, DrawingEdgeDirection } from '../types';
+import type { ComponentType, DrawingBlock, DrawingContainer, DrawingEdge, DrawingEdgeDirection, Lang } from '../types';
+import { paletteAws, paletteLabel } from './palette';
 
 export const BLOCK_W = 120;
 export const BLOCK_H = 64;
 export const BOARD_W = 900;
 export const BOARD_H = 560;
-export const HANDLE = 14; // visual; hit area larger in SVG
+export const HANDLE = 12;
+export const HANDLE_HIT = 22; // world-space radius for hit / visual target
 export const MIN_CONTAINER = 120;
+export const PAD_X = 10;
+export const PAD_Y = 8;
+export const ICON = 28;
+export const GAP = 8;
+export const LABEL_SIZE = 11;
+export const SUB_SIZE = 9;
+export const MAX_LABEL_LINES = 2;
+export const MAX_TEXT_WIDTH = 160;
 
 export function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function blockCenter(b: DrawingBlock) {
-  return { x: b.x + BLOCK_W / 2, y: b.y + BLOCK_H / 2 };
+let measureCtx: CanvasRenderingContext2D | null = null;
+function getMeasureCtx() {
+  if (measureCtx) return measureCtx;
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  measureCtx = c.getContext('2d');
+  return measureCtx;
+}
+
+export function measureTextWidth(text: string, fontSize: number, weight = 600) {
+  const ctx = getMeasureCtx();
+  if (!ctx) return text.length * fontSize * 0.55;
+  ctx.font = `${weight} ${fontSize}px system-ui, "Noto Sans Arabic", sans-serif`;
+  return ctx.measureText(text).width;
+}
+
+/** Wrap text to at most maxLines; ellipsis on overflow. */
+export function wrapLabel(text: string, maxWidth: number, fontSize: number, maxLines = MAX_LABEL_LINES): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const trial = cur ? `${cur} ${w}` : w;
+    if (measureTextWidth(trial, fontSize) <= maxWidth) {
+      cur = trial;
+    } else {
+      if (cur) lines.push(cur);
+      cur = w;
+      if (lines.length >= maxLines - 1) break;
+    }
+  }
+  if (lines.length < maxLines && cur) {
+    if (measureTextWidth(cur, fontSize) <= maxWidth) lines.push(cur);
+    else {
+      let cut = cur;
+      while (cut.length > 1 && measureTextWidth(`${cut}…`, fontSize) > maxWidth) cut = cut.slice(0, -1);
+      lines.push(`${cut}…`);
+    }
+  } else if (lines.length >= maxLines) {
+    // remaining words truncated on last line
+    const last = lines[lines.length - 1] || cur;
+    let cut = last;
+    while (cut.length > 1 && measureTextWidth(`${cut}…`, fontSize) > maxWidth) cut = cut.slice(0, -1);
+    lines[lines.length - 1] = cut.endsWith('…') ? cut : `${cut}…`;
+  }
+  return lines.length ? lines : [text];
+}
+
+export function fittedBlockSize(type: ComponentType, lang: Lang): { w: number; h: number; lines: string[]; sub: string } {
+  const label = paletteLabel(type, lang);
+  const sub = paletteAws(type, lang);
+  const lines = wrapLabel(label, MAX_TEXT_WIDTH, LABEL_SIZE, MAX_LABEL_LINES);
+  const labelW = Math.max(...lines.map(l => measureTextWidth(l, LABEL_SIZE, 700)), measureTextWidth(sub, SUB_SIZE, 500));
+  const textCol = Math.min(MAX_TEXT_WIDTH, Math.ceil(labelW));
+  const w = Math.ceil(PAD_X + ICON + GAP + textCol + PAD_X);
+  const textH = lines.length * (LABEL_SIZE + 3) + SUB_SIZE + 4;
+  const h = Math.ceil(Math.max(ICON + PAD_Y * 2, textH + PAD_Y * 2));
+  return { w: Math.max(96, w), h: Math.max(48, h), lines, sub };
+}
+
+export function blockSize(b: DrawingBlock, lang: Lang): { w: number; h: number } {
+  const fit = fittedBlockSize(b.type, lang);
+  return {
+    w: b.w != null && b.w > 0 ? Math.max(b.w, fit.w) : fit.w,
+    // If user shrunk below fit, clamp to fit (text never overflows)
+    h: b.h != null && b.h > 0 ? Math.max(b.h, fit.h) : fit.h,
+  };
+}
+
+/** Raw size for resize min (fitted content). */
+export function blockMinSize(b: DrawingBlock, lang: Lang) {
+  const fit = fittedBlockSize(b.type, lang);
+  return { w: fit.w, h: fit.h };
+}
+
+export function blockCenter(b: DrawingBlock, lang: Lang = 'en') {
+  const { w, h } = blockSize(b, lang);
+  return { x: b.x + w / 2, y: b.y + h / 2 };
 }
 
 export function containerCenter(c: DrawingContainer) {
@@ -23,9 +110,13 @@ export function nodeBounds(
   id: string,
   blocks: DrawingBlock[],
   containers: DrawingContainer[],
+  lang: Lang = 'en',
 ): { x: number; y: number; w: number; h: number } | null {
   const b = blocks.find(n => n.id === id);
-  if (b) return { x: b.x, y: b.y, w: BLOCK_W, h: BLOCK_H };
+  if (b) {
+    const s = blockSize(b, lang);
+    return { x: b.x, y: b.y, w: s.w, h: s.h };
+  }
   const c = containers.find(n => n.id === id);
   if (c) return { x: c.x, y: c.y, w: c.w, h: c.h };
   return null;
@@ -35,8 +126,9 @@ export function nodeCenter(
   id: string,
   blocks: DrawingBlock[],
   containers: DrawingContainer[],
+  lang: Lang = 'en',
 ) {
-  const box = nodeBounds(id, blocks, containers);
+  const box = nodeBounds(id, blocks, containers, lang);
   if (!box) return null;
   return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
 }
@@ -67,7 +159,6 @@ export function pointInRect(
   return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 }
 
-/** Innermost container containing point (smallest area). */
 export function findContainerAt(
   px: number,
   py: number,
@@ -139,22 +230,6 @@ export function midpoint(a: { x: number; y: number }, b: { x: number; y: number 
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-export function distToSegment(
-  px: number,
-  py: number,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
-  let t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-}
-
 export function cloneDrawingSlice(state: {
   blocks: DrawingBlock[];
   containers?: DrawingContainer[];
@@ -165,4 +240,14 @@ export function cloneDrawingSlice(state: {
     containers: (state.containers || []).map(c => ({ ...c })),
     edges: state.edges.map(e => ({ ...e })),
   };
+}
+
+export type ResizeHandle = 'se' | 'e' | 's';
+
+export function resizeHandles(box: { x: number; y: number; w: number; h: number }): { id: ResizeHandle; x: number; y: number; cursor: string }[] {
+  return [
+    { id: 'se', x: box.x + box.w, y: box.y + box.h, cursor: 'nwse-resize' },
+    { id: 'e', x: box.x + box.w, y: box.y + box.h / 2, cursor: 'ew-resize' },
+    { id: 's', x: box.x + box.w / 2, y: box.y + box.h, cursor: 'ns-resize' },
+  ];
 }

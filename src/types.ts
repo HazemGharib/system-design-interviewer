@@ -58,6 +58,9 @@ export interface DrawingBlock {
   type: ComponentType;
   x: number;
   y: number;
+  /** Optional manual size; omitted = auto-fit to label/icon. */
+  w?: number;
+  h?: number;
   /** Parent container id when nested inside a region/group. */
   parentId?: string | null;
 }

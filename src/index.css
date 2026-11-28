@@ -405,12 +405,34 @@ html, body {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  /* Keep floating lang toggle from covering the title */
+  padding-top: 4px;
+}
+
+.drawing-board,
+.drawing-board *,
+.drawing-board__canvas-wrap,
+.drawing-board__svg,
+.drawing-toolbar,
+.drawing-palette-strip,
+.drawing-palette-desk {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.drawing-label-modal input,
+.drawing-sheet__search {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .drawing-board__title {
   font-size: 1.05rem;
   margin: 0 0 4px;
   color: var(--text-primary);
+  padding-inline-end: 5.5rem; /* room for fixed lang toggle */
 }
 
 .drawing-board__hint {
@@ -459,6 +481,10 @@ html, body {
   background: var(--bg-subtle);
   touch-action: none;
   overscroll-behavior: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: default;
 }
 
 .drawing-board__svg {
@@ -484,8 +510,8 @@ html, body {
 
 .drawing-toolbar {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  gap: 6px;
   overflow-x: auto;
   padding: 6px 4px;
   border: 1px solid var(--border-default);
@@ -498,7 +524,7 @@ html, body {
   flex: 0 0 auto;
   min-width: 44px;
   min-height: 44px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   font-size: 0.68rem;
   font-weight: 600;
   border-radius: 10px;
@@ -508,6 +534,19 @@ html, body {
   cursor: pointer;
   touch-action: manipulation;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.drawing-toolbar__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.drawing-toolbar__label {
+  font-size: 0.68rem;
 }
 
 .drawing-toolbar__btn.is-active {
@@ -837,10 +876,31 @@ html, body {
   .drawing-toolbar {
     display: flex;
     flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .drawing-toolbar__label {
+    /* icon-first on mobile; label via title/long-press */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .drawing-toolbar__btn {
+    position: relative;
+    width: 44px;
+    padding: 0;
   }
 
   .drawing-board__zoom .drawing-icon-btn:nth-child(n + 4) {
     display: none;
+  }
+
+  .drawing-board__title {
+    padding-inline-end: 4.5rem;
+    padding-top: 2px;
   }
 }
 

@@ -2,7 +2,7 @@
 /**
  * Validates JSON content under src/data/. Fails the build on schema/i18n/glossary issues.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -248,8 +248,40 @@ for (const file of scenarioFiles) {
   }
 }
 
-const palette = readJson('palette.json') as { items: { type: string; label: { ar: string; en: string } }[] };
+const PaletteItem = z.object({
+  type: z.string().min(1),
+  label: Bi,
+  color: z.string().min(1),
+  short: z.string().min(1),
+  category: z.enum(['networking', 'compute', 'storage', 'data', 'messaging', 'observability', 'security']),
+  awsService: Bi,
+  icon: z.string().regex(/^aws-icons\/.+\.svg$/, 'icon must be aws-icons/*.svg'),
+});
+
+const palette = readJson('palette.json') as { items: unknown[] };
 if (!palette.items?.length) fail('palette.json has no items');
+else {
+  const seen = new Set<string>();
+  for (const raw of palette.items) {
+    const parsed = PaletteItem.safeParse(raw);
+    if (!parsed.success) {
+      fail(`palette item invalid: ${parsed.error.message}`);
+      continue;
+    }
+    const item = parsed.data;
+    if (seen.has(item.type)) fail(`palette duplicate type "${item.type}"`);
+    seen.add(item.type);
+    const iconPath = join(root, 'public', item.icon);
+    if (!existsSync(iconPath)) fail(`palette icon missing for "${item.type}": public/${item.icon}`);
+  }
+  for (const file of scenarioFiles) {
+    const sc = readJson(`scenarios/${file}`) as { id: string; drawing?: { components?: string[] } | null };
+    if (!sc.drawing?.components) continue;
+    for (const c of sc.drawing.components) {
+      if (!seen.has(c)) fail(`scenario ${sc.id} drawing component "${c}" not in palette.json`);
+    }
+  }
+}
 
 if (errors.length) {
   console.error('\nContent validation FAILED:\n');

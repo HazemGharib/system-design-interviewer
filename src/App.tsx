@@ -68,7 +68,13 @@ function normalizeScenarioState(scenario: Scenario, raw: Partial<SavedScenarioSt
   return {
     ...base,
     ...raw,
-    drawing: { ...base.drawing, ...(raw.drawing || {}) },
+    drawing: {
+      ...base.drawing,
+      ...(raw.drawing || {}),
+      blocks: raw.drawing?.blocks || base.drawing.blocks,
+      containers: raw.drawing?.containers || base.drawing.containers || [],
+      edges: raw.drawing?.edges || base.drawing.edges,
+    },
     capacity: {
       ...base.capacity,
       ...(raw.capacity || {}),

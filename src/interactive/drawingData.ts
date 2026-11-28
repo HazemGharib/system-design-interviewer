@@ -14,6 +14,7 @@ export const DRAWING_EXPECTATIONS: Record<string, ExpectedDesign> = Object.fromE
 export function emptyDrawing() {
   return {
     blocks: [],
+    containers: [] as import('../types').DrawingContainer[],
     edges: [],
     compared: false,
     matchedComponents: [] as string[],

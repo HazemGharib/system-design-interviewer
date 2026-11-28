@@ -40,7 +40,17 @@ export function getScenarioJson(id: string): ScenarioJson | undefined {
 
 export const CHEATSHEET = cheatsheetJson as CheatsheetJson;
 export const GLOSSARY = glossaryJson as GlossaryJson;
-export const PALETTE_ITEMS = (paletteJson as { items: { type: string; label: { ar: string; en: string }; color: string; short: string }[] }).items;
+export const PALETTE_ITEMS = (paletteJson as {
+  items: {
+    type: string;
+    label: { ar: string; en: string };
+    color: string;
+    short: string;
+    category: string;
+    awsService: { ar: string; en: string };
+    icon: string;
+  }[];
+}).items;
 export const MANIFEST = manifestJson;
 
 export function getGlossaryTerm(id: string) {

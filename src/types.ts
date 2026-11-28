@@ -58,16 +58,35 @@ export interface DrawingBlock {
   type: ComponentType;
   x: number;
   y: number;
+  /** Parent container id when nested inside a region/group. */
+  parentId?: string | null;
 }
+
+export interface DrawingContainer {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Nested container parent. */
+  parentId?: string | null;
+}
+
+export type DrawingEdgeDirection = 'forward' | 'backward' | 'both';
 
 export interface DrawingEdge {
   id: string;
   from: string;
   to: string;
+  label?: string;
+  direction?: DrawingEdgeDirection;
 }
 
 export interface DrawingState {
   blocks: DrawingBlock[];
+  /** Optional regions / VPCs / ASGs — ignored by default scoring. */
+  containers?: DrawingContainer[];
   edges: DrawingEdge[];
   compared: boolean;
   matchedComponents: string[];

@@ -398,6 +398,452 @@ html, body {
   background: var(--bg-elevated) !important;
 }
 
+/* —— Architecture drawing board —— */
+.drawing-board {
+  margin: 16px 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.drawing-board__title {
+  font-size: 1.05rem;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.drawing-board__hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.drawing-board__armed {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.drawing-board__layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  min-height: 420px;
+}
+
+.drawing-board__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.drawing-board__zoom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.drawing-board__canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 280px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.drawing-board__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  touch-action: none;
+}
+
+.drawing-icon-btn {
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+.drawing-toolbar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  overflow-x: auto;
+  padding: 6px 4px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawing-toolbar__btn {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.drawing-toolbar__btn.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.drawing-toolbar__btn:disabled {
+  opacity: 0.45;
+  color: var(--text-muted);
+}
+
+.drawing-edge-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.drawing-palette-strip {
+  display: none;
+}
+
+.drawing-palette-desk {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 560px;
+}
+
+.drawing-palette-desk.is-collapsed {
+  max-height: none;
+}
+
+.drawing-palette-desk__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.drawing-palette-desk__body {
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawing-palette-desk__cat {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.drawing-palette-desk__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawing-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: start;
+  padding: 6px 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.drawing-palette-row.is-armed {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 1px var(--color-gold);
+}
+
+.drawing-palette-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.drawing-palette-row__label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawing-palette-row__aws {
+  font-size: 0.62rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawing-chip {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.drawing-chip.is-armed {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px var(--color-gold);
+}
+
+.drawing-chip__cap {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 1;
+  max-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawing-chip--more {
+  width: auto;
+  min-width: 52px;
+  padding: 4px 8px;
+}
+
+.drawing-chip__more-plus {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.drawing-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.drawing-sheet {
+  width: min(100%, 560px);
+  height: 50vh;
+  max-height: 50dvh;
+  background: var(--bg-elevated);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+  touch-action: none;
+}
+
+.drawing-sheet__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-default);
+  margin: 8px auto 4px;
+  flex: 0 0 auto;
+}
+
+.drawing-sheet__top {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  align-items: center;
+}
+
+.drawing-sheet__search {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: 0.875rem;
+}
+
+.drawing-sheet__body {
+  overflow: auto;
+  padding: 0 12px 16px;
+  flex: 1;
+  touch-action: pan-y;
+}
+
+.drawing-sheet__cat {
+  margin: 10px 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.drawing-sheet__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.drawing-sheet__empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+}
+
+.drawing-label-modal {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-card);
+  width: min(92vw, 360px);
+}
+
+.drawing-label-modal input {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  padding: 8px;
+}
+
+.drawing-compare {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+}
+
+.drawing-compare__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.drawing-compare__svg-wrap {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-subtle);
+}
+
+@media (max-width: 480px) {
+  .drawing-board__layout {
+    display: block;
+    min-height: calc(100dvh - 220px);
+  }
+
+  .drawing-palette-desk {
+    display: none;
+  }
+
+  .drawing-board__main {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - 220px);
+    gap: 6px;
+  }
+
+  .drawing-board__canvas-wrap {
+    flex: 1 1 auto;
+    min-height: 220px;
+  }
+
+  .drawing-palette-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 2px 0;
+    min-height: 52px;
+  }
+
+  .drawing-palette-strip__label {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  .drawing-palette-strip__scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .drawing-toolbar {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .drawing-board__zoom .drawing-icon-btn:nth-child(n + 4) {
+    display: none;
+  }
+}
+
 @media print {
   html[data-print-cheatsheet='true'] body * {
     visibility: hidden;

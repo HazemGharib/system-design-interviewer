@@ -98,10 +98,27 @@ export const UI_STRINGS = {
   // Drawing board
   drawingBoard: { ar: 'لوحة رسم الأركيتكتشر', en: 'Architecture Drawing Board' },
   drawingHint: {
-    ar: 'اسحب مكوّن من القائمة، حرّكه على اللوحة، واضغط مكوّنين ورا بعض عشان توصلهم بسهم. اضغط مطوّل للحذف.',
-    en: 'Drag a component from the palette, move it on the board, tap two components in sequence to connect them. Long-press to delete.'
+    ar: 'اختَر مكوّنًا ثم اضغط على اللوحة لوضعه. استخدم توصيل، الحاويات، والتكبير. اضغط مطوّل للتحديد.',
+    en: 'Pick a component, then tap the canvas to place it. Use Connect, containers, and zoom. Long-press to select.'
   },
   palette: { ar: 'المكوّنات', en: 'Components' },
+  paletteRecent: { ar: 'الأخيرة', en: 'Recent' },
+  paletteMore: { ar: 'المزيد', en: 'More' },
+  paletteSearch: { ar: 'ابحث عن مكوّن…', en: 'Search components…' },
+  paletteArmed: { ar: 'جاهز للوضع — اضغط على اللوحة', en: 'Armed — tap the canvas to place' },
+  toolSelect: { ar: 'تحديد', en: 'Select' },
+  toolConnect: { ar: 'توصيل', en: 'Connect' },
+  toolContainer: { ar: 'حاوية', en: 'Container' },
+  toolDelete: { ar: 'حذف', en: 'Delete' },
+  toolUndo: { ar: 'تراجع', en: 'Undo' },
+  toolRedo: { ar: 'إعادة', en: 'Redo' },
+  toolZoomIn: { ar: 'تكبير', en: 'Zoom in' },
+  toolZoomOut: { ar: 'تصغير', en: 'Zoom out' },
+  toolFit: { ar: 'ملاءمة', en: 'Fit' },
+  edgeLabel: { ar: 'تسمية الوصلة', en: 'Connector label' },
+  edgeDirection: { ar: 'اتجاه السهم', en: 'Arrow direction' },
+  containerLabel: { ar: 'اسم الحاوية', en: 'Container label' },
+  defaultContainerLabel: { ar: 'Region', en: 'Region' },
   connectMode: { ar: 'توصيل', en: 'Connect' },
   deleteSelected: { ar: 'احذف المحدد', en: 'Delete selected' },
   clearBoard: { ar: 'امسح اللوحة', en: 'Clear board' },
@@ -113,6 +130,9 @@ export const UI_STRINGS = {
   matchedEdges: { ar: 'وصلات صحيحة', en: 'Matched connections' },
   missedEdges: { ar: 'وصلات ناقصة', en: 'Missed connections' },
   drawingScore: { ar: 'درجة الرسم', en: 'Drawing score' },
+  collapsePalette: { ar: 'طي القائمة', en: 'Collapse palette' },
+  expandPalette: { ar: 'توسيع القائمة', en: 'Expand palette' },
+  closeSheet: { ar: 'إغلاق', en: 'Close' },
 
   // Capacity calculator
   capacityCalculator: { ar: 'حاسبة تقدير السعة', en: 'Capacity Estimation Calculator' },

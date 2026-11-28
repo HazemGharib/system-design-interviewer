@@ -2,156 +2,156 @@
   "items": [
     {
       "type": "client",
-      "label": {
-        "ar": "Client",
-        "en": "Client"
-      },
+      "label": { "ar": "Client", "en": "Client" },
       "color": "#0C2E36",
-      "short": "CL"
+      "short": "CL",
+      "category": "networking",
+      "awsService": { "ar": "Client", "en": "Client" },
+      "icon": "aws-icons/users.svg"
     },
     {
       "type": "lb",
-      "label": {
-        "ar": "Load Balancer",
-        "en": "Load Balancer"
-      },
+      "label": { "ar": "Load Balancer", "en": "Load Balancer" },
       "color": "#155E57",
-      "short": "LB"
-    },
-    {
-      "type": "api",
-      "label": {
-        "ar": "API Server",
-        "en": "API Server"
-      },
-      "color": "#1A7A6D",
-      "short": "API"
-    },
-    {
-      "type": "cache",
-      "label": {
-        "ar": "Cache",
-        "en": "Cache"
-      },
-      "color": "#C9A227",
-      "short": "CA"
-    },
-    {
-      "type": "db",
-      "label": {
-        "ar": "Database",
-        "en": "Database"
-      },
-      "color": "#2A6F97",
-      "short": "DB"
-    },
-    {
-      "type": "replica",
-      "label": {
-        "ar": "Read Replica",
-        "en": "Read Replica"
-      },
-      "color": "#468FAF",
-      "short": "RR"
-    },
-    {
-      "type": "storage",
-      "label": {
-        "ar": "Object Storage",
-        "en": "Object Storage"
-      },
-      "color": "#6B4C9A",
-      "short": "S3"
+      "short": "LB",
+      "category": "networking",
+      "awsService": { "ar": "ELB", "en": "ELB" },
+      "icon": "aws-icons/elb.svg"
     },
     {
       "type": "cdn",
-      "label": {
-        "ar": "CDN",
-        "en": "CDN"
-      },
+      "label": { "ar": "CDN", "en": "CDN" },
       "color": "#8B5CF6",
-      "short": "CDN"
-    },
-    {
-      "type": "queue",
-      "label": {
-        "ar": "Queue",
-        "en": "Queue"
-      },
-      "color": "#B45309",
-      "short": "Q"
-    },
-    {
-      "type": "worker",
-      "label": {
-        "ar": "Worker",
-        "en": "Worker"
-      },
-      "color": "#92400E",
-      "short": "WK"
-    },
-    {
-      "type": "dlq",
-      "label": {
-        "ar": "DLQ",
-        "en": "DLQ"
-      },
-      "color": "#991B1B",
-      "short": "DLQ"
+      "short": "CDN",
+      "category": "networking",
+      "awsService": { "ar": "CloudFront", "en": "CloudFront" },
+      "icon": "aws-icons/cloudfront.svg"
     },
     {
       "type": "websocket",
-      "label": {
-        "ar": "WebSocket Server",
-        "en": "WebSocket Server"
-      },
+      "label": { "ar": "WebSocket Server", "en": "WebSocket Server" },
       "color": "#0E7490",
-      "short": "WS"
+      "short": "WS",
+      "category": "networking",
+      "awsService": { "ar": "API Gateway", "en": "API Gateway" },
+      "icon": "aws-icons/apigateway.svg"
+    },
+    {
+      "type": "api",
+      "label": { "ar": "API Server", "en": "API Server" },
+      "color": "#1A7A6D",
+      "short": "API",
+      "category": "compute",
+      "awsService": { "ar": "EC2 / ECS", "en": "EC2 / ECS" },
+      "icon": "aws-icons/ec2.svg"
+    },
+    {
+      "type": "worker",
+      "label": { "ar": "Worker", "en": "Worker" },
+      "color": "#92400E",
+      "short": "WK",
+      "category": "compute",
+      "awsService": { "ar": "Lambda", "en": "Lambda" },
+      "icon": "aws-icons/lambda.svg"
     },
     {
       "type": "kgs",
-      "label": {
-        "ar": "Key Generator",
-        "en": "Key Generator"
-      },
+      "label": { "ar": "Key Generator", "en": "Key Generator" },
       "color": "#065F46",
-      "short": "KGS"
+      "short": "KGS",
+      "category": "compute",
+      "awsService": { "ar": "Lambda", "en": "Lambda" },
+      "icon": "aws-icons/lambda.svg"
     },
     {
-      "type": "push",
-      "label": {
-        "ar": "Push Notification",
-        "en": "Push Notification"
-      },
-      "color": "#9D174D",
-      "short": "PUSH"
+      "type": "storage",
+      "label": { "ar": "Object Storage", "en": "Object Storage" },
+      "color": "#6B4C9A",
+      "short": "S3",
+      "category": "storage",
+      "awsService": { "ar": "Amazon S3", "en": "Amazon S3" },
+      "icon": "aws-icons/s3.svg"
     },
     {
-      "type": "monitoring",
-      "label": {
-        "ar": "Monitoring",
-        "en": "Monitoring"
-      },
-      "color": "#374151",
-      "short": "MON"
+      "type": "db",
+      "label": { "ar": "Database", "en": "Database" },
+      "color": "#2A6F97",
+      "short": "DB",
+      "category": "data",
+      "awsService": { "ar": "RDS / Aurora", "en": "RDS / Aurora" },
+      "icon": "aws-icons/rds.svg"
+    },
+    {
+      "type": "replica",
+      "label": { "ar": "Read Replica", "en": "Read Replica" },
+      "color": "#468FAF",
+      "short": "RR",
+      "category": "data",
+      "awsService": { "ar": "RDS", "en": "RDS" },
+      "icon": "aws-icons/rds.svg"
+    },
+    {
+      "type": "cache",
+      "label": { "ar": "Cache", "en": "Cache" },
+      "color": "#C9A227",
+      "short": "CA",
+      "category": "data",
+      "awsService": { "ar": "ElastiCache", "en": "ElastiCache" },
+      "icon": "aws-icons/elasticache.svg"
     },
     {
       "type": "presence",
-      "label": {
-        "ar": "Presence",
-        "en": "Presence"
-      },
+      "label": { "ar": "Presence", "en": "Presence" },
       "color": "#047857",
-      "short": "PRE"
+      "short": "PRE",
+      "category": "data",
+      "awsService": { "ar": "ElastiCache", "en": "ElastiCache" },
+      "icon": "aws-icons/elasticache.svg"
+    },
+    {
+      "type": "queue",
+      "label": { "ar": "Queue", "en": "Queue" },
+      "color": "#B45309",
+      "short": "Q",
+      "category": "messaging",
+      "awsService": { "ar": "SQS", "en": "SQS" },
+      "icon": "aws-icons/sqs.svg"
+    },
+    {
+      "type": "dlq",
+      "label": { "ar": "DLQ", "en": "DLQ" },
+      "color": "#991B1B",
+      "short": "DLQ",
+      "category": "messaging",
+      "awsService": { "ar": "SQS", "en": "SQS" },
+      "icon": "aws-icons/sqs.svg"
+    },
+    {
+      "type": "push",
+      "label": { "ar": "Push Notification", "en": "Push Notification" },
+      "color": "#9D174D",
+      "short": "PUSH",
+      "category": "messaging",
+      "awsService": { "ar": "SNS", "en": "SNS" },
+      "icon": "aws-icons/sns.svg"
     },
     {
       "type": "router",
-      "label": {
-        "ar": "Message Router",
-        "en": "Message Router"
-      },
+      "label": { "ar": "Message Router", "en": "Message Router" },
       "color": "#1E40AF",
-      "short": "RT"
+      "short": "RT",
+      "category": "messaging",
+      "awsService": { "ar": "EventBridge", "en": "EventBridge" },
+      "icon": "aws-icons/eventbridge.svg"
+    },
+    {
+      "type": "monitoring",
+      "label": { "ar": "Monitoring", "en": "Monitoring" },
+      "color": "#374151",
+      "short": "MON",
+      "category": "observability",
+      "awsService": { "ar": "CloudWatch", "en": "CloudWatch" },
+      "icon": "aws-icons/cloudwatch.svg"
     }
   ]
 }

@@ -18,6 +18,17 @@ src/data/
 
 `import.meta.glob` loads every `src/data/scenarios/*.json` except `manifest.json`. The manifest controls display order and must list each scenario id.
 
+## Palette + AWS icons
+
+`palette.json` lists drawing components. Each item needs:
+
+- `type`, bilingual `label`, `color`, `short`
+- `category`: `networking` | `compute` | `storage` | `data` | `messaging` | `observability` | `security`
+- bilingual `awsService` (subtitle / tooltip)
+- `icon`: path under `public/`, e.g. `aws-icons/s3.svg` (official AWS Architecture Icons SVGs, bundled for offline/PWA)
+
+The validator checks icons exist on disk and that every scenario drawing component appears in the palette.
+
 ## Add or edit a scenario
 
 1. Copy an existing file in `src/data/scenarios/` (e.g. `url-shortener.json`).

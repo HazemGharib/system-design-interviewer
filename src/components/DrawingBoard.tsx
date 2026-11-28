@@ -19,8 +19,6 @@ import { DrawingPaletteDesktop, DrawingPaletteMobile } from './DrawingPalette';
 import { paletteColor, paletteIconUrl, paletteLabel, paletteShort } from '../interactive/palette';
 import { DRAWING_EXPECTATIONS } from '../interactive/drawingData';
 import {
-  BOARD_H,
-  BOARD_W,
   GAP,
   HANDLE,
   HANDLE_HIT,
@@ -89,6 +87,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 40, y: 40 });
+  /** CSS-pixel size of the canvas element — drives viewBox so SVG fills without letterboxing/clip. */
+  const [viewport, setViewport] = useState({ w: 390, h: 420 });
   const [deskCollapsed, setDeskCollapsed] = useState(false);
   const [editingLabel, setEditingLabel] = useState<{ kind: 'edge' | 'container'; id: string } | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
@@ -96,6 +96,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
   const history = useRef<ReturnType<typeof cloneDrawingSlice>[]>([]);
   const future = useRef<ReturnType<typeof cloneDrawingSlice>[]>([]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -140,9 +142,10 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
 
   const toWorld = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    const svgX = ((clientX - rect.left) / rect.width) * BOARD_W;
-    const svgY = ((clientY - rect.top) / rect.height) * BOARD_H;
+    if (!rect || rect.width < 1 || rect.height < 1) return { x: 0, y: 0 };
+    const vp = viewportRef.current;
+    const svgX = ((clientX - rect.left) / rect.width) * vp.w;
+    const svgY = ((clientY - rect.top) / rect.height) * vp.h;
     return { x: (svgX - pan.x) / scale, y: (svgY - pan.y) / scale };
   };
 
@@ -152,8 +155,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     const block: DrawingBlock = {
       id: uid('b'),
       type,
-      x: Math.max(0, Math.min(BOARD_W - fit.w, x - fit.w / 2)),
-      y: Math.max(0, Math.min(BOARD_H - fit.h, y - fit.h / 2)),
+      x: x - fit.w / 2,
+      y: y - fit.h / 2,
       w: fit.w,
       h: fit.h,
       parentId: parent?.id ?? null,
@@ -200,6 +203,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   };
 
   const fitView = useCallback(() => {
+    const vp = viewportRef.current;
     const items = [
       ...state.blocks.map(b => {
         const s = blockSize(b, lang);
@@ -209,7 +213,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     ];
     if (!items.length) {
       setScale(1);
-      setPan({ x: 40, y: 40 });
+      setPan({ x: 24, y: 24 });
       return;
     }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -219,24 +223,46 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
       maxX = Math.max(maxX, it.x + it.w);
       maxY = Math.max(maxY, it.y + it.h);
     }
-    const pad = 48;
-    const w = Math.max(1, maxX - minX + pad * 2);
-    const h = Math.max(1, maxY - minY + pad * 2);
-    const s = Math.max(0.8, Math.min(2.2, Math.min(BOARD_W / w, BOARD_H / h)));
+    const pad = 36;
+    const worldW = Math.max(1, maxX - minX + pad * 2);
+    const worldH = Math.max(1, maxY - minY + pad * 2);
+    const s = Math.max(0.8, Math.min(2.4, Math.min(vp.w / worldW, vp.h / worldH)));
     setScale(s);
+    // Center content in the visible viewport
     setPan({
-      x: (BOARD_W - w * s) / 2 - minX * s + pad * s,
-      y: (BOARD_H - h * s) / 2 - minY * s + pad * s,
+      x: (vp.w - worldW * s) / 2 - (minX - pad) * s,
+      y: (vp.h - worldH * s) / 2 - (minY - pad) * s,
     });
   }, [containers, lang, state.blocks]);
 
+  // Keep SVG viewBox = element size so content isn't letterboxed/clipped mid-canvas
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const apply = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.max(120, Math.round(r.width));
+      const h = Math.max(160, Math.round(r.height));
+      setViewport(prev => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    apply();
+    const ro = new ResizeObserver(() => apply());
+    ro.observe(el);
+    window.addEventListener('orientationchange', apply);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', apply);
+    };
+  }, []);
+
   useEffect(() => {
     if (didInitialFit.current) return;
-    if (state.blocks.length || containers.length) {
+    if ((state.blocks.length || containers.length) && viewport.w > 120) {
       didInitialFit.current = true;
-      fitView();
+      // defer so viewport is applied
+      requestAnimationFrame(() => fitView());
     }
-  }, [containers.length, fitView, state.blocks.length]);
+  }, [containers.length, fitView, state.blocks.length, viewport.w, viewport.h]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -469,8 +495,9 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     if (d.kind === 'pan') {
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const dx = ((e.clientX - d.startX) / rect.width) * BOARD_W;
-      const dy = ((e.clientY - d.startY) / rect.height) * BOARD_H;
+      const vp = viewportRef.current;
+      const dx = ((e.clientX - d.startX) / rect.width) * vp.w;
+      const dy = ((e.clientY - d.startY) / rect.height) * vp.h;
       setPan({ x: d.ox + dx, y: d.oy + dy });
       d.moved = true;
       return;
@@ -733,9 +760,10 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
             <svg
               ref={svgRef}
               className="drawing-board__svg"
-              viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
+              viewBox={`0 0 ${viewport.w} ${viewport.h}`}
               width="100%"
               height="100%"
+              preserveAspectRatio="none"
             >
               <defs>
                 <marker id="arrow-fwd" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -879,15 +907,26 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                         strokeWidth={3}
                       />
                       {icon && (
-                        <image
-                          href={icon}
-                          x={block.x + PAD_X}
-                          y={block.y + (sz.h - ICON) / 2}
-                          width={ICON}
-                          height={ICON}
-                          preserveAspectRatio="xMidYMid meet"
-                          style={{ pointerEvents: 'none' }}
-                        />
+                        <>
+                          <rect
+                            x={block.x + PAD_X - 2}
+                            y={block.y + (sz.h - ICON) / 2 - 2}
+                            width={ICON + 4}
+                            height={ICON + 4}
+                            rx={4}
+                            fill="#ffffff"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                          <image
+                            href={icon}
+                            x={block.x + PAD_X}
+                            y={block.y + (sz.h - ICON) / 2}
+                            width={ICON}
+                            height={ICON}
+                            preserveAspectRatio="xMidYMid meet"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                        </>
                       )}
                       {fit.lines.map((line, i) => (
                         <text
@@ -1102,7 +1141,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         <div className="drawing-compare">
           <p className="drawing-compare__title">{t('proposedDesign', lang)}</p>
           <div className="drawing-compare__svg-wrap">
-            <svg viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} width="100%" style={{ display: 'block', minHeight: 160 }}>
+            <svg viewBox="0 0 900 560" width="100%" style={{ display: 'block', minHeight: 160 }}>
               {expected.edges.map((edge, i) => {
                 const from = expected.referenceLayout.find(b => b.type === edge.from);
                 const to = expected.referenceLayout.find(b => b.type === edge.to);

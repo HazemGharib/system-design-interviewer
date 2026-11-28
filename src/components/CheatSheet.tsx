@@ -1,19 +1,22 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import type { Lang } from '../types';
-import { CHEATSHEET_CATEGORIES, NUMBERS_TO_KNOW } from '../data/cheatsheet';
+import { CHEATSHEET, GLOSSARY, getGlossaryTerm } from '../content/loadContent';
 import { localizedText } from '../i18n';
+import { LinkedText } from './TermLink';
 
 interface Props {
   lang: Lang;
   onBack: () => void;
   onToggleLang: () => void;
+  onOpenTerm: (termId: string) => void;
+  onOpenGlossary: () => void;
 }
 
 const CS = {
   title: { ar: 'مرجع أنماط System Design', en: 'System Design Cheat Sheet' },
   subtitle: {
-    ar: 'مشكلة/عرض → النمط المناسب. ابحث، صفّي، وحمّل PDF في أي وقت — حتى بدون نت.',
-    en: 'Problem/symptom → pattern to use. Search, filter, and download PDF anytime — works offline.',
+    ar: 'مشكلة/عرض → النمط المناسب. اضغط أي مصطلح لفتح القاموس. حمّل PDF في أي وقت — حتى بدون نت.',
+    en: 'Problem/symptom → pattern to use. Tap any term for the glossary. Download PDF anytime — works offline.',
   },
   search: { ar: 'ابحث في الأنماط…', en: 'Search patterns…' },
   allCategories: { ar: 'كل التصنيفات', en: 'All categories' },
@@ -27,18 +30,21 @@ const CS = {
   expandAll: { ar: 'افتح الكل', en: 'Expand all' },
   collapseAll: { ar: 'اقفل الكل', en: 'Collapse all' },
   results: { ar: 'نتيجة', en: 'results' },
+  glossary: { ar: 'القاموس', en: 'Glossary' },
+  glossaryAppendix: { ar: 'ملحق القاموس', en: 'Glossary Appendix' },
+  relatedTerms: { ar: 'مصطلحات', en: 'Terms' },
 } as const;
 
-export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
+export function CheatSheet({ lang, onBack, onToggleLang, onOpenTerm, onOpenGlossary }: Props) {
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState('all');
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(CHEATSHEET_CATEGORIES.map(c => [c.id, true]))
+    Object.fromEntries(CHEATSHEET.categories.map(c => [c.id, true]))
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return CHEATSHEET_CATEGORIES
+    return CHEATSHEET.categories
       .filter(c => categoryId === 'all' || c.id === categoryId)
       .map(c => ({
         ...c,
@@ -47,7 +53,7 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
           const hay = [
             e.problem.ar, e.problem.en, e.patterns.ar, e.patterns.en,
             e.when.ar, e.when.en, e.tradeoffs.ar, e.tradeoffs.en,
-            e.example.ar, e.example.en, ...e.tags,
+            e.example.ar, e.example.en, ...e.tags, ...(e.termIds || []),
           ].join(' ').toLowerCase();
           return hay.includes(q);
         }),
@@ -56,23 +62,25 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
   }, [query, categoryId]);
 
   const total = filtered.reduce((n, c) => n + c.entries.length, 0);
-
-  const expandAll = (value: boolean) => {
-    setOpen(Object.fromEntries(CHEATSHEET_CATEGORIES.map(c => [c.id, value])));
-  };
+  const expandAll = (value: boolean) => setOpen(Object.fromEntries(CHEATSHEET.categories.map(c => [c.id, value])));
 
   const downloadPdf = () => {
     document.documentElement.setAttribute('data-print-cheatsheet', 'true');
-    window.print();
-    setTimeout(() => document.documentElement.removeAttribute('data-print-cheatsheet'), 500);
+    // Expand all for print
+    expandAll(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => document.documentElement.removeAttribute('data-print-cheatsheet'), 500);
+    }, 50);
   };
 
   return (
     <div className="cheatsheet-page" dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ maxWidth: 860, margin: '0 auto', padding: '20px 16px 80px' }}>
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <button type="button" onClick={onBack} style={btn}>{localizedText(CS.back, lang)}</button>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={onToggleLang} style={btn}>{lang === 'ar' ? 'English' : 'عربي'}</button>
+          <button type="button" onClick={onOpenGlossary} style={btn}>{localizedText(CS.glossary, lang)}</button>
           <button type="button" onClick={downloadPdf} style={{ ...btn, background: 'var(--accent)', color: '#fff', border: 'none' }}>
             {localizedText(CS.downloadPdf, lang)}
           </button>
@@ -80,12 +88,8 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
       </div>
 
       <header style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: 'clamp(1.4rem, 5vw, 1.85rem)', color: 'var(--text-primary)' }}>
-          {localizedText(CS.title, lang)}
-        </h1>
-        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: '0.9375rem' }}>
-          {localizedText(CS.subtitle, lang)}
-        </p>
+        <h1 style={{ margin: '0 0 8px', fontSize: 'clamp(1.4rem, 5vw, 1.85rem)' }}>{localizedText(CS.title, lang)}</h1>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: '0.9375rem' }}>{localizedText(CS.subtitle, lang)}</p>
       </header>
 
       <div className="no-print" style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
@@ -93,27 +97,18 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder={localizedText(CS.search, lang)}
-          style={{
-            padding: '12px 14px', borderRadius: 10, border: '1.5px solid var(--border-default)',
-            background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: '1rem',
-          }}
+          style={{ padding: '12px 14px', borderRadius: 10, border: '1.5px solid var(--border-default)', background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: '1rem' }}
         />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select
-            value={categoryId}
-            onChange={e => setCategoryId(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-default)', background: 'var(--bg-subtle)', minHeight: 40 }}
-          >
+          <select value={categoryId} onChange={e => setCategoryId(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-default)', background: 'var(--bg-subtle)', minHeight: 40 }}>
             <option value="all">{localizedText(CS.allCategories, lang)}</option>
-            {CHEATSHEET_CATEGORIES.map(c => (
+            {CHEATSHEET.categories.map(c => (
               <option key={c.id} value={c.id}>{localizedText(c.title, lang)}</option>
             ))}
           </select>
           <button type="button" onClick={() => expandAll(true)} style={btn}>{localizedText(CS.expandAll, lang)}</button>
           <button type="button" onClick={() => expandAll(false)} style={btn}>{localizedText(CS.collapseAll, lang)}</button>
-          <span style={{ alignSelf: 'center', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-            {total} {localizedText(CS.results, lang)}
-          </span>
+          <span style={{ alignSelf: 'center', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{total} {localizedText(CS.results, lang)}</span>
         </div>
       </div>
 
@@ -123,34 +118,22 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
             type="button"
             className="no-print"
             onClick={() => setOpen(o => ({ ...o, [cat.id]: !o[cat.id] }))}
-            style={{
-              width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', padding: '12px 14px',
-              borderRadius: 12, border: '1px solid var(--border-default)', background: 'var(--bg-elevated)',
-              color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem', cursor: 'pointer',
-            }}
+            style={{ width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-default)', background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }}
           >
             {open[cat.id] ? '▾' : '▸'} {localizedText(cat.title, lang)} ({cat.entries.length})
           </button>
-          <h2 className="print-only" style={{ fontSize: '1.1rem', margin: '16px 0 8px', color: 'var(--accent)' }}>
-            {localizedText(cat.title, lang)}
-          </h2>
+          <h2 className="print-only" style={{ fontSize: '1.1rem', margin: '16px 0 8px', color: 'var(--accent)' }}>{localizedText(cat.title, lang)}</h2>
           {(open[cat.id] !== false) && (
             <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
               {cat.entries.map(entry => (
-                <article
-                  key={entry.id}
-                  className="cheat-entry"
-                  style={{
-                    padding: 14, borderRadius: 12, background: 'var(--bg-subtle)',
-                    border: '1px solid var(--border-subtle)', breakInside: 'avoid',
-                  }}
-                >
+                <article key={entry.id} id={`cheat-${entry.id}`} className="cheat-entry" style={{ padding: 14, borderRadius: 12, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', breakInside: 'avoid' }}>
                   <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.95rem' }}>
                     <span style={{ color: 'var(--accent)' }}>{localizedText(CS.problem, lang)}:</span>{' '}
                     {localizedText(entry.problem, lang)}
                   </p>
                   <p style={{ margin: '0 0 6px', fontSize: '0.875rem', lineHeight: 1.55 }}>
-                    <strong>{localizedText(CS.patterns, lang)}:</strong> {localizedText(entry.patterns, lang)}
+                    <strong>{localizedText(CS.patterns, lang)}:</strong>{' '}
+                    <LinkedText text={localizedText(entry.patterns, lang)} lang={lang} termIds={entry.termIds || []} onOpenTerm={onOpenTerm} />
                   </p>
                   <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
                     <strong>{localizedText(CS.when, lang)}:</strong> {localizedText(entry.when, lang)}
@@ -158,9 +141,26 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
                   <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
                     <strong>{localizedText(CS.tradeoffs, lang)}:</strong> {localizedText(entry.tradeoffs, lang)}
                   </p>
-                  <p style={{ margin: 0, fontSize: '0.8125rem', lineHeight: 1.55 }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '0.8125rem', lineHeight: 1.55 }}>
                     <strong>{localizedText(CS.example, lang)}:</strong> {localizedText(entry.example, lang)}
                   </p>
+                  {(entry.termIds || []).length > 0 && (
+                    <p style={{ margin: 0, fontSize: '0.75rem' }}>
+                      <strong>{localizedText(CS.relatedTerms, lang)}:</strong>{' '}
+                      {(entry.termIds || []).map((tid, i) => {
+                        const term = getGlossaryTerm(tid);
+                        if (!term) return null;
+                        return (
+                          <span key={tid}>
+                            {i > 0 ? ' · ' : ''}
+                            <a href={`#glossary-${tid}`} onClick={(e) => { e.preventDefault(); onOpenTerm(tid); }} style={{ color: 'var(--accent)' }}>
+                              {localizedText(term.name, lang)}
+                            </a>
+                          </span>
+                        );
+                      })}
+                    </p>
+                  )}
                 </article>
               ))}
             </div>
@@ -169,15 +169,35 @@ export function CheatSheet({ lang, onBack, onToggleLang }: Props) {
       ))}
 
       <section className="cheat-numbers" style={{ marginTop: 28, padding: 16, borderRadius: 14, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-        <h2 style={{ margin: '0 0 12px', fontSize: '1.1rem' }}>{localizedText(NUMBERS_TO_KNOW.title, lang)}</h2>
+        <h2 style={{ margin: '0 0 12px', fontSize: '1.1rem' }}>{localizedText(CHEATSHEET.numbers.title, lang)}</h2>
         <div style={{ display: 'grid', gap: 8 }}>
-          {NUMBERS_TO_KNOW.items.map((item, i) => (
+          {CHEATSHEET.numbers.items.map((item, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '8px 0', borderTop: i ? '1px solid var(--border-subtle)' : 'none', fontSize: '0.8125rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{localizedText(item.label, lang)}</span>
               <span style={{ fontWeight: 600 }}>{localizedText(item.value, lang)}</span>
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Glossary appendix for PDF / print */}
+      <section className="glossary-appendix print-only" style={{ marginTop: 32, pageBreakBefore: 'always' }}>
+        <h2 style={{ fontSize: '1.25rem', margin: '0 0 16px', color: 'var(--accent)' }}>{localizedText(CS.glossaryAppendix, lang)}</h2>
+        {GLOSSARY.categories.map(cat => {
+          const terms = GLOSSARY.terms.filter(t => t.category === cat.id);
+          if (!terms.length) return null;
+          return (
+            <div key={cat.id} style={{ marginBottom: 18, breakInside: 'avoid' }}>
+              <h3 style={{ fontSize: '1rem', margin: '0 0 8px' }}>{localizedText(cat.title, lang)}</h3>
+              {terms.map(term => (
+                <div key={term.id} id={`glossary-${term.id}`} style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border-subtle)', breakInside: 'avoid' }}>
+                  <p style={{ margin: '0 0 4px', fontWeight: 700 }}>{localizedText(term.name, lang)}</p>
+                  <p style={{ margin: 0, fontSize: '0.8125rem', lineHeight: 1.5 }}>{localizedText(term.definition, lang)}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </section>
     </div>
   );

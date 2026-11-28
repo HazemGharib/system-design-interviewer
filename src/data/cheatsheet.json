@@ -1,0 +1,2327 @@
+{
+  "categories": [
+    {
+      "id": "caching-reads",
+      "title": {
+        "ar": "القراءة والكاش",
+        "en": "Reads & Caching"
+      },
+      "entries": [
+        {
+          "id": "read-heavy",
+          "problem": {
+            "ar": "حمل قراءة عالي وlatency كبيرة",
+            "en": "Read-heavy load and high latency"
+          },
+          "patterns": {
+            "ar": "Caching (cache-aside / write-through / write-back) + read replicas + CDN",
+            "en": "Caching (cache-aside / write-through / write-back) + read replicas + CDN"
+          },
+          "when": {
+            "ar": "لما الـ reads >> writes وفي hot data",
+            "en": "When reads >> writes and data is hot"
+          },
+          "tradeoffs": {
+            "ar": "Cache يحسّن السرعة بس يزوّد التعقيد وخطر الـ stale data",
+            "en": "Cache speeds reads but adds complexity and staleness risk"
+          },
+          "example": {
+            "ar": "News feed: Redis cache-aside أمام Postgres replicas",
+            "en": "News feed: Redis cache-aside in front of Postgres replicas"
+          },
+          "tags": [
+            "cache",
+            "cdn",
+            "replica"
+          ],
+          "termIds": [
+            "write-through",
+            "read-replica",
+            "cache-aside",
+            "write-behind",
+            "cdn"
+          ]
+        },
+        {
+          "id": "cache-aside",
+          "problem": {
+            "ar": "التطبيق يتحكم في الـ cache",
+            "en": "App needs full control of cache"
+          },
+          "patterns": {
+            "ar": "Cache-aside (lazy loading)",
+            "en": "Cache-aside (lazy loading)"
+          },
+          "when": {
+            "ar": "Most common للـ app-level caching",
+            "en": "Most common for app-level caching"
+          },
+          "tradeoffs": {
+            "ar": "Miss path أبطأ؛ stampede ممكن يحصل",
+            "en": "Miss path slower; stampede possible"
+          },
+          "example": {
+            "ar": "API يقرأ Redis؛ miss → DB → set cache",
+            "en": "API reads Redis; miss → DB → set cache"
+          },
+          "tags": [
+            "cache"
+          ],
+          "termIds": [
+            "cache-aside",
+            "slo"
+          ]
+        },
+        {
+          "id": "write-through",
+          "problem": {
+            "ar": "محتاج consistency أعلى بين cache وDB",
+            "en": "Need stronger cache/DB consistency"
+          },
+          "patterns": {
+            "ar": "Write-through cache",
+            "en": "Write-through cache"
+          },
+          "when": {
+            "ar": "Writes قليلة نسبياً والـ consistency مهمة",
+            "en": "Writes relatively few and consistency matters"
+          },
+          "tradeoffs": {
+            "ar": "Write latency أعلى",
+            "en": "Higher write latency"
+          },
+          "example": {
+            "ar": "Profile updates تكتب cache وDB مع بعض",
+            "en": "Profile updates write cache and DB together"
+          },
+          "tags": [
+            "cache"
+          ],
+          "termIds": [
+            "write-through"
+          ]
+        },
+        {
+          "id": "write-behind",
+          "problem": {
+            "ar": "Writes كتير وعايز تسرّعها",
+            "en": "Many writes and you want to absorb them"
+          },
+          "patterns": {
+            "ar": "Write-behind / write-back",
+            "en": "Write-behind / write-back"
+          },
+          "when": {
+            "ar": "Write spikes وقابلية فقدان بسيط مقبولة",
+            "en": "Write spikes where small loss risk is acceptable"
+          },
+          "tradeoffs": {
+            "ar": "خطر فقدان بيانات لو الـ cache وقع قبل الـ flush",
+            "en": "Data loss risk if cache dies before flush"
+          },
+          "example": {
+            "ar": "Counter increments تتجمّع في Redis وتتكتب batch",
+            "en": "Counter increments batch in Redis then flush"
+          },
+          "tags": [
+            "cache",
+            "write"
+          ],
+          "termIds": [
+            "write-behind"
+          ]
+        },
+        {
+          "id": "cache-stampede",
+          "problem": {
+            "ar": "Miss جماعي على نفس الـ key",
+            "en": "Thundering herd on the same key"
+          },
+          "patterns": {
+            "ar": "Request coalescing / lock / probabilistic early expiration",
+            "en": "Request coalescing / lock / probabilistic early expiration"
+          },
+          "when": {
+            "ar": "Hot keys بتنتهي صلاحيتها فجأة",
+            "en": "Hot keys expire suddenly"
+          },
+          "tradeoffs": {
+            "ar": "Locks تضيف تعقيد",
+            "en": "Locks add complexity"
+          },
+          "example": {
+            "ar": "Singleflight: request واحد بس يروح للـ DB",
+            "en": "Singleflight: only one request hits DB"
+          },
+          "tags": [
+            "cache",
+            "hotkey"
+          ],
+          "termIds": [
+            "request-coalescing",
+            "hot-key"
+          ]
+        },
+        {
+          "id": "eviction",
+          "problem": {
+            "ar": "الـ cache مليان وعايز سياسة طرد",
+            "en": "Cache is full and needs eviction policy"
+          },
+          "patterns": {
+            "ar": "LRU / LFU / TTL-based eviction",
+            "en": "LRU / LFU / TTL-based eviction"
+          },
+          "when": {
+            "ar": "Memory محدودة",
+            "en": "Memory is bounded"
+          },
+          "tradeoffs": {
+            "ar": "LRU سيء لو access مبعثر؛ LFU أغلى حسابياً",
+            "en": "LRU weak for scattered access; LFU costlier"
+          },
+          "example": {
+            "ar": "CDN edge: LRU + short TTL للـ HTML",
+            "en": "CDN edge: LRU + short TTL for HTML"
+          },
+          "tags": [
+            "cache"
+          ],
+          "termIds": [
+            "ttl",
+            "cdn",
+            "eviction-lru",
+            "eviction-lfu"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "writes-sharding",
+      "title": {
+        "ar": "الكتابة والتقسيم",
+        "en": "Writes & Sharding"
+      },
+      "entries": [
+        {
+          "id": "write-heavy",
+          "problem": {
+            "ar": "حمل كتابة عالي على DB واحد",
+            "en": "Write-heavy load on a single DB"
+          },
+          "patterns": {
+            "ar": "Sharding/partitioning + write-behind + LSM stores",
+            "en": "Sharding/partitioning + write-behind + LSM stores"
+          },
+          "when": {
+            "ar": "Writes ما عادتش تتحمّل على primary واحد",
+            "en": "Writes no longer fit on one primary"
+          },
+          "tradeoffs": {
+            "ar": "Cross-shard queries أصعب",
+            "en": "Cross-shard queries harder"
+          },
+          "example": {
+            "ar": "Messaging: shard by conversation_id على Cassandra",
+            "en": "Messaging: shard by conversation_id on Cassandra"
+          },
+          "tags": [
+            "sharding",
+            "write"
+          ],
+          "termIds": [
+            "sharding",
+            "lsm"
+          ]
+        },
+        {
+          "id": "shard-strategies",
+          "problem": {
+            "ar": "عايز توزّع البيانات على كذا node",
+            "en": "Need to distribute data across nodes"
+          },
+          "patterns": {
+            "ar": "Range / Hash / Directory / Geo sharding",
+            "en": "Range / Hash / Directory / Geo sharding"
+          },
+          "when": {
+            "ar": "Dataset أكبر من machine واحدة",
+            "en": "Dataset larger than one machine"
+          },
+          "tradeoffs": {
+            "ar": "Range يسبب hot ranges؛ Hash يصعّب range queries",
+            "en": "Range causes hot ranges; hash hurts range queries"
+          },
+          "example": {
+            "ar": "User_id hash للـ profiles؛ geo shard للـ rides",
+            "en": "User_id hash for profiles; geo shard for rides"
+          },
+          "tags": [
+            "sharding"
+          ],
+          "termIds": [
+            "sharding"
+          ]
+        },
+        {
+          "id": "consistent-hash",
+          "problem": {
+            "ar": "إضافة/حذف nodes بيعمل rebalance ضخم",
+            "en": "Adding/removing nodes causes huge rebalance"
+          },
+          "patterns": {
+            "ar": "Consistent hashing (+ virtual nodes)",
+            "en": "Consistent hashing (+ virtual nodes)"
+          },
+          "when": {
+            "ar": "Caches, DHT, partitioned queues",
+            "en": "Caches, DHT, partitioned queues"
+          },
+          "tradeoffs": {
+            "ar": "Hot keys لسه ممكنة بدون salting",
+            "en": "Hot keys still possible without salting"
+          },
+          "example": {
+            "ar": "Redis Cluster / Cassandra ring",
+            "en": "Redis Cluster / Cassandra ring"
+          },
+          "tags": [
+            "sharding",
+            "hash"
+          ],
+          "termIds": [
+            "consistent-hashing",
+            "virtual-nodes",
+            "sharding",
+            "hot-key"
+          ]
+        },
+        {
+          "id": "hot-keys",
+          "problem": {
+            "ar": "مفتاح واحد بياخد معظم الترافيك",
+            "en": "One key takes most of the traffic"
+          },
+          "patterns": {
+            "ar": "Key salting / local caches / request coalescing / CDN",
+            "en": "Key salting / local caches / request coalescing / CDN"
+          },
+          "when": {
+            "ar": "Viral links, celebrities, counters",
+            "en": "Viral links, celebrities, counters"
+          },
+          "tradeoffs": {
+            "ar": "Salting يصعّب reads المجمّعة",
+            "en": "Salting complicates aggregate reads"
+          },
+          "example": {
+            "ar": "short_url + shard suffix؛ serve من edge memory",
+            "en": "short_url + shard suffix; serve from edge memory"
+          },
+          "tags": [
+            "hotkey",
+            "cache"
+          ],
+          "termIds": [
+            "request-coalescing",
+            "key-salting",
+            "cdn"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "async-queues",
+      "title": {
+        "ar": "المهام الطويلة والطوابير",
+        "en": "Async Work & Queues"
+      },
+      "entries": [
+        {
+          "id": "slow-tasks",
+          "problem": {
+            "ar": "مهام بطيئة بتعطل الـ request path",
+            "en": "Slow tasks block the request path"
+          },
+          "patterns": {
+            "ar": "Async queue + workers + DLQ",
+            "en": "Async queue + workers + DLQ"
+          },
+          "when": {
+            "ar": "Image processing, emails, reports",
+            "en": "Image processing, emails, reports"
+          },
+          "tradeoffs": {
+            "ar": "At-least-once delivery → لازم idempotency",
+            "en": "At-least-once delivery → need idempotency"
+          },
+          "example": {
+            "ar": "Upload API ينشر job على SQS؛ worker يعمل thumbnails",
+            "en": "Upload API publishes SQS job; worker makes thumbnails"
+          },
+          "tags": [
+            "queue",
+            "async"
+          ],
+          "termIds": [
+            "idempotency",
+            "dlq",
+            "slo"
+          ]
+        },
+        {
+          "id": "queue-vs-log",
+          "problem": {
+            "ar": "محتاج messaging: queue كلاسيكي ولا log؟",
+            "en": "Need messaging: classic queue or log?"
+          },
+          "patterns": {
+            "ar": "Queue (SQS/Rabbit) vs Log (Kafka)",
+            "en": "Queue (SQS/Rabbit) vs Log (Kafka)"
+          },
+          "when": {
+            "ar": "Queue لاستهلاك مرة؛ Log لإعادة التشغيل وعدة consumers",
+            "en": "Queue for consume-once; log for replay and many consumers"
+          },
+          "tradeoffs": {
+            "ar": "Queue أبسط؛ Log أقوى للـ event streaming",
+            "en": "Queue simpler; log stronger for event streaming"
+          },
+          "example": {
+            "ar": "Order events على Kafka؛ email jobs على SQS",
+            "en": "Order events on Kafka; email jobs on SQS"
+          },
+          "tags": [
+            "queue",
+            "kafka"
+          ],
+          "termIds": [
+            "kafka"
+          ]
+        },
+        {
+          "id": "competing-consumers",
+          "problem": {
+            "ar": "عايز تسرّع معالجة الطابور",
+            "en": "Need to speed up queue processing"
+          },
+          "patterns": {
+            "ar": "Competing consumers / consumer groups",
+            "en": "Competing consumers / consumer groups"
+          },
+          "when": {
+            "ar": "Backlog بيزيد",
+            "en": "Backlog growing"
+          },
+          "tradeoffs": {
+            "ar": "Ordering بين الرسائل بيضيع غالباً",
+            "en": "Cross-message ordering usually lost"
+          },
+          "example": {
+            "ar": "N workers على نفس الـ queue",
+            "en": "N workers on the same queue"
+          },
+          "tags": [
+            "queue"
+          ],
+          "termIds": [
+            "competing-consumers"
+          ]
+        },
+        {
+          "id": "priority-queue",
+          "problem": {
+            "ar": "بعض المهام أهم من غيرها",
+            "en": "Some tasks are more important"
+          },
+          "patterns": {
+            "ar": "Priority queue / separate high-pri queues",
+            "en": "Priority queue / separate high-pri queues"
+          },
+          "when": {
+            "ar": "Paid users أو emergency jobs",
+            "en": "Paid users or emergency jobs"
+          },
+          "tradeoffs": {
+            "ar": "Starvation للمهام الضعيفة",
+            "en": "Starvation of low-priority work"
+          },
+          "example": {
+            "ar": "Urgent notifications queue منفصلة",
+            "en": "Separate urgent notifications queue"
+          },
+          "tags": [
+            "queue"
+          ],
+          "termIds": [
+            "priority-queue"
+          ]
+        },
+        {
+          "id": "claim-check",
+          "problem": {
+            "ar": "الرسالة أكبر من حد الـ broker",
+            "en": "Message larger than broker limit"
+          },
+          "patterns": {
+            "ar": "Claim Check pattern",
+            "en": "Claim Check pattern"
+          },
+          "when": {
+            "ar": "Large payloads مع queues",
+            "en": "Large payloads with queues"
+          },
+          "tradeoffs": {
+            "ar": "محتاج object storage إضافي",
+            "en": "Needs extra object storage"
+          },
+          "example": {
+            "ar": "Store video في S3 وابعت الـ URL في الرسالة",
+            "en": "Store video in S3 and put URL in the message"
+          },
+          "tags": [
+            "queue",
+            "storage"
+          ],
+          "termIds": [
+            "object-storage",
+            "message-queue",
+            "claim-check"
+          ]
+        },
+        {
+          "id": "idempotent-consumer",
+          "problem": {
+            "ar": "الرسائل بتتكرر",
+            "en": "Messages are duplicated"
+          },
+          "patterns": {
+            "ar": "Idempotent consumer + idempotency keys",
+            "en": "Idempotent consumer + idempotency keys"
+          },
+          "when": {
+            "ar": "At-least-once systems",
+            "en": "At-least-once systems"
+          },
+          "tradeoffs": {
+            "ar": "محتاج dedupe store",
+            "en": "Needs a dedupe store"
+          },
+          "example": {
+            "ar": "payment_id unique constraint قبل الخصم",
+            "en": "payment_id unique constraint before charging"
+          },
+          "tags": [
+            "queue",
+            "reliability"
+          ],
+          "termIds": [
+            "idempotency"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uploads-files",
+      "title": {
+        "ar": "رفع الملفات والتخزين",
+        "en": "Uploads & Storage"
+      },
+      "entries": [
+        {
+          "id": "large-uploads",
+          "problem": {
+            "ar": "رفع ملفات كبيرة يمرّ على الـ app servers",
+            "en": "Large uploads go through app servers"
+          },
+          "patterns": {
+            "ar": "Presigned URLs / direct-to-object-storage + multipart",
+            "en": "Presigned URLs / direct-to-object-storage + multipart"
+          },
+          "when": {
+            "ar": "Images, videos, documents",
+            "en": "Images, videos, documents"
+          },
+          "tradeoffs": {
+            "ar": "Auth على الـ URL لازم تكون قصيرة العمر",
+            "en": "URL auth must be short-lived"
+          },
+          "example": {
+            "ar": "Client يرفع مباشرة لـ S3 بـ multipart",
+            "en": "Client uploads directly to S3 with multipart"
+          },
+          "tags": [
+            "storage",
+            "upload"
+          ],
+          "termIds": [
+            "presigned-url",
+            "multipart-upload"
+          ]
+        },
+        {
+          "id": "blob-storage",
+          "problem": {
+            "ar": "بيانات كبيرة مش منظمة",
+            "en": "Large unstructured data"
+          },
+          "patterns": {
+            "ar": "Object / blob storage",
+            "en": "Object / blob storage"
+          },
+          "when": {
+            "ar": "Media, backups, data lake",
+            "en": "Media, backups, data lake"
+          },
+          "tradeoffs": {
+            "ar": "Latency أعلى من local disk؛ listing غالي",
+            "en": "Higher latency than local disk; listing costly"
+          },
+          "example": {
+            "ar": "User avatars في GCS/S3",
+            "en": "User avatars in GCS/S3"
+          },
+          "tags": [
+            "storage"
+          ],
+          "termIds": [
+            "object-storage"
+          ]
+        },
+        {
+          "id": "polyglot",
+          "problem": {
+            "ar": "نوع بيانات مختلف محتاج store مختلف",
+            "en": "Different data needs different stores"
+          },
+          "patterns": {
+            "ar": "Polyglot persistence",
+            "en": "Polyglot persistence"
+          },
+          "when": {
+            "ar": "Search + cache + OLTP + analytics مع بعض",
+            "en": "Search + cache + OLTP + analytics together"
+          },
+          "tradeoffs": {
+            "ar": "تشغيل أكتر تعقيداً",
+            "en": "More operational complexity"
+          },
+          "example": {
+            "ar": "Postgres + Redis + Elastic + S3",
+            "en": "Postgres + Redis + Elastic + S3"
+          },
+          "tags": [
+            "storage",
+            "data"
+          ],
+          "termIds": [
+            "polyglot-persistence"
+          ]
+        },
+        {
+          "id": "timeseries",
+          "problem": {
+            "ar": "Metrics / events بترتيب زمني",
+            "en": "Time-ordered metrics/events"
+          },
+          "patterns": {
+            "ar": "Time-series DB / columnar stores",
+            "en": "Time-series DB / columnar stores"
+          },
+          "when": {
+            "ar": "Monitoring, IoT, analytics",
+            "en": "Monitoring, IoT, analytics"
+          },
+          "tradeoffs": {
+            "ar": "Mutations العشوائية مش قوتها",
+            "en": "Random mutations are not their strength"
+          },
+          "example": {
+            "ar": "Prometheus / Timescale / ClickHouse",
+            "en": "Prometheus / Timescale / ClickHouse"
+          },
+          "tags": [
+            "storage",
+            "observability"
+          ],
+          "termIds": [
+            "observability"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "traffic-resilience",
+      "title": {
+        "ar": "الترافيك والحماية من الضغط",
+        "en": "Traffic & Resilience"
+      },
+      "entries": [
+        {
+          "id": "spiky-traffic",
+          "problem": {
+            "ar": "ترافيك فجائي بيوقع النظام",
+            "en": "Spiky traffic overwhelms the system"
+          },
+          "patterns": {
+            "ar": "Autoscaling + load shedding + rate limiting + backpressure",
+            "en": "Autoscaling + load shedding + rate limiting + backpressure"
+          },
+          "when": {
+            "ar": "Launches, sales, viral events",
+            "en": "Launches, sales, viral events"
+          },
+          "tradeoffs": {
+            "ar": "Autoscaling بطيء؛ shedding يأثر على UX",
+            "en": "Autoscaling is slow; shedding hurts UX"
+          },
+          "example": {
+            "ar": "API gateway token bucket + queue backpressure",
+            "en": "API gateway token bucket + queue backpressure"
+          },
+          "tags": [
+            "resilience",
+            "scale"
+          ],
+          "termIds": [
+            "rate-limiting",
+            "load-shedding",
+            "token-bucket",
+            "backpressure",
+            "api-gateway",
+            "slo"
+          ]
+        },
+        {
+          "id": "rate-limit",
+          "problem": {
+            "ar": "Abuse أو clients بتضرب بقوة",
+            "en": "Abuse or aggressive clients"
+          },
+          "patterns": {
+            "ar": "Token bucket / leaky bucket / fixed+sliding window",
+            "en": "Token bucket / leaky bucket / fixed+sliding window"
+          },
+          "when": {
+            "ar": "Public APIs",
+            "en": "Public APIs"
+          },
+          "tradeoffs": {
+            "ar": "False positives على shared IPs",
+            "en": "False positives on shared IPs"
+          },
+          "example": {
+            "ar": "100 req/min per API key",
+            "en": "100 req/min per API key"
+          },
+          "tags": [
+            "security",
+            "resilience"
+          ],
+          "termIds": [
+            "token-bucket",
+            "leaky-bucket"
+          ]
+        },
+        {
+          "id": "circuit-breaker",
+          "problem": {
+            "ar": "Dependency بيفشل وبيجرّ النظام معاه",
+            "en": "Dependency fails and cascades"
+          },
+          "patterns": {
+            "ar": "Circuit breaker + timeouts + retries with backoff+jitter + bulkhead",
+            "en": "Circuit breaker + timeouts + retries with backoff+jitter + bulkhead"
+          },
+          "when": {
+            "ar": "Upstream flaky services",
+            "en": "Upstream flaky services"
+          },
+          "tradeoffs": {
+            "ar": "Open circuit = degraded mode",
+            "en": "Open circuit = degraded mode"
+          },
+          "example": {
+            "ar": "Payments client: fail fast بعد 5 errors",
+            "en": "Payments client: fail fast after 5 errors"
+          },
+          "tags": [
+            "resilience"
+          ],
+          "termIds": [
+            "circuit-breaker",
+            "bulkhead",
+            "timeout"
+          ]
+        },
+        {
+          "id": "fallback",
+          "problem": {
+            "ar": "خدمة مهمة مش متاحة",
+            "en": "Critical service unavailable"
+          },
+          "patterns": {
+            "ar": "Fallback / graceful degradation / cached responses",
+            "en": "Fallback / graceful degradation / cached responses"
+          },
+          "when": {
+            "ar": "Non-critical personalization, recommendations",
+            "en": "Non-critical personalization, recommendations"
+          },
+          "tradeoffs": {
+            "ar": "تجربة أقل جودة",
+            "en": "Lower-quality experience"
+          },
+          "example": {
+            "ar": "Recommendations تقع → أعرض popular items",
+            "en": "Recommendations down → show popular items"
+          },
+          "tags": [
+            "resilience"
+          ],
+          "termIds": [
+            "fallback"
+          ]
+        },
+        {
+          "id": "health-checks",
+          "problem": {
+            "ar": "عايز تشيل الـ unhealthy instances",
+            "en": "Need to remove unhealthy instances"
+          },
+          "patterns": {
+            "ar": "Liveness + readiness health checks",
+            "en": "Liveness + readiness health checks"
+          },
+          "when": {
+            "ar": "Orchestrators / LBs",
+            "en": "Orchestrators / LBs"
+          },
+          "tradeoffs": {
+            "ar": "Checks الغلط بتعمل flapping",
+            "en": "Bad checks cause flapping"
+          },
+          "example": {
+            "ar": "K8s readiness على /healthz",
+            "en": "K8s readiness on /healthz"
+          },
+          "tags": [
+            "ops"
+          ],
+          "termIds": [
+            "health-check"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ha-replication",
+      "title": {
+        "ar": "التوافر والنسخ",
+        "en": "HA & Replication"
+      },
+      "entries": [
+        {
+          "id": "spof",
+          "problem": {
+            "ar": "نقطة فشل واحدة بتوقف الخدمة",
+            "en": "Single point of failure takes service down"
+          },
+          "patterns": {
+            "ar": "Replication + failover + multi-AZ / multi-region",
+            "en": "Replication + failover + multi-AZ / multi-region"
+          },
+          "when": {
+            "ar": "Any stateful critical component",
+            "en": "Any stateful critical component"
+          },
+          "tradeoffs": {
+            "ar": "تكلفة أعلى وcomplexity في الـ failover",
+            "en": "Higher cost and failover complexity"
+          },
+          "example": {
+            "ar": "Primary-standby DB عبر 3 AZs",
+            "en": "Primary-standby DB across 3 AZs"
+          },
+          "tags": [
+            "ha",
+            "replication"
+          ],
+          "termIds": [
+            "multi-region",
+            "replication"
+          ]
+        },
+        {
+          "id": "replication-modes",
+          "problem": {
+            "ar": "عايز تنسخ البيانات",
+            "en": "Need to replicate data"
+          },
+          "patterns": {
+            "ar": "Leader-follower / multi-leader / leaderless",
+            "en": "Leader-follower / multi-leader / leaderless"
+          },
+          "when": {
+            "ar": "HA وgeo distribution",
+            "en": "HA and geo distribution"
+          },
+          "tradeoffs": {
+            "ar": "Multi-leader = conflicts؛ leaderless = quorums",
+            "en": "Multi-leader = conflicts; leaderless = quorums"
+          },
+          "example": {
+            "ar": "MySQL leader-follower؛ Cassandra leaderless",
+            "en": "MySQL leader-follower; Cassandra leaderless"
+          },
+          "tags": [
+            "replication"
+          ],
+          "termIds": [
+            "leaderless",
+            "replication",
+            "quorum"
+          ]
+        },
+        {
+          "id": "quorum",
+          "problem": {
+            "ar": "محتاج توازن بين consistency وavailability",
+            "en": "Need balance of consistency and availability"
+          },
+          "patterns": {
+            "ar": "Quorum reads/writes (R+W > N)",
+            "en": "Quorum reads/writes (R+W > N)"
+          },
+          "when": {
+            "ar": "Leaderless stores",
+            "en": "Leaderless stores"
+          },
+          "tradeoffs": {
+            "ar": "Latency أعلى من single-node",
+            "en": "Higher latency than single-node"
+          },
+          "example": {
+            "ar": "N=3, W=2, R=2",
+            "en": "N=3, W=2, R=2"
+          },
+          "tags": [
+            "consistency",
+            "replication"
+          ],
+          "termIds": [
+            "replication",
+            "leaderless",
+            "quorum"
+          ]
+        },
+        {
+          "id": "wal",
+          "problem": {
+            "ar": "عايز durability قبل الـ ack",
+            "en": "Need durability before ack"
+          },
+          "patterns": {
+            "ar": "Write-ahead log (WAL)",
+            "en": "Write-ahead log (WAL)"
+          },
+          "when": {
+            "ar": "Databases, queues, consensus",
+            "en": "Databases, queues, consensus"
+          },
+          "tradeoffs": {
+            "ar": "Disk I/O bottleneck",
+            "en": "Disk I/O bottleneck"
+          },
+          "example": {
+            "ar": "Postgres WAL قبل commit",
+            "en": "Postgres WAL before commit"
+          },
+          "tags": [
+            "reliability"
+          ],
+          "termIds": [
+            "wal",
+            "ttl"
+          ]
+        },
+        {
+          "id": "leader-election",
+          "problem": {
+            "ar": "محتاج قائد واحد للمهام المنسقة",
+            "en": "Need one leader for coordinated work"
+          },
+          "patterns": {
+            "ar": "Leader election (ZooKeeper/etcd/Raft)",
+            "en": "Leader election (ZooKeeper/etcd/Raft)"
+          },
+          "when": {
+            "ar": "Schedulers, primary failover",
+            "en": "Schedulers, primary failover"
+          },
+          "tradeoffs": {
+            "ar": "Split-brain لو الـ fencing ناقص",
+            "en": "Split-brain if fencing missing"
+          },
+          "example": {
+            "ar": "Only leader runs cron compaction",
+            "en": "Only leader runs cron compaction"
+          },
+          "tags": [
+            "consensus"
+          ],
+          "termIds": [
+            "leader-election",
+            "consensus-raft"
+          ]
+        },
+        {
+          "id": "consensus",
+          "problem": {
+            "ar": "محتاج اتفاق موزّع قوي",
+            "en": "Need strong distributed agreement"
+          },
+          "patterns": {
+            "ar": "Raft / Paxos",
+            "en": "Raft / Paxos"
+          },
+          "when": {
+            "ar": "Config, locks, metadata, control plane",
+            "en": "Config, locks, metadata, control plane"
+          },
+          "tradeoffs": {
+            "ar": "Throughput محدود؛ مش لكل data path",
+            "en": "Limited throughput; not for every data path"
+          },
+          "example": {
+            "ar": "etcd لـ K8s control plane",
+            "en": "etcd for K8s control plane"
+          },
+          "tags": [
+            "consensus"
+          ],
+          "termIds": [
+            "consensus-raft"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "global-latency",
+      "title": {
+        "ar": "المستخدمون العالميون والـ Latency",
+        "en": "Global Users & Latency"
+      },
+      "entries": [
+        {
+          "id": "global-users",
+          "problem": {
+            "ar": "يوزرز بعيدين جغرافياً وبطء ملحوظ",
+            "en": "Distant users with noticeable slowness"
+          },
+          "patterns": {
+            "ar": "CDN + geo-DNS + edge compute / regionalization",
+            "en": "CDN + geo-DNS + edge compute / regionalization"
+          },
+          "when": {
+            "ar": "Global consumer products",
+            "en": "Global consumer products"
+          },
+          "tradeoffs": {
+            "ar": "Cache invalidation عبر الـ edges",
+            "en": "Cache invalidation across edges"
+          },
+          "example": {
+            "ar": "Static assets على CloudFront؛ API أقرب region",
+            "en": "Static assets on CloudFront; API nearest region"
+          },
+          "tags": [
+            "cdn",
+            "latency"
+          ],
+          "termIds": [
+            "geo-dns",
+            "cdn",
+            "sse",
+            "slo"
+          ]
+        },
+        {
+          "id": "geohash",
+          "problem": {
+            "ar": "بحث جغرافي / nearest",
+            "en": "Geo search / nearest"
+          },
+          "patterns": {
+            "ar": "Geohash / quadtree / S2",
+            "en": "Geohash / quadtree / S2"
+          },
+          "when": {
+            "ar": "Maps, delivery, nearby users",
+            "en": "Maps, delivery, nearby users"
+          },
+          "tradeoffs": {
+            "ar": "Boundary issues على حواف الخلايا",
+            "en": "Boundary issues at cell edges"
+          },
+          "example": {
+            "ar": "Store driver location as geohash prefix",
+            "en": "Store driver location as geohash prefix"
+          },
+          "tags": [
+            "geo",
+            "search"
+          ],
+          "termIds": [
+            "geohash"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ids-locks",
+      "title": {
+        "ar": "المعرّفات والأقفال",
+        "en": "IDs & Locks"
+      },
+      "entries": [
+        {
+          "id": "unique-ids",
+          "problem": {
+            "ar": "محتاج IDs فريدة موزّعة",
+            "en": "Need unique distributed IDs"
+          },
+          "patterns": {
+            "ar": "Snowflake / UUID / ticket server / Base62 counter",
+            "en": "Snowflake / UUID / ticket server / Base62 counter"
+          },
+          "when": {
+            "ar": "DB keys, short URLs, event IDs",
+            "en": "DB keys, short URLs, event IDs"
+          },
+          "tradeoffs": {
+            "ar": "UUID مش sortable بسهولة؛ ticket = SPOF لو مش HA",
+            "en": "UUID not easily sortable; ticket is SPOF if not HA"
+          },
+          "example": {
+            "ar": "URL shortener: Base62 من KGS",
+            "en": "URL shortener: Base62 from KGS"
+          },
+          "tags": [
+            "ids"
+          ],
+          "termIds": [
+            "ticket-server",
+            "snowflake-id",
+            "base62",
+            "uuid"
+          ]
+        },
+        {
+          "id": "distributed-lock",
+          "problem": {
+            "ar": "عملية لازم تحصل مرة واحدة عبر instances",
+            "en": "Operation must happen once across instances"
+          },
+          "patterns": {
+            "ar": "Distributed lock (Redis/etcd) + fencing tokens",
+            "en": "Distributed lock (Redis/etcd) + fencing tokens"
+          },
+          "when": {
+            "ar": "Leader tasks, inventory decrement races",
+            "en": "Leader tasks, inventory decrement races"
+          },
+          "tradeoffs": {
+            "ar": "Locks ممكن تتنسي أو تنتهي بدري",
+            "en": "Locks can be forgotten or expire early"
+          },
+          "example": {
+            "ar": "Redlock أو etcd lease مع fencing",
+            "en": "Redlock or etcd lease with fencing"
+          },
+          "tags": [
+            "locks"
+          ],
+          "termIds": [
+            "distributed-lock"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "realtime",
+      "title": {
+        "ar": "التحديثات الفورية",
+        "en": "Realtime Updates"
+      },
+      "entries": [
+        {
+          "id": "realtime",
+          "problem": {
+            "ar": "محتاج تحديثات فورية للعميل",
+            "en": "Need live updates to clients"
+          },
+          "patterns": {
+            "ar": "WebSockets / SSE / long polling / webhooks / pub-sub",
+            "en": "WebSockets / SSE / long polling / webhooks / pub-sub"
+          },
+          "when": {
+            "ar": "Chat, collab, live scores",
+            "en": "Chat, collab, live scores"
+          },
+          "tradeoffs": {
+            "ar": "WebSockets stateful وصعبة الـ scale",
+            "en": "WebSockets are stateful and harder to scale"
+          },
+          "example": {
+            "ar": "Chat: WebSocket + Redis pub/sub",
+            "en": "Chat: WebSocket + Redis pub/sub"
+          },
+          "tags": [
+            "realtime"
+          ],
+          "termIds": [
+            "long-polling",
+            "websocket",
+            "pub-sub",
+            "webhook",
+            "sse"
+          ]
+        },
+        {
+          "id": "fanout",
+          "problem": {
+            "ar": "رسالة واحدة لمستلمين كتير",
+            "en": "One message to many recipients"
+          },
+          "patterns": {
+            "ar": "Fan-out on write (push) vs read (pull) vs hybrid",
+            "en": "Fan-out on write (push) vs read (pull) vs hybrid"
+          },
+          "when": {
+            "ar": "Social feeds, group chat",
+            "en": "Social feeds, group chat"
+          },
+          "tradeoffs": {
+            "ar": "Push غالي للكتابة؛ pull أغلى للقراءة",
+            "en": "Push write-expensive; pull read-expensive"
+          },
+          "example": {
+            "ar": "Small groups push؛ celebrity pull",
+            "en": "Small groups push; celebrity pull"
+          },
+          "tags": [
+            "fanout",
+            "realtime"
+          ],
+          "termIds": [
+            "fan-out-write"
+          ]
+        },
+        {
+          "id": "heartbeat",
+          "problem": {
+            "ar": "عايز تعرف مين online",
+            "en": "Need to know who is online"
+          },
+          "patterns": {
+            "ar": "Heartbeat + TTL presence",
+            "en": "Heartbeat + TTL presence"
+          },
+          "when": {
+            "ar": "Presence, connection health",
+            "en": "Presence, connection health"
+          },
+          "tradeoffs": {
+            "ar": "Traffic إضافي؛ accuracy تقريبية",
+            "en": "Extra traffic; approximate accuracy"
+          },
+          "example": {
+            "ar": "WS heartbeat كل 30s يحدّث Redis TTL",
+            "en": "WS heartbeat every 30s updates Redis TTL"
+          },
+          "tags": [
+            "realtime",
+            "presence"
+          ],
+          "termIds": [
+            "heartbeat",
+            "ttl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transactions-events",
+      "title": {
+        "ar": "المعاملات والأحداث",
+        "en": "Transactions & Events"
+      },
+      "entries": [
+        {
+          "id": "distributed-tx",
+          "problem": {
+            "ar": "عملية عبر أكثر من خدمة",
+            "en": "Operation spans multiple services"
+          },
+          "patterns": {
+            "ar": "Saga / transactional outbox / idempotency keys / 2PC (rarely)",
+            "en": "Saga / transactional outbox / idempotency keys / 2PC (rarely)"
+          },
+          "when": {
+            "ar": "Orders, payments, bookings",
+            "en": "Orders, payments, bookings"
+          },
+          "tradeoffs": {
+            "ar": "2PC بطيء وfragile؛ saga = eventual",
+            "en": "2PC slow/fragile; saga is eventual"
+          },
+          "example": {
+            "ar": "Order service outbox → payment → shipping saga",
+            "en": "Order service outbox → payment → shipping saga"
+          },
+          "tags": [
+            "saga",
+            "events"
+          ],
+          "termIds": [
+            "outbox",
+            "idempotency",
+            "saga",
+            "slo",
+            "two-phase-commit"
+          ]
+        },
+        {
+          "id": "saga-styles",
+          "problem": {
+            "ar": "تنسيق الـ saga",
+            "en": "How to coordinate the saga"
+          },
+          "patterns": {
+            "ar": "Choreography vs orchestration",
+            "en": "Choreography vs orchestration"
+          },
+          "when": {
+            "ar": "Multi-step business flows",
+            "en": "Multi-step business flows"
+          },
+          "tradeoffs": {
+            "ar": "Choreography أصعب تتبّع؛ orchestration مركزية",
+            "en": "Choreography harder to trace; orchestration is central"
+          },
+          "example": {
+            "ar": "Orchestrator service يدير خطوات الطلب",
+            "en": "Orchestrator service drives order steps"
+          },
+          "tags": [
+            "saga"
+          ],
+          "termIds": [
+            "saga-choreography",
+            "saga"
+          ]
+        },
+        {
+          "id": "outbox-inbox",
+          "problem": {
+            "ar": "DB commit وmessage publish لازم يتوافقوا",
+            "en": "DB commit and message publish must align"
+          },
+          "patterns": {
+            "ar": "Transactional outbox / inbox",
+            "en": "Transactional outbox / inbox"
+          },
+          "when": {
+            "ar": "Exactly/effectively once side effects",
+            "en": "Exactly/effectively once side effects"
+          },
+          "tradeoffs": {
+            "ar": "Polling/CDC للـ outbox",
+            "en": "Polling/CDC for outbox"
+          },
+          "example": {
+            "ar": "Write row + outbox في نفس الـ transaction",
+            "en": "Write row + outbox in same transaction"
+          },
+          "tags": [
+            "events"
+          ],
+          "termIds": [
+            "outbox",
+            "inbox"
+          ]
+        },
+        {
+          "id": "cqrs-es",
+          "problem": {
+            "ar": "Read/write models مختلفة جداً",
+            "en": "Read and write models diverge a lot"
+          },
+          "patterns": {
+            "ar": "CQRS + optional Event Sourcing",
+            "en": "CQRS + optional Event Sourcing"
+          },
+          "when": {
+            "ar": "Complex domains, audit-heavy systems",
+            "en": "Complex domains, audit-heavy systems"
+          },
+          "tradeoffs": {
+            "ar": "Eventual consistency وتعقيد عالي",
+            "en": "Eventual consistency and high complexity"
+          },
+          "example": {
+            "ar": "Banking ledger events → read projections",
+            "en": "Banking ledger events → read projections"
+          },
+          "tags": [
+            "events",
+            "architecture"
+          ],
+          "termIds": [
+            "eventual-consistency",
+            "event-sourcing",
+            "cqrs"
+          ]
+        },
+        {
+          "id": "eda",
+          "problem": {
+            "ar": "خدمات محتاجة تتفاعل من غير coupling قوي",
+            "en": "Services need to react without tight coupling"
+          },
+          "patterns": {
+            "ar": "Event-driven architecture + pub/sub",
+            "en": "Event-driven architecture + pub/sub"
+          },
+          "when": {
+            "ar": "Async workflows, integrations",
+            "en": "Async workflows, integrations"
+          },
+          "tradeoffs": {
+            "ar": "Harder debugging؛ ordering challenges",
+            "en": "Harder debugging; ordering challenges"
+          },
+          "example": {
+            "ar": "user.created event يحدّث email + analytics",
+            "en": "user.created event updates email + analytics"
+          },
+          "tags": [
+            "events"
+          ],
+          "termIds": [
+            "event-driven",
+            "pub-sub"
+          ]
+        },
+        {
+          "id": "vector-crdt",
+          "problem": {
+            "ar": "Concurrent updates من غير coordination مركزي",
+            "en": "Concurrent updates without central coordination"
+          },
+          "patterns": {
+            "ar": "Vector clocks / CRDTs",
+            "en": "Vector clocks / CRDTs"
+          },
+          "when": {
+            "ar": "Collaborative editing, multi-leader",
+            "en": "Collaborative editing, multi-leader"
+          },
+          "tradeoffs": {
+            "ar": "CRDT محدود لأنواع بيانات معيّنة",
+            "en": "CRDTs limited to certain data types"
+          },
+          "example": {
+            "ar": "Doc editing with CRDT merge",
+            "en": "Doc editing with CRDT merge"
+          },
+          "tags": [
+            "consistency"
+          ],
+          "termIds": [
+            "vector-clock",
+            "crdt"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "consistency",
+      "title": {
+        "ar": "الاتساق",
+        "en": "Consistency"
+      },
+      "entries": [
+        {
+          "id": "cap-pacelc",
+          "problem": {
+            "ar": "لازم تختار بين C وA تحت الـ partition",
+            "en": "Must choose C vs A under partition"
+          },
+          "patterns": {
+            "ar": "CAP / PACELC reasoning",
+            "en": "CAP / PACELC reasoning"
+          },
+          "when": {
+            "ar": "Any distributed data store decision",
+            "en": "Any distributed data store decision"
+          },
+          "tradeoffs": {
+            "ar": "مفيش اختيار واحد صح لكل use case",
+            "en": "No single right choice for every use case"
+          },
+          "example": {
+            "ar": "Chat: AP/eventual؛ payments ledger: CP/stronger",
+            "en": "Chat: AP/eventual; payments ledger: CP/stronger"
+          },
+          "tags": [
+            "consistency"
+          ],
+          "termIds": [
+            "sharding",
+            "pacelc",
+            "cap"
+          ]
+        },
+        {
+          "id": "strong-vs-eventual",
+          "problem": {
+            "ar": "هل اليوزر يستحمل بيانات متأخرة؟",
+            "en": "Can the user tolerate stale data?"
+          },
+          "patterns": {
+            "ar": "Strong vs eventual consistency",
+            "en": "Strong vs eventual consistency"
+          },
+          "when": {
+            "ar": "UX + correctness requirements",
+            "en": "UX + correctness requirements"
+          },
+          "tradeoffs": {
+            "ar": "Strong = أبطأ وأصعب geo؛ eventual = anomalies",
+            "en": "Strong = slower/harder geo; eventual = anomalies"
+          },
+          "example": {
+            "ar": "Like counts eventual؛ balance strong",
+            "en": "Like counts eventual; balance strong"
+          },
+          "tags": [
+            "consistency"
+          ],
+          "termIds": [
+            "eventual-consistency",
+            "strong-consistency",
+            "slo"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "search-analytics",
+      "title": {
+        "ar": "البحث والتحليلات",
+        "en": "Search & Analytics"
+      },
+      "entries": [
+        {
+          "id": "search",
+          "problem": {
+            "ar": "Full-text search على بيانات كبيرة",
+            "en": "Full-text search over large data"
+          },
+          "patterns": {
+            "ar": "Inverted index (+ analyzers)",
+            "en": "Inverted index (+ analyzers)"
+          },
+          "when": {
+            "ar": "Product search, message search",
+            "en": "Product search, message search"
+          },
+          "tradeoffs": {
+            "ar": "Index lag وstorage إضافي",
+            "en": "Index lag and extra storage"
+          },
+          "example": {
+            "ar": "Elasticsearch للـ message search",
+            "en": "Elasticsearch for message search"
+          },
+          "tags": [
+            "search"
+          ],
+          "termIds": [
+            "inverted-index"
+          ]
+        },
+        {
+          "id": "bloom",
+          "problem": {
+            "ar": "عايز تعرف بسرعة إذا key مش موجود",
+            "en": "Need fast negative membership checks"
+          },
+          "patterns": {
+            "ar": "Bloom filter",
+            "en": "Bloom filter"
+          },
+          "when": {
+            "ar": "Cache, DB, LSM, URL checks",
+            "en": "Cache, DB, LSM, URL checks"
+          },
+          "tradeoffs": {
+            "ar": "False positives؛ مفيش deletes بسهولة",
+            "en": "False positives; deletes awkward"
+          },
+          "example": {
+            "ar": "Avoid disk lookup لو bloom يقول لا",
+            "en": "Skip disk lookup if bloom says no"
+          },
+          "tags": [
+            "search",
+            "cache"
+          ],
+          "termIds": [
+            "bloom-filter",
+            "lsm"
+          ]
+        },
+        {
+          "id": "approx-count",
+          "problem": {
+            "ar": "عدّ / analytics تقريبي بكلفة قليلة",
+            "en": "Cheap approximate counting/analytics"
+          },
+          "patterns": {
+            "ar": "HyperLogLog / Count-Min Sketch / stream processing",
+            "en": "HyperLogLog / Count-Min Sketch / stream processing"
+          },
+          "when": {
+            "ar": "Unique visitors, heavy hitters",
+            "en": "Unique visitors, heavy hitters"
+          },
+          "tradeoffs": {
+            "ar": "Approximate مش exact",
+            "en": "Approximate, not exact"
+          },
+          "example": {
+            "ar": "Redis HLL لـ DAU",
+            "en": "Redis HLL for DAU"
+          },
+          "tags": [
+            "analytics"
+          ],
+          "termIds": [
+            "stream-processing",
+            "count-min-sketch",
+            "hyperloglog"
+          ]
+        },
+        {
+          "id": "materialized",
+          "problem": {
+            "ar": "Queries تقيلة بتتكرر",
+            "en": "Heavy queries repeat often"
+          },
+          "patterns": {
+            "ar": "Materialized views / denormalization",
+            "en": "Materialized views / denormalization"
+          },
+          "when": {
+            "ar": "Dashboards, feeds",
+            "en": "Dashboards, feeds"
+          },
+          "tradeoffs": {
+            "ar": "Write amplification وstale views",
+            "en": "Write amplification and stale views"
+          },
+          "example": {
+            "ar": "Precompute leaderboard كل دقيقة",
+            "en": "Precompute leaderboard every minute"
+          },
+          "tags": [
+            "data",
+            "analytics"
+          ],
+          "termIds": [
+            "materialized-view",
+            "denormalization"
+          ]
+        },
+        {
+          "id": "batch-stream",
+          "problem": {
+            "ar": "معالجة بيانات كبيرة",
+            "en": "Processing large data volumes"
+          },
+          "patterns": {
+            "ar": "Batch (MapReduce) vs Stream (Lambda/Kappa)",
+            "en": "Batch (MapReduce) vs Stream (Lambda/Kappa)"
+          },
+          "when": {
+            "ar": "ETL, fraud, metrics",
+            "en": "ETL, fraud, metrics"
+          },
+          "tradeoffs": {
+            "ar": "Lambda = dual pipelines؛ Kappa أبسط لو الـ log كافي",
+            "en": "Lambda = dual pipelines; Kappa simpler if log suffices"
+          },
+          "example": {
+            "ar": "Kafka stream لـ fraud scores realtime",
+            "en": "Kafka stream for realtime fraud scores"
+          },
+          "tags": [
+            "analytics"
+          ],
+          "termIds": [
+            "mapreduce",
+            "kafka",
+            "lambda-architecture"
+          ]
+        },
+        {
+          "id": "scatter-gather",
+          "problem": {
+            "ar": "Query لازم يتجمّع من shards كتير",
+            "en": "Query must fan out across shards"
+          },
+          "patterns": {
+            "ar": "Scatter-gather",
+            "en": "Scatter-gather"
+          },
+          "when": {
+            "ar": "Search, analytics across partitions",
+            "en": "Search, analytics across partitions"
+          },
+          "tradeoffs": {
+            "ar": "Tail latency من أبطأ shard",
+            "en": "Tail latency from slowest shard"
+          },
+          "example": {
+            "ar": "Search coordinator يجمع top-k من كل shard",
+            "en": "Search coordinator merges top-k from each shard"
+          },
+          "tags": [
+            "search",
+            "scale"
+          ],
+          "termIds": [
+            "scatter-gather",
+            "sharding",
+            "slo"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "architecture-styles",
+      "title": {
+        "ar": "أنماط المعمارية",
+        "en": "Architecture Styles"
+      },
+      "entries": [
+        {
+          "id": "api-gateway",
+          "problem": {
+            "ar": "Clients بتكلم خدمات كتير مباشرة",
+            "en": "Clients talk to many services directly"
+          },
+          "patterns": {
+            "ar": "API Gateway",
+            "en": "API Gateway"
+          },
+          "when": {
+            "ar": "Auth, rate limit, routing, TLS termination",
+            "en": "Auth, rate limit, routing, TLS termination"
+          },
+          "tradeoffs": {
+            "ar": "Gateway ممكن يبقى bottleneck/SPOF",
+            "en": "Gateway can become bottleneck/SPOF"
+          },
+          "example": {
+            "ar": "Kong/NGINX gateway قدام microservices",
+            "en": "Kong/NGINX gateway in front of microservices"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "api-gateway",
+            "rate-limiting",
+            "ttl"
+          ]
+        },
+        {
+          "id": "bff",
+          "problem": {
+            "ar": "Mobile وWeb محتاجين APIs مختلفة",
+            "en": "Mobile and web need different APIs"
+          },
+          "patterns": {
+            "ar": "Backend for Frontend (BFF)",
+            "en": "Backend for Frontend (BFF)"
+          },
+          "when": {
+            "ar": "Multiple client types",
+            "en": "Multiple client types"
+          },
+          "tradeoffs": {
+            "ar": "Duplication بين BFFs",
+            "en": "Duplication across BFFs"
+          },
+          "example": {
+            "ar": "Mobile BFF يجمّع profile+feed في call واحد",
+            "en": "Mobile BFF aggregates profile+feed in one call"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "bff"
+          ]
+        },
+        {
+          "id": "service-mesh",
+          "problem": {
+            "ar": "Cross-cutting concerns بين الخدمات",
+            "en": "Cross-cutting concerns between services"
+          },
+          "patterns": {
+            "ar": "Service mesh / sidecar / ambassador",
+            "en": "Service mesh / sidecar / ambassador"
+          },
+          "when": {
+            "ar": "mTLS, retries, observability across many services",
+            "en": "mTLS, retries, observability across many services"
+          },
+          "tradeoffs": {
+            "ar": "Operational complexity عالية",
+            "en": "High operational complexity"
+          },
+          "example": {
+            "ar": "Istio/Linkerd sidecars",
+            "en": "Istio/Linkerd sidecars"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "service-mesh",
+            "observability"
+          ]
+        },
+        {
+          "id": "strangler",
+          "problem": {
+            "ar": "تهجير نظام قديم تدريجياً",
+            "en": "Gradually migrate a legacy system"
+          },
+          "patterns": {
+            "ar": "Strangler fig",
+            "en": "Strangler fig"
+          },
+          "when": {
+            "ar": "Monolith → services migration",
+            "en": "Monolith → services migration"
+          },
+          "tradeoffs": {
+            "ar": "Proxy routing لازم يبقى دقيق",
+            "en": "Proxy routing must stay accurate"
+          },
+          "example": {
+            "ar": "Route /orders للخدمة الجديدة والباقي للـ monolith",
+            "en": "Route /orders to new service, rest to monolith"
+          },
+          "tags": [
+            "architecture",
+            "migration"
+          ],
+          "termIds": [
+            "strangler-fig"
+          ]
+        },
+        {
+          "id": "acl",
+          "problem": {
+            "ar": "Domain جديد بيتكلم مع legacy مشوه",
+            "en": "New domain talks to messy legacy"
+          },
+          "patterns": {
+            "ar": "Anti-corruption layer",
+            "en": "Anti-corruption layer"
+          },
+          "when": {
+            "ar": "Bounded contexts / migrations",
+            "en": "Bounded contexts / migrations"
+          },
+          "tradeoffs": {
+            "ar": "طبقة ترجمة إضافية",
+            "en": "Extra translation layer"
+          },
+          "example": {
+            "ar": "Adapter يحوّل legacy order schema للـ new model",
+            "en": "Adapter maps legacy order schema to new model"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "anti-corruption-layer"
+          ]
+        },
+        {
+          "id": "serverless",
+          "problem": {
+            "ar": "حمل متقطع ومش عايز تدير servers",
+            "en": "Bursty load and you do not want to manage servers"
+          },
+          "patterns": {
+            "ar": "Serverless functions",
+            "en": "Serverless functions"
+          },
+          "when": {
+            "ar": "Event handlers, light APIs, glue code",
+            "en": "Event handlers, light APIs, glue code"
+          },
+          "tradeoffs": {
+            "ar": "Cold starts وvendor limits",
+            "en": "Cold starts and vendor limits"
+          },
+          "example": {
+            "ar": "Image resize on S3 event → Lambda",
+            "en": "Image resize on S3 event → Lambda"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "lambda-architecture",
+            "serverless"
+          ]
+        },
+        {
+          "id": "multitenancy",
+          "problem": {
+            "ar": "أكتر من عميل على نفس النظام",
+            "en": "Multiple customers on one system"
+          },
+          "patterns": {
+            "ar": "Multi-tenancy (pooled / siloed / hybrid)",
+            "en": "Multi-tenancy (pooled / siloed / hybrid)"
+          },
+          "when": {
+            "ar": "SaaS products",
+            "en": "SaaS products"
+          },
+          "tradeoffs": {
+            "ar": "Noisy neighbors؛ isolation trade-offs",
+            "en": "Noisy neighbors; isolation trade-offs"
+          },
+          "example": {
+            "ar": "tenant_id في كل row + per-tenant rate limits",
+            "en": "tenant_id on every row + per-tenant rate limits"
+          },
+          "tags": [
+            "architecture"
+          ],
+          "termIds": [
+            "multi-tenancy",
+            "rate-limiting"
+          ]
+        },
+        {
+          "id": "zero-downtime-migrations",
+          "problem": {
+            "ar": "تغيير schema من غير downtime",
+            "en": "Schema change without downtime"
+          },
+          "patterns": {
+            "ar": "Expand/contract migrations + feature flags",
+            "en": "Expand/contract migrations + feature flags"
+          },
+          "when": {
+            "ar": "Production DB changes",
+            "en": "Production DB changes"
+          },
+          "tradeoffs": {
+            "ar": "Migrations أطول وأكثر خطوات",
+            "en": "Longer multi-step migrations"
+          },
+          "example": {
+            "ar": "Add column nullable → dual write → backfill → switch",
+            "en": "Add nullable column → dual write → backfill → switch"
+          },
+          "tags": [
+            "ops",
+            "migration"
+          ],
+          "termIds": [
+            "feature-flags"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lb-deploy",
+      "title": {
+        "ar": "موازنة الحمل والنشر",
+        "en": "Load Balancing & Deploy"
+      },
+      "entries": [
+        {
+          "id": "lb-algos",
+          "problem": {
+            "ar": "توزيع الطلبات على instances",
+            "en": "Distribute requests across instances"
+          },
+          "patterns": {
+            "ar": "Round robin / least connections / consistent hash / L4 vs L7",
+            "en": "Round robin / least connections / consistent hash / L4 vs L7"
+          },
+          "when": {
+            "ar": "Any horizontally scaled service",
+            "en": "Any horizontally scaled service"
+          },
+          "tradeoffs": {
+            "ar": "L7 أذكى وأثقل؛ sticky sessions تصعّب الـ scale",
+            "en": "L7 smarter/heavier; sticky sessions hurt scale"
+          },
+          "example": {
+            "ar": "WS: consistent hash/sticky؛ HTTP API: least connections",
+            "en": "WS: consistent hash/sticky; HTTP API: least connections"
+          },
+          "tags": [
+            "lb"
+          ],
+          "termIds": [
+            "load-balancer",
+            "consistent-hashing",
+            "health-check"
+          ]
+        },
+        {
+          "id": "blue-green",
+          "problem": {
+            "ar": "Deploy من غير downtime مع rollback سريع",
+            "en": "Deploy with no downtime and fast rollback"
+          },
+          "patterns": {
+            "ar": "Blue-green deployment",
+            "en": "Blue-green deployment"
+          },
+          "when": {
+            "ar": "Stateless services with capacity for two fleets",
+            "en": "Stateless services with capacity for two fleets"
+          },
+          "tradeoffs": {
+            "ar": "تكلفة مضاعفة مؤقتاً",
+            "en": "Temporarily double cost"
+          },
+          "example": {
+            "ar": "Switch LB من blue لـ green بعد smoke tests",
+            "en": "Switch LB from blue to green after smoke tests"
+          },
+          "tags": [
+            "deploy"
+          ],
+          "termIds": [
+            "blue-green",
+            "cap"
+          ]
+        },
+        {
+          "id": "canary",
+          "problem": {
+            "ar": "عايز تجرب release على نسبة صغيرة",
+            "en": "Want to test a release on a small percentage"
+          },
+          "patterns": {
+            "ar": "Canary + feature flags",
+            "en": "Canary + feature flags"
+          },
+          "when": {
+            "ar": "Risky changes, gradual rollout",
+            "en": "Risky changes, gradual rollout"
+          },
+          "tradeoffs": {
+            "ar": "محتاج metrics دقيقة للـ compare",
+            "en": "Needs precise comparison metrics"
+          },
+          "example": {
+            "ar": "1% traffic على النسخة الجديدة",
+            "en": "1% traffic to the new version"
+          },
+          "tags": [
+            "deploy"
+          ],
+          "termIds": [
+            "feature-flags",
+            "canary"
+          ]
+        },
+        {
+          "id": "feature-flags",
+          "problem": {
+            "ar": "فصل الـ deploy عن الـ release",
+            "en": "Decouple deploy from release"
+          },
+          "patterns": {
+            "ar": "Feature flags",
+            "en": "Feature flags"
+          },
+          "when": {
+            "ar": "Experiments, kill switches",
+            "en": "Experiments, kill switches"
+          },
+          "tradeoffs": {
+            "ar": "Flag debt لو ما اتنضفتش",
+            "en": "Flag debt if not cleaned up"
+          },
+          "example": {
+            "ar": "Kill switch لـ expensive recommendation path",
+            "en": "Kill switch for expensive recommendation path"
+          },
+          "tags": [
+            "deploy"
+          ],
+          "termIds": [
+            "feature-flags"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "observability",
+      "title": {
+        "ar": "المراقبة والملاحظة",
+        "en": "Observability"
+      },
+      "entries": [
+        {
+          "id": "observability",
+          "problem": {
+            "ar": "مش عارف النظام بيشتغل كويس ولا لأ",
+            "en": "Do not know if the system is healthy"
+          },
+          "patterns": {
+            "ar": "Metrics + logs + traces; RED/USE; SLOs/error budgets",
+            "en": "Metrics + logs + traces; RED/USE; SLOs/error budgets"
+          },
+          "when": {
+            "ar": "Any production system",
+            "en": "Any production system"
+          },
+          "tradeoffs": {
+            "ar": "Cardinality وcost للـ telemetry",
+            "en": "Cardinality and telemetry cost"
+          },
+          "example": {
+            "ar": "p99 latency SLO + request rate + error rate",
+            "en": "p99 latency SLO + request rate + error rate"
+          },
+          "tags": [
+            "observability"
+          ],
+          "termIds": [
+            "observability",
+            "slo"
+          ]
+        },
+        {
+          "id": "gossip",
+          "problem": {
+            "ar": "Membership/state من غير coordinator مركزي",
+            "en": "Membership/state without central coordinator"
+          },
+          "patterns": {
+            "ar": "Gossip protocol",
+            "en": "Gossip protocol"
+          },
+          "when": {
+            "ar": "Cluster membership, failure detection",
+            "en": "Cluster membership, failure detection"
+          },
+          "tradeoffs": {
+            "ar": "Convergence مش فوري",
+            "en": "Convergence is not instant"
+          },
+          "example": {
+            "ar": "Cassandra / SWIM-style membership",
+            "en": "Cassandra / SWIM-style membership"
+          },
+          "tags": [
+            "distributed"
+          ],
+          "termIds": [
+            "gossip"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "entries": [
+        {
+          "id": "security-basics",
+          "problem": {
+            "ar": "محتاج تحمي الـ APIs والبيانات",
+            "en": "Need to protect APIs and data"
+          },
+          "patterns": {
+            "ar": "Authn/authz + API gateway + encryption in transit/at rest",
+            "en": "Authn/authz + API gateway + encryption in transit/at rest"
+          },
+          "when": {
+            "ar": "Any user-facing system",
+            "en": "Any user-facing system"
+          },
+          "tradeoffs": {
+            "ar": "Key management وتعقيد الامتثال",
+            "en": "Key management and compliance complexity"
+          },
+          "example": {
+            "ar": "OAuth2 + TLS + KMS-encrypted S3",
+            "en": "OAuth2 + TLS + KMS-encrypted S3"
+          },
+          "tags": [
+            "security"
+          ],
+          "termIds": [
+            "api-gateway",
+            "encryption"
+          ]
+        }
+      ]
+    }
+  ],
+  "numbers": {
+    "title": {
+      "ar": "أرقام لازم تعرفها",
+      "en": "Numbers to Know"
+    },
+    "items": [
+      {
+        "label": {
+          "ar": "L1 cache reference",
+          "en": "L1 cache reference"
+        },
+        "value": {
+          "ar": "~1 ns",
+          "en": "~1 ns"
+        }
+      },
+      {
+        "label": {
+          "ar": "Main memory reference",
+          "en": "Main memory reference"
+        },
+        "value": {
+          "ar": "~100 ns",
+          "en": "~100 ns"
+        }
+      },
+      {
+        "label": {
+          "ar": "Round trip داخل datacenter",
+          "en": "Round trip within datacenter"
+        },
+        "value": {
+          "ar": "~0.5 ms",
+          "en": "~0.5 ms"
+        }
+      },
+      {
+        "label": {
+          "ar": "SSD random read",
+          "en": "SSD random read"
+        },
+        "value": {
+          "ar": "~16 μs – 1 ms",
+          "en": "~16 μs – 1 ms"
+        }
+      },
+      {
+        "label": {
+          "ar": "HDD seek",
+          "en": "HDD seek"
+        },
+        "value": {
+          "ar": "~4 ms",
+          "en": "~4 ms"
+        }
+      },
+      {
+        "label": {
+          "ar": "Send 1MB على الشبكة",
+          "en": "Send 1MB over network"
+        },
+        "value": {
+          "ar": "~10 ms داخل DC",
+          "en": "~10 ms in DC"
+        }
+      },
+      {
+        "label": {
+          "ar": "Disk read 1MB sequential",
+          "en": "Disk read 1MB sequential"
+        },
+        "value": {
+          "ar": "~1 ms SSD / ~20 ms HDD",
+          "en": "~1 ms SSD / ~20 ms HDD"
+        }
+      },
+      {
+        "label": {
+          "ar": "Inter-region RTT",
+          "en": "Inter-region RTT"
+        },
+        "value": {
+          "ar": "~50–150 ms",
+          "en": "~50–150 ms"
+        }
+      },
+      {
+        "label": {
+          "ar": "QPS rule of thumb",
+          "en": "QPS rule of thumb"
+        },
+        "value": {
+          "ar": "daily / 86400 × peak 2–5×",
+          "en": "daily / 86400 × peak 2–5×"
+        }
+      },
+      {
+        "label": {
+          "ar": "Storage units",
+          "en": "Storage units"
+        },
+        "value": {
+          "ar": "1KB≈10^3, 1MB≈10^6, 1GB≈10^9, 1TB≈10^12",
+          "en": "1KB≈10^3, 1MB≈10^6, 1GB≈10^9, 1TB≈10^12"
+        }
+      },
+      {
+        "label": {
+          "ar": "Cache hit هدف",
+          "en": "Cache hit target"
+        },
+        "value": {
+          "ar": "غالباً >90–99% للـ hot path",
+          "en": "Often >90–99% for hot path"
+        }
+      },
+      {
+        "label": {
+          "ar": "Availability",
+          "en": "Availability"
+        },
+        "value": {
+          "ar": "99.9% ≈ 8.7h/year downtime",
+          "en": "99.9% ≈ 8.7h/year downtime"
+        }
+      }
+    ]
+  }
+}

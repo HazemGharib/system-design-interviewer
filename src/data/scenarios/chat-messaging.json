@@ -1,0 +1,1822 @@
+{
+  "id": "chat-messaging",
+  "title": {
+    "ar": "نظام الشات والرسائل",
+    "en": "Chat & Messaging System"
+  },
+  "description": {
+    "ar": "صمم نظام شات real-time زي WhatsApp مع group chats",
+    "en": "Design a real-time chat system like WhatsApp with group chats"
+  },
+  "difficulty": {
+    "ar": "صعب",
+    "en": "Hard"
+  },
+  "estimatedTime": {
+    "ar": "50 دقيقة",
+    "en": "50 minutes"
+  },
+  "problemStatement": {
+    "ar": "عايزينك تصمم نظام شات real-time زي WhatsApp. الفيتشرز المطلوبة: 1:1 chat، group chats (لحد 500 عضو)، online/offline presence، delivery receipts (sent/delivered/read)، offline message delivery، والـ push notifications. الرسائل لازم تكون ordered وما تتفقدش.",
+    "en": "Design a real-time chat system like WhatsApp. Required features: 1:1 chat, group chats (up to 500 members), online/offline presence, delivery receipts (sent/delivered/read), offline message delivery, and push notifications. Messages must be ordered and not lost."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "اليوزرز النشطين",
+        "en": "Daily Active Users"
+      },
+      "value": {
+        "ar": "حوالي 500 مليون",
+        "en": "~500 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "الرسائل في اليوم",
+        "en": "Messages/day"
+      },
+      "value": {
+        "ar": "حوالي 50 مليار",
+        "en": "~50 billion"
+      }
+    },
+    {
+      "label": {
+        "ar": "متوسط الرسائل/يوزر",
+        "en": "Avg messages/user"
+      },
+      "value": {
+        "ar": "حوالي 100",
+        "en": "~100"
+      }
+    },
+    {
+      "label": {
+        "ar": "أقصى حجم group",
+        "en": "Max Group Size"
+      },
+      "value": {
+        "ar": "500 عضو",
+        "en": "500 members"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ latency target",
+        "en": "Latency Target"
+      },
+      "value": {
+        "ar": "أقل من 100ms",
+        "en": "< 100ms"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ availability",
+        "en": "Availability"
+      },
+      "value": {
+        "ar": "99.99%",
+        "en": "99.99%"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ message retention",
+        "en": "Message Retention"
+      },
+      "value": {
+        "ar": "للأبد (أو حتى الحذف)",
+        "en": "Forever (or until deleted)"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل ما تصمم، اسأل الأسئلة التوضيحية اللي محتاجها، واعمل حسبة سريعة للأرقام: messages/sec، storage، concurrent connections.",
+        "en": "Before designing, ask clarifying questions and do quick estimation: messages/sec, storage, concurrent connections."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن الـ scope: end-to-end encryption، media messages، typing indicators",
+            "en": "Asked about scope: end-to-end encryption, media messages, typing indicators"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ scope بيحدد الـ complexity. E2EE مثلا بيغير الـ architecture كلها.",
+              "how": "اسأل: هل محتاجين encryption? Media support? Typing indicators? Read receipts?",
+              "tradeoffs": "كل feature إضافية بتزود الـ complexity والـ latency.",
+              "examples": "WhatsApp: E2EE لكل الرسائل. Slack: E2EE اختياري.",
+              "mistakes": "خطأ شائع: تبدأ تصمم من غير ما تعرف الـ scope بالظبط."
+            },
+            "en": {
+              "why": "Scope determines complexity. E2EE for example changes the entire architecture.",
+              "how": "Ask: Do we need encryption? Media support? Typing indicators? Read receipts?",
+              "tradeoffs": "Each additional feature adds complexity and latency.",
+              "examples": "WhatsApp: E2EE for all messages. Slack: E2EE optional.",
+              "mistakes": "Common mistake: Starting to design without knowing exact scope."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "حسبت messages/sec: 50B/day = ~600K/sec",
+            "en": "Calculated messages/sec: 50B/day = ~600K/sec"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ throughput بيحدد عدد الـ servers والـ architecture.",
+              "how": "50 billion / 86400 seconds = 578K/sec. Peak = 2-3x = ~1.5M/sec.",
+              "tradeoffs": "الـ peak مهم جدا، مش الـ average بس.",
+              "examples": "WhatsApp: 100B messages/day = ~1.2M/sec average.",
+              "mistakes": "خطأ شائع: تحسب الـ average بس وتنسى الـ peak."
+            },
+            "en": {
+              "why": "Throughput determines number of servers and architecture.",
+              "how": "50 billion / 86400 seconds = 578K/sec. Peak = 2-3x = ~1.5M/sec.",
+              "tradeoffs": "Peak is very important, not just average.",
+              "examples": "WhatsApp: 100B messages/day = ~1.2M/sec average.",
+              "mistakes": "Common mistake: Calculating only average, forgetting peak."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "حسبت storage: 50B messages × 1KB avg = 50TB/day",
+            "en": "Calculated storage: 50B messages × 1KB avg = 50TB/day"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ storage بيحدد الـ database choice والـ retention policy.",
+              "how": "50B × 1KB = 50TB/day. سنة = 18PB. بس compression = ~6PB.",
+              "tradeoffs": "الـ retention policy بتأثر كتير. Media أكبر بكتير.",
+              "examples": "WhatsApp: messages stored حتى delivery. Media: 30 days.",
+              "mistakes": "خطأ شائع: تنسى الـ media storage اللي أكبر بـ 10-100x."
+            },
+            "en": {
+              "why": "Storage determines database choice and retention policy.",
+              "how": "50B × 1KB = 50TB/day. Year = 18PB. But with compression = ~6PB.",
+              "tradeoffs": "Retention policy affects a lot. Media is much bigger.",
+              "examples": "WhatsApp: messages stored until delivery. Media: 30 days.",
+              "mistakes": "Common mistake: Forgetting media storage which is 10-100x larger."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "حسبت concurrent connections: 500M DAU × 30% concurrent = 150M",
+            "en": "Calculated concurrent connections: 500M DAU × 30% concurrent = 150M"
+          },
+          "detail": {
+            "ar": {
+              "why": "WebSocket connections بتستهلك memory وfile descriptors.",
+              "how": "500M DAU × 30% online = 150M connections. كل connection ~10KB memory.",
+              "tradeoffs": "أكتر connections = أكتر servers. بس أقل polling.",
+              "examples": "150M connections / 100K per server = 1500 connection servers.",
+              "mistakes": "خطأ شائع: تقلل الـ concurrent percentage أوي."
+            },
+            "en": {
+              "why": "WebSocket connections consume memory and file descriptors.",
+              "how": "500M DAU × 30% online = 150M connections. Each connection ~10KB memory.",
+              "tradeoffs": "More connections = more servers. But less polling.",
+              "examples": "150M connections / 100K per server = 1500 connection servers.",
+              "mistakes": "Common mistake: Underestimating concurrent percentage."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "صمم الـ high-level architecture: clients، WebSocket servers، message routing، storage، presence، notifications.",
+        "en": "Design the high-level architecture: clients, WebSocket servers, message routing, storage, presence, notifications."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 الرسم التخطيطي للـ architecture",
+            "en": "📊 Architecture diagram"
+          },
+          "detail": {
+            "ar": {
+              "why": "الرسم بيوضح الـ flow والـ components بشكل visual.",
+              "how": "ارسم الـ clients، WebSocket servers، routing، message queue، storage، presence service.",
+              "tradeoffs": "الرسم المبسط أحسن من التفصيلي في المقابلة.",
+              "examples": "Client → LB → WS Server → Router → Queue → Storage / Push.",
+              "mistakes": "خطأ شائع: ترسم كل حاجة في رسم واحد معقد."
+            },
+            "en": {
+              "why": "Diagram visualizes flow and components clearly.",
+              "how": "Draw clients, WebSocket servers, routing, message queue, storage, presence service.",
+              "tradeoffs": "Simple diagram is better than detailed one in interviews.",
+              "examples": "Client → LB → WS Server → Router → Queue → Storage / Push.",
+              "mistakes": "Common mistake: Drawing everything in one complex diagram."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "WebSocket connection layer: persistent connections مع heartbeat",
+            "en": "WebSocket connection layer: persistent connections with heartbeat"
+          },
+          "detail": {
+            "ar": {
+              "why": "HTTP polling غير كفء. WebSocket بيدي real-time delivery.",
+              "how": "Client يفتح WebSocket connection. Heartbeat كل 30 seconds.",
+              "tradeoffs": "WebSocket: real-time بس stateful. HTTP: simpler بس latency.",
+              "examples": "WhatsApp, Slack, Discord كلهم بيستخدموا WebSocket.",
+              "mistakes": "خطأ شائع: HTTP polling، الـ latency عالية والـ load كبير."
+            },
+            "en": {
+              "why": "HTTP polling is inefficient. WebSocket provides real-time delivery.",
+              "how": "Client opens WebSocket connection. Heartbeat every 30 seconds.",
+              "tradeoffs": "WebSocket: real-time but stateful. HTTP: simpler but latency.",
+              "examples": "WhatsApp, Slack, Discord all use WebSocket.",
+              "mistakes": "Common mistake: HTTP polling, high latency and big load."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Message routing: معرفة أي connection server الـ recipient عليه",
+            "en": "Message routing: knowing which connection server the recipient is on"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ sender والـ recipient على servers مختلفة. لازم routing.",
+              "how": "User-to-server mapping في Redis. Message router يبحث ويرسل.",
+              "tradeoffs": "Central router: simple بس bottleneck. Distributed: complex بس scalable.",
+              "examples": "Redis cluster للـ mapping. Consistent hashing للـ distribution.",
+              "mistakes": "خطأ شائع: central single router، point of failure."
+            },
+            "en": {
+              "why": "Sender and recipient are on different servers. Need routing.",
+              "how": "User-to-server mapping in Redis. Message router looks up and sends.",
+              "tradeoffs": "Central router: simple but bottleneck. Distributed: complex but scalable.",
+              "examples": "Redis cluster for mapping. Consistent hashing for distribution.",
+              "mistakes": "Common mistake: Central single router, point of failure."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Message queue للـ async delivery والـ persistence",
+            "en": "Message queue for async delivery and persistence"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو الـ recipient offline، الرسالة لازم تتخزن وتتبعت لما يرجع.",
+              "how": "Kafka per-user topic أو per-conversation. Consumer = device connection.",
+              "tradeoffs": "Per-user: simpler routing. Per-conversation: better for groups.",
+              "examples": "Kafka مع millions of partitions. أو Cassandra-based message store.",
+              "mistakes": "خطأ شائع: single queue لكل الرسائل، bottleneck."
+            },
+            "en": {
+              "why": "If recipient is offline, message must be stored and sent when they return.",
+              "how": "Kafka per-user topic or per-conversation. Consumer = device connection.",
+              "tradeoffs": "Per-user: simpler routing. Per-conversation: better for groups.",
+              "examples": "Kafka with millions of partitions. Or Cassandra-based message store.",
+              "mistakes": "Common mistake: Single queue for all messages, bottleneck."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Group fan-out: write-time vs read-time fan-out",
+            "en": "Group fan-out: write-time vs read-time fan-out"
+          },
+          "detail": {
+            "ar": {
+              "why": "Group message محتاج يوصل لـ 500 member. إزاي?",
+              "how": "Write-time: copy الرسالة لكل inbox (500 writes). Read-time: single write، كل member يقرا.",
+              "tradeoffs": "Write-time: سريع للقراءة بس كتابة كتير. Read-time: كتابة أقل بس قراءة أبطأ.",
+              "examples": "Small groups (< 100): write-time. Large groups: read-time أو hybrid.",
+              "mistakes": "خطأ شائع: write-time fan-out لـ groups كبيرة، الـ write amplification ضخم."
+            },
+            "en": {
+              "why": "Group message needs to reach 500 members. How?",
+              "how": "Write-time: copy message to each inbox (500 writes). Read-time: single write, each member reads.",
+              "tradeoffs": "Write-time: fast reads but many writes. Read-time: fewer writes but slower reads.",
+              "examples": "Small groups (< 100): write-time. Large groups: read-time or hybrid.",
+              "mistakes": "Common mistake: Write-time fan-out for large groups, write amplification is huge."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Delivery receipts: sent، delivered، read flow",
+            "en": "Delivery receipts: sent, delivered, read flow"
+          },
+          "detail": {
+            "ar": {
+              "why": "Users expect to know if message was delivered and read.",
+              "how": "Sent: server acks. Delivered: device acks. Read: user opens conversation.",
+              "tradeoffs": "Each receipt = additional message. Batching helps.",
+              "examples": "WhatsApp: single tick (sent)، double tick (delivered)، blue ticks (read).",
+              "mistakes": "خطأ شائع: receipts synchronous، بيبطّئ الـ sending."
+            },
+            "en": {
+              "why": "Users expect to know if message was delivered and read.",
+              "how": "Sent: server acks. Delivered: device acks. Read: user opens conversation.",
+              "tradeoffs": "Each receipt = additional message. Batching helps.",
+              "examples": "WhatsApp: single tick (sent), double tick (delivered), blue ticks (read).",
+              "mistakes": "Common mistake: Synchronous receipts slow down sending."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Online/offline presence: heartbeat mechanism مع Redis",
+            "en": "Online/offline presence: heartbeat mechanism with Redis"
+          },
+          "detail": {
+            "ar": {
+              "why": "Users want to see who is online.",
+              "how": "Heartbeat كل 30 sec يحدث TTL في Redis. No heartbeat = offline.",
+              "tradeoffs": "Shorter heartbeat: more accurate بس more load. Longer: less accurate.",
+              "examples": "Redis SETEX with 60 sec TTL. Heartbeat كل 30 sec.",
+              "mistakes": "خطأ شائع: polling للـ presence، load عالي جدا."
+            },
+            "en": {
+              "why": "Users want to see who is online.",
+              "how": "Heartbeat every 30 sec updates TTL in Redis. No heartbeat = offline.",
+              "tradeoffs": "Shorter heartbeat: more accurate but more load. Longer: less accurate.",
+              "examples": "Redis SETEX with 60 sec TTL. Heartbeat every 30 sec.",
+              "mistakes": "Common mistake: Polling for presence, very high load."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Push notifications للـ offline users",
+            "en": "Push notifications for offline users"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو الـ user offline، لازم notification يوصله.",
+              "how": "If user offline → push to FCM/APNs. Store device tokens.",
+              "tradeoffs": "Push has latency (100ms-seconds). Not real-time.",
+              "examples": "FCM for Android, APNs for iOS. Rate limiting مهم.",
+              "mistakes": "خطأ شائع: push لكل message، الـ user بيتضايق من الـ spam."
+            },
+            "en": {
+              "why": "If user is offline, notification must reach them.",
+              "how": "If user offline → push to FCM/APNs. Store device tokens.",
+              "tradeoffs": "Push has latency (100ms-seconds). Not real-time.",
+              "examples": "FCM for Android, APNs for iOS. Rate limiting is important.",
+              "mistakes": "Common mistake: Push for every message, user annoyed by spam."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "shortTitle": {
+        "ar": "Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "إزاي تـ scale النظام لـ 500M users و150M concurrent connections؟",
+        "en": "How do you scale the system for 500M users and 150M concurrent connections?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "WebSocket server scaling: horizontal مع sticky sessions",
+            "en": "WebSocket server scaling: horizontal with sticky sessions"
+          },
+          "detail": {
+            "ar": {
+              "why": "Connection واحد = server واحد. محتاج sticky.",
+              "how": "Load balancer يوجه user لنفس الـ server (IP hash أو cookie).",
+              "tradeoffs": "Sticky: simpler reconnect بس uneven load ممكن.",
+              "examples": "HAProxy مع IP hash. أو application-level routing.",
+              "mistakes": "خطأ شائع: round-robin بدون sticky، الـ user بيفقد connection."
+            },
+            "en": {
+              "why": "One connection = one server. Need sticky.",
+              "how": "Load balancer routes user to same server (IP hash or cookie).",
+              "tradeoffs": "Sticky: simpler reconnect but possible uneven load.",
+              "examples": "HAProxy with IP hash. Or application-level routing.",
+              "mistakes": "Common mistake: Round-robin without sticky, user loses connection."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Message storage sharding: by user_id أو conversation_id",
+            "en": "Message storage sharding: by user_id or conversation_id"
+          },
+          "detail": {
+            "ar": {
+              "why": "50TB/day لا يمكن يتخزن في single database.",
+              "how": "Shard by conversation_id. All messages للـ conversation في نفس الـ shard.",
+              "tradeoffs": "By user: سهل للـ inbox. By conversation: سهل للـ chat history.",
+              "examples": "Cassandra مع partition key = conversation_id.",
+              "mistakes": "خطأ شائع: shard by message_id، الـ conversation queries بطيئة."
+            },
+            "en": {
+              "why": "50TB/day cannot be stored in single database.",
+              "how": "Shard by conversation_id. All messages for conversation in same shard.",
+              "tradeoffs": "By user: easy for inbox. By conversation: easy for chat history.",
+              "examples": "Cassandra with partition key = conversation_id.",
+              "mistakes": "Common mistake: Shard by message_id, conversation queries slow."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Presence service scaling: Redis cluster مع sharding by user_id",
+            "en": "Presence service scaling: Redis cluster with sharding by user_id"
+          },
+          "detail": {
+            "ar": {
+              "why": "Single Redis لا يستحمل 500M users.",
+              "how": "Redis cluster مع sharding by user_id. Each shard handles subset.",
+              "tradeoffs": "More shards = more complexity بس better performance.",
+              "examples": "Redis cluster مع 100 shards. 5M users per shard.",
+              "mistakes": "خطأ شائع: single Redis instance، memory overflow."
+            },
+            "en": {
+              "why": "Single Redis cannot handle 500M users.",
+              "how": "Redis cluster with sharding by user_id. Each shard handles subset.",
+              "tradeoffs": "More shards = more complexity but better performance.",
+              "examples": "Redis cluster with 100 shards. 5M users per shard.",
+              "mistakes": "Common mistake: Single Redis instance, memory overflow."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Group membership caching: local cache مع invalidation",
+            "en": "Group membership caching: local cache with invalidation"
+          },
+          "detail": {
+            "ar": {
+              "why": "كل message في group محتاج list الـ members. DB query كل مرة بطيء.",
+              "how": "Cache group members locally. Invalidate عند member join/leave.",
+              "tradeoffs": "Stale cache ممكن يوصل message لـ ex-member لثواني.",
+              "examples": "Local Caffeine cache مع 60 sec TTL. Pub/sub للـ invalidation.",
+              "mistakes": "خطأ شائع: no cache، DB overload مع كل message."
+            },
+            "en": {
+              "why": "Every message in group needs member list. DB query each time is slow.",
+              "how": "Cache group members locally. Invalidate on member join/leave.",
+              "tradeoffs": "Stale cache might send message to ex-member for seconds.",
+              "examples": "Local Caffeine cache with 60 sec TTL. Pub/sub for invalidation.",
+              "mistakes": "Common mistake: No cache, DB overload with every message."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "الـ Monitoring",
+        "en": "Monitoring"
+      },
+      "shortTitle": {
+        "ar": "Monitoring",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "إيه الـ metrics اللي هتراقبها؟ وإزاي تعرف إن في مشكلة؟",
+        "en": "What metrics would you monitor? How do you know when there is a problem?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "End-to-end message latency: sent → delivered",
+            "en": "End-to-end message latency: sent → delivered"
+          },
+          "detail": {
+            "ar": {
+              "why": "Users feel slow chat. E2E latency أهم من server latency.",
+              "how": "Timestamp at send، timestamp at delivery. p50، p99، p999.",
+              "tradeoffs": "الـ clock drift بين devices ممكن يأثر.",
+              "examples": "Target: p99 < 300ms for online recipients.",
+              "mistakes": "خطأ شائع: تقيس server latency بس، الـ network latency مختفي."
+            },
+            "en": {
+              "why": "Users feel slow chat. E2E latency more important than server latency.",
+              "how": "Timestamp at send, timestamp at delivery. p50, p99, p999.",
+              "tradeoffs": "Clock drift between devices might affect.",
+              "examples": "Target: p99 < 300ms for online recipients.",
+              "mistakes": "Common mistake: Measuring only server latency, network latency hidden."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "WebSocket connection count وreconnection rate",
+            "en": "WebSocket connection count and reconnection rate"
+          },
+          "detail": {
+            "ar": {
+              "why": "High reconnection rate = network issues أو server problems.",
+              "how": "Count active connections. Track reconnects per minute.",
+              "tradeoffs": "Mobile: higher reconnection normal. Desktop: should be stable.",
+              "examples": "Alert: reconnection rate > 5% per minute.",
+              "mistakes": "خطأ شائع: متابعش الـ reconnections، الـ users بيعانوا."
+            },
+            "en": {
+              "why": "High reconnection rate = network issues or server problems.",
+              "how": "Count active connections. Track reconnects per minute.",
+              "tradeoffs": "Mobile: higher reconnection normal. Desktop: should be stable.",
+              "examples": "Alert: reconnection rate > 5% per minute.",
+              "mistakes": "Common mistake: Not tracking reconnections, users suffer."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Message queue depth وprocessing lag",
+            "en": "Message queue depth and processing lag"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو الـ queue بتتراكم، messages بتتأخر.",
+              "how": "Kafka consumer lag metric. Alert لما lag > 10 seconds.",
+              "tradeoffs": "Some lag acceptable during spikes. Sustained lag = problem.",
+              "examples": "Kafka lag monitoring. Burrow أو built-in metrics.",
+              "mistakes": "خطأ شائع: متابعش الـ lag، الرسائل بتتأخر من غير ما تعرف."
+            },
+            "en": {
+              "why": "If queue is backing up, messages are delayed.",
+              "how": "Kafka consumer lag metric. Alert when lag > 10 seconds.",
+              "tradeoffs": "Some lag acceptable during spikes. Sustained lag = problem.",
+              "examples": "Kafka lag monitoring. Burrow or built-in metrics.",
+              "mistakes": "Common mistake: Not tracking lag, messages delayed without knowing."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Delivery success rate: messages delivered vs sent",
+            "en": "Delivery success rate: messages delivered vs sent"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو messages مش بتوصل، الـ users هيشتكوا.",
+              "how": "sent_count vs delivered_count. Success rate = delivered / sent.",
+              "tradeoffs": "Offline users affect rate. Track online vs offline separately.",
+              "examples": "Target: 99.9% delivery for online users. 100% eventual delivery.",
+              "mistakes": "خطأ شائع: تعتبر undelivered (offline) كـ failure."
+            },
+            "en": {
+              "why": "If messages not delivered, users will complain.",
+              "how": "sent_count vs delivered_count. Success rate = delivered / sent.",
+              "tradeoffs": "Offline users affect rate. Track online vs offline separately.",
+              "examples": "Target: 99.9% delivery for online users. 100% eventual delivery.",
+              "mistakes": "Common mistake: Treating undelivered (offline) as failure."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "إيه الأماكن اللي متوقع تبقى عنق زجاجة، وإزاي تحلها؟",
+        "en": "What are the expected bottlenecks and how do you solve them?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "WebSocket connection limit per server: kernel tuning وC10M problem",
+            "en": "WebSocket connection limit per server: kernel tuning and C10M problem"
+          },
+          "detail": {
+            "ar": {
+              "why": "Default Linux limits: ~65K connections. محتاج tuning.",
+              "how": "Increase file descriptors، ephemeral ports، memory. Event-driven server (epoll).",
+              "tradeoffs": "High connections = high memory. بس أقل servers.",
+              "examples": "Single server: 100K-500K connections مع tuning.",
+              "mistakes": "خطأ شائع: default settings، الـ server بيرفض connections."
+            },
+            "en": {
+              "why": "Default Linux limits: ~65K connections. Need tuning.",
+              "how": "Increase file descriptors, ephemeral ports, memory. Event-driven server (epoll).",
+              "tradeoffs": "High connections = high memory. But fewer servers.",
+              "examples": "Single server: 100K-500K connections with tuning.",
+              "mistakes": "Common mistake: Default settings, server rejects connections."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Group fan-out for large groups: batching وrate limiting",
+            "en": "Group fan-out for large groups: batching and rate limiting"
+          },
+          "detail": {
+            "ar": {
+              "why": "Group مع 500 member، كل message = 500 delivery.",
+              "how": "Batch fan-out. Rate limit messages per group. Use read-time fan-out.",
+              "tradeoffs": "Batching adds latency. بس يقلل الـ load.",
+              "examples": "500 member group: batch 50 deliveries at a time.",
+              "mistakes": "خطأ شائع: immediate fan-out لكل message، thundering herd."
+            },
+            "en": {
+              "why": "Group with 500 members, each message = 500 deliveries.",
+              "how": "Batch fan-out. Rate limit messages per group. Use read-time fan-out.",
+              "tradeoffs": "Batching adds latency. But reduces load.",
+              "examples": "500 member group: batch 50 deliveries at a time.",
+              "mistakes": "Common mistake: Immediate fan-out for each message, thundering herd."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Presence updates storm: pub/sub batching",
+            "en": "Presence updates storm: pub/sub batching"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو user عنده 500 contact، كل presence change = 500 notifications.",
+              "how": "Batch presence updates. Send every 5 seconds instead of immediately.",
+              "tradeoffs": "Stale presence for few seconds. بس acceptable.",
+              "examples": "User comes online → wait 5 sec → batch notify all contacts.",
+              "mistakes": "خطأ شائع: immediate presence broadcast، massive load spike."
+            },
+            "en": {
+              "why": "If user has 500 contacts, each presence change = 500 notifications.",
+              "how": "Batch presence updates. Send every 5 seconds instead of immediately.",
+              "tradeoffs": "Stale presence for few seconds. But acceptable.",
+              "examples": "User comes online → wait 5 sec → batch notify all contacts.",
+              "mistakes": "Common mistake: Immediate presence broadcast, massive load spike."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Message ordering: per-conversation sequence numbers",
+            "en": "Message ordering: per-conversation sequence numbers"
+          },
+          "detail": {
+            "ar": {
+              "why": "Messages لازم تظهر بالترتيب. Network delays ممكن تعكس.",
+              "how": "Server assigns sequence number per conversation. Client reorders.",
+              "tradeoffs": "Waiting for missing sequence adds latency.",
+              "examples": "Conversation sequence: 1، 2، 3... Client reorders if 3 arrives before 2.",
+              "mistakes": "خطأ شائع: timestamp-based ordering، clock drift بيخرب الترتيب."
+            },
+            "en": {
+              "why": "Messages must appear in order. Network delays can reverse.",
+              "how": "Server assigns sequence number per conversation. Client reorders.",
+              "tradeoffs": "Waiting for missing sequence adds latency.",
+              "examples": "Conversation sequence: 1, 2, 3... Client reorders if 3 arrives before 2.",
+              "mistakes": "Common mistake: Timestamp-based ordering, clock drift breaks order."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "الـ Trade-offs",
+        "en": "Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "Trade-offs",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "إيه الـ trade-offs الرئيسية اللي عملتها وليه؟",
+        "en": "What are the main trade-offs you made and why?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Consistency vs Availability: eventual consistency للـ messages",
+            "en": "Consistency vs Availability: eventual consistency for messages"
+          },
+          "detail": {
+            "ar": {
+              "why": "Chat يتحمل eventual consistency. الـ user يستنى ثواني.",
+              "how": "Async replication. Message might not appear immediately in all views.",
+              "tradeoffs": "Strong consistency: slower، higher latency. Eventual: faster.",
+              "examples": "WhatsApp: eventual. Message sent، might take seconds to appear everywhere.",
+              "mistakes": "خطأ شائع: strong consistency لكل حاجة، الـ latency عالية."
+            },
+            "en": {
+              "why": "Chat tolerates eventual consistency. User waits seconds.",
+              "how": "Async replication. Message might not appear immediately in all views.",
+              "tradeoffs": "Strong consistency: slower, higher latency. Eventual: faster.",
+              "examples": "WhatsApp: eventual. Message sent, might take seconds to appear everywhere.",
+              "mistakes": "Common mistake: Strong consistency for everything, high latency."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Storage cost vs Query speed: denormalization",
+            "en": "Storage cost vs Query speed: denormalization"
+          },
+          "detail": {
+            "ar": {
+              "why": "Normalized data = complex joins. Denormalized = fast reads.",
+              "how": "Store message in both sender and recipient inbox. Duplicate data.",
+              "tradeoffs": "More storage (2x+) بس faster reads.",
+              "examples": "Message stored in sender outbox + recipient inbox.",
+              "mistakes": "خطأ شائع: normalized schema، slow queries، high latency."
+            },
+            "en": {
+              "why": "Normalized data = complex joins. Denormalized = fast reads.",
+              "how": "Store message in both sender and recipient inbox. Duplicate data.",
+              "tradeoffs": "More storage (2x+) but faster reads.",
+              "examples": "Message stored in sender outbox + recipient inbox.",
+              "mistakes": "Common mistake: Normalized schema, slow queries, high latency."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Real-time vs Push: WebSocket + fallback to push",
+            "en": "Real-time vs Push: WebSocket + fallback to push"
+          },
+          "detail": {
+            "ar": {
+              "why": "WebSocket is real-time بس battery-intensive on mobile.",
+              "how": "WebSocket when app open. Push when app closed/background.",
+              "tradeoffs": "Push: 100ms-seconds latency. WebSocket: immediate.",
+              "examples": "WhatsApp: WebSocket foreground، push background.",
+              "mistakes": "خطأ شائع: WebSocket-only، الـ battery بتفضى."
+            },
+            "en": {
+              "why": "WebSocket is real-time but battery-intensive on mobile.",
+              "how": "WebSocket when app open. Push when app closed/background.",
+              "tradeoffs": "Push: 100ms-seconds latency. WebSocket: immediate.",
+              "examples": "WhatsApp: WebSocket foreground, push background.",
+              "mistakes": "Common mistake: WebSocket-only, battery drains."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup-1",
+      "title": {
+        "ar": "سؤال متابعة: Message search",
+        "en": "Follow-up: Message search"
+      },
+      "shortTitle": {
+        "ar": "سؤال 1",
+        "en": "Follow-up 1"
+      },
+      "prompt": {
+        "ar": "إزاي تضيف message search للنظام؟",
+        "en": "How would you add message search to the system?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Elasticsearch للـ full-text search",
+            "en": "Elasticsearch for full-text search"
+          },
+          "detail": {
+            "ar": {
+              "why": "DB LIKE queries بطيئة جدا لـ text search.",
+              "how": "Index messages في Elasticsearch. Query بيرجع message IDs.",
+              "tradeoffs": "Additional infrastructure بس fast search.",
+              "examples": "ES index per user. Search within own messages only.",
+              "mistakes": "خطأ شائع: search في الـ main DB، slow و resource-intensive."
+            },
+            "en": {
+              "why": "DB LIKE queries very slow for text search.",
+              "how": "Index messages in Elasticsearch. Query returns message IDs.",
+              "tradeoffs": "Additional infrastructure but fast search.",
+              "examples": "ES index per user. Search within own messages only.",
+              "mistakes": "Common mistake: Search in main DB, slow and resource-intensive."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Search index partitioning: per-user أو per-conversation",
+            "en": "Search index partitioning: per-user or per-conversation"
+          },
+          "detail": {
+            "ar": {
+              "why": "50B messages مش هتتحط في index واحد.",
+              "how": "Partition by user_id. User searches their own messages only.",
+              "tradeoffs": "Per-user: simple. Cross-user search needs aggregation.",
+              "examples": "ES index: messages_user_123. Each user has own index.",
+              "mistakes": "خطأ شائع: global search index، huge و slow."
+            },
+            "en": {
+              "why": "50B messages cannot fit in one index.",
+              "how": "Partition by user_id. User searches their own messages only.",
+              "tradeoffs": "Per-user: simple. Cross-user search needs aggregation.",
+              "examples": "ES index: messages_user_123. Each user has own index.",
+              "mistakes": "Common mistake: Global search index, huge and slow."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Async indexing: eventual consistency للـ search",
+            "en": "Async indexing: eventual consistency for search"
+          },
+          "detail": {
+            "ar": {
+              "why": "Sync indexing يبطّئ message delivery.",
+              "how": "Message sent → async job → index في ES. Lag = seconds.",
+              "tradeoffs": "New message might not be searchable immediately.",
+              "examples": "Kafka consumer يقرا messages ويـ index في ES.",
+              "mistakes": "خطأ شائع: sync indexing في الـ critical path، high latency."
+            },
+            "en": {
+              "why": "Sync indexing slows message delivery.",
+              "how": "Message sent → async job → index in ES. Lag = seconds.",
+              "tradeoffs": "New message might not be searchable immediately.",
+              "examples": "Kafka consumer reads messages and indexes in ES.",
+              "mistakes": "Common mistake: Sync indexing in critical path, high latency."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup-2",
+      "title": {
+        "ar": "سؤال متابعة: Typing indicators",
+        "en": "Follow-up: Typing indicators"
+      },
+      "shortTitle": {
+        "ar": "سؤال 2",
+        "en": "Follow-up 2"
+      },
+      "prompt": {
+        "ar": "إزاي تضيف typing indicators (الـ \"typing...\" status)؟",
+        "en": "How would you add typing indicators (the \"typing...\" status)?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Ephemeral messages: لا تتخزن، direct routing",
+            "en": "Ephemeral messages: not stored, direct routing"
+          },
+          "detail": {
+            "ar": {
+              "why": "Typing events مش محتاج persistence. Fire and forget.",
+              "how": "Direct WebSocket message. No DB write. No queue.",
+              "tradeoffs": "Might be lost if network issue. بس acceptable.",
+              "examples": "User types → server broadcasts → recipients see \"typing...\"",
+              "mistakes": "خطأ شائع: تخزن typing events، unnecessary storage."
+            },
+            "en": {
+              "why": "Typing events do not need persistence. Fire and forget.",
+              "how": "Direct WebSocket message. No DB write. No queue.",
+              "tradeoffs": "Might be lost if network issue. But acceptable.",
+              "examples": "User types → server broadcasts → recipients see \"typing...\"",
+              "mistakes": "Common mistake: Storing typing events, unnecessary storage."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Throttling: send typing event max every 2-3 seconds",
+            "en": "Throttling: send typing event max every 2-3 seconds"
+          },
+          "detail": {
+            "ar": {
+              "why": "كل keystroke = typing event? Too much traffic.",
+              "how": "Client throttles. Send typing start، then nothing for 3 sec.",
+              "tradeoffs": "Less real-time بس much less traffic.",
+              "examples": "User types → send \"typing\"، wait 3 sec، send again if still typing.",
+              "mistakes": "خطأ شائع: typing event لكل keystroke، massive traffic."
+            },
+            "en": {
+              "why": "Every keystroke = typing event? Too much traffic.",
+              "how": "Client throttles. Send typing start, then nothing for 3 sec.",
+              "tradeoffs": "Less real-time but much less traffic.",
+              "examples": "User types → send \"typing\", wait 3 sec, send again if still typing.",
+              "mistakes": "Common mistake: Typing event for every keystroke, massive traffic."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Timeout: auto-clear typing indicator بعد 5 seconds",
+            "en": "Timeout: auto-clear typing indicator after 5 seconds"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو الـ user بطّل يكتب، الـ \"typing...\" لازم يختفي.",
+              "how": "Client sets 5 sec timeout. No new typing event = clear indicator.",
+              "tradeoffs": "Simple implementation. No explicit \"stopped typing\" message needed.",
+              "examples": "Show \"typing...\"، start 5 sec timer، hide if no new event.",
+              "mistakes": "خطأ شائع: waiting for explicit \"stopped\" event، indicator stays forever."
+            },
+            "en": {
+              "why": "If user stopped typing, \"typing...\" must disappear.",
+              "how": "Client sets 5 sec timeout. No new typing event = clear indicator.",
+              "tradeoffs": "Simple implementation. No explicit \"stopped typing\" message needed.",
+              "examples": "Show \"typing...\", start 5 sec timer, hide if no new event.",
+              "mistakes": "Common mistake: Waiting for explicit \"stopped\" event, indicator stays forever."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup-3",
+      "title": {
+        "ar": "سؤال متابعة: Message encryption",
+        "en": "Follow-up: Message encryption"
+      },
+      "shortTitle": {
+        "ar": "سؤال 3",
+        "en": "Follow-up 3"
+      },
+      "prompt": {
+        "ar": "إزاي تضيف end-to-end encryption؟",
+        "en": "How would you add end-to-end encryption?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Signal Protocol: Double Ratchet for forward secrecy",
+            "en": "Signal Protocol: Double Ratchet for forward secrecy"
+          },
+          "detail": {
+            "ar": {
+              "why": "Standard E2EE protocol. Used by WhatsApp، Signal، etc.",
+              "how": "Each user has identity key pair. Session keys for each conversation.",
+              "tradeoffs": "Complex key management. بس proven secure.",
+              "examples": "WhatsApp uses Signal Protocol. Open source implementation available.",
+              "mistakes": "خطأ شائع: invent own encryption protocol، security vulnerabilities."
+            },
+            "en": {
+              "why": "Standard E2EE protocol. Used by WhatsApp, Signal, etc.",
+              "how": "Each user has identity key pair. Session keys for each conversation.",
+              "tradeoffs": "Complex key management. But proven secure.",
+              "examples": "WhatsApp uses Signal Protocol. Open source implementation available.",
+              "mistakes": "Common mistake: Inventing own encryption protocol, security vulnerabilities."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key distribution: server as message relay، not key holder",
+            "en": "Key distribution: server as message relay, not key holder"
+          },
+          "detail": {
+            "ar": {
+              "why": "Server should not be able to decrypt messages.",
+              "how": "Public keys exchanged via server. Server never sees private keys.",
+              "tradeoffs": "Server cannot do content moderation. Trust device security.",
+              "examples": "User A requests User B public key → server returns → A encrypts.",
+              "mistakes": "خطأ شائع: server holds keys، E2EE is broken."
+            },
+            "en": {
+              "why": "Server should not be able to decrypt messages.",
+              "how": "Public keys exchanged via server. Server never sees private keys.",
+              "tradeoffs": "Server cannot do content moderation. Trust device security.",
+              "examples": "User A requests User B public key → server returns → A encrypts.",
+              "mistakes": "Common mistake: Server holds keys, E2EE is broken."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Group E2EE: sender encrypts for each member",
+            "en": "Group E2EE: sender encrypts for each member"
+          },
+          "detail": {
+            "ar": {
+              "why": "Group message محتاج يتشفر لكل recipient.",
+              "how": "Sender encrypts message with each member public key. Or use group session key.",
+              "tradeoffs": "Per-member: more computation. Group key: key rotation complexity.",
+              "examples": "WhatsApp: Sender Keys protocol for groups. Single encrypt، all decrypt.",
+              "mistakes": "خطأ شائع: single group key بدون rotation، key compromise affects all history."
+            },
+            "en": {
+              "why": "Group message needs to be encrypted for each recipient.",
+              "how": "Sender encrypts message with each member public key. Or use group session key.",
+              "tradeoffs": "Per-member: more computation. Group key: key rotation complexity.",
+              "examples": "WhatsApp: Sender Keys protocol for groups. Single encrypt, all decrypt.",
+              "mistakes": "Common mistake: Single group key without rotation, key compromise affects all history."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cost",
+      "title": {
+        "ar": "تقدير التكلفة",
+        "en": "Cost Estimation"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "قدّر التكلفة الشهرية للبنية التحتية.",
+        "en": "Estimate the monthly infrastructure cost."
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "WebSocket servers: 1500 servers × $500/month = $750K/month",
+            "en": "WebSocket servers: 1500 servers × $500/month = $750K/month"
+          },
+          "detail": {
+            "ar": {
+              "why": "150M connections / 100K per server = 1500 servers.",
+              "how": "c5.4xlarge ($500/month) مع 100K connections each.",
+              "tradeoffs": "Reserved instances: 40% cheaper. Spot: risky for stateful.",
+              "examples": "AWS: 1500 × c5.4xlarge reserved = ~$450K/month.",
+              "mistakes": "خطأ شائع: on-demand pricing، الـ cost ضعف."
+            },
+            "en": {
+              "why": "150M connections / 100K per server = 1500 servers.",
+              "how": "c5.4xlarge ($500/month) with 100K connections each.",
+              "tradeoffs": "Reserved instances: 40% cheaper. Spot: risky for stateful.",
+              "examples": "AWS: 1500 × c5.4xlarge reserved = ~$450K/month.",
+              "mistakes": "Common mistake: On-demand pricing, cost doubles."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Storage: 50TB/day × 30 days = 1.5PB = ~$35K/month",
+            "en": "Storage: 50TB/day × 30 days = 1.5PB = ~$35K/month"
+          },
+          "detail": {
+            "ar": {
+              "why": "Messages stored for 30 days average.",
+              "how": "S3 Standard: $23/TB/month. 1500TB × $23 = $35K.",
+              "tradeoffs": "Tiering to Glacier: 80% cheaper for old messages.",
+              "examples": "Hot (7 days): S3. Warm (30 days): S3-IA. Cold: Glacier.",
+              "mistakes": "خطأ شائع: all data في hot storage، unnecessary cost."
+            },
+            "en": {
+              "why": "Messages stored for 30 days average.",
+              "how": "S3 Standard: $23/TB/month. 1500TB × $23 = $35K.",
+              "tradeoffs": "Tiering to Glacier: 80% cheaper for old messages.",
+              "examples": "Hot (7 days): S3. Warm (30 days): S3-IA. Cold: Glacier.",
+              "mistakes": "Common mistake: All data in hot storage, unnecessary cost."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Bandwidth: 50B messages × 1KB × 2 (send+receive) = 100TB/day = ~$900K/month",
+            "en": "Bandwidth: 50B messages × 1KB × 2 (send+receive) = 100TB/day = ~$900K/month"
+          },
+          "detail": {
+            "ar": {
+              "why": "Egress bandwidth is expensive. $0.09/GB.",
+              "how": "100TB/day × 30 days × $0.09 = $270K. With CDN: ~$900K.",
+              "tradeoffs": "CloudFront/CDN: cheaper egress. Direct: simpler.",
+              "examples": "AWS egress after CDN: ~$0.085/GB. Still major cost.",
+              "mistakes": "خطأ شائع: underestimate bandwidth cost، biggest surprise."
+            },
+            "en": {
+              "why": "Egress bandwidth is expensive. $0.09/GB.",
+              "how": "100TB/day × 30 days × $0.09 = $270K. With CDN: ~$900K.",
+              "tradeoffs": "CloudFront/CDN: cheaper egress. Direct: simpler.",
+              "examples": "AWS egress after CDN: ~$0.085/GB. Still major cost.",
+              "mistakes": "Common mistake: Underestimate bandwidth cost, biggest surprise."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": {
+        "ar": "الأمان والـ Abuse",
+        "en": "Security & Abuse"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "إيه الـ security concerns والـ abuse vectors؟",
+        "en": "What are the security concerns and abuse vectors?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Spam prevention: rate limiting وreported account handling",
+            "en": "Spam prevention: rate limiting and reported account handling"
+          },
+          "detail": {
+            "ar": {
+              "why": "Spammers سيستهدفوا الـ chat platform.",
+              "how": "Rate limit messages per user. ML-based spam detection. Report system.",
+              "tradeoffs": "Aggressive limits: false positives. Lenient: spam gets through.",
+              "examples": "Limit: 100 messages/min. Flag accounts با 10+ reports.",
+              "mistakes": "خطأ شائع: no rate limits، spammers تغرق النظام."
+            },
+            "en": {
+              "why": "Spammers will target the chat platform.",
+              "how": "Rate limit messages per user. ML-based spam detection. Report system.",
+              "tradeoffs": "Aggressive limits: false positives. Lenient: spam gets through.",
+              "examples": "Limit: 100 messages/min. Flag accounts with 10+ reports.",
+              "mistakes": "Common mistake: No rate limits, spammers flood the system."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Account takeover protection: 2FA، session management، suspicious activity detection",
+            "en": "Account takeover protection: 2FA, session management, suspicious activity detection"
+          },
+          "detail": {
+            "ar": {
+              "why": "Account compromise = access to all messages.",
+              "how": "2FA mandatory. Single session or multi-device management. Alert on new device.",
+              "tradeoffs": "More friction for users. بس better security.",
+              "examples": "WhatsApp: Web sessions require phone scan. Alert on new login.",
+              "mistakes": "خطأ شائع: weak session management، easy account takeover."
+            },
+            "en": {
+              "why": "Account compromise = access to all messages.",
+              "how": "2FA mandatory. Single session or multi-device management. Alert on new device.",
+              "tradeoffs": "More friction for users. But better security.",
+              "examples": "WhatsApp: Web sessions require phone scan. Alert on new login.",
+              "mistakes": "Common mistake: Weak session management, easy account takeover."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Content moderation without breaking E2EE",
+            "en": "Content moderation without breaking E2EE"
+          },
+          "detail": {
+            "ar": {
+              "why": "Legal requirements vs user privacy.",
+              "how": "Report-based moderation. Client-side scanning (controversial). Metadata analysis.",
+              "tradeoffs": "Full E2EE: cannot moderate. Partial: privacy concerns.",
+              "examples": "WhatsApp: reported messages decrypted by recipient، forwarded to moderators.",
+              "mistakes": "خطأ شائع: break E2EE for moderation، lose user trust."
+            },
+            "en": {
+              "why": "Legal requirements vs user privacy.",
+              "how": "Report-based moderation. Client-side scanning (controversial). Metadata analysis.",
+              "tradeoffs": "Full E2EE: cannot moderate. Partial: privacy concerns.",
+              "examples": "WhatsApp: reported messages decrypted by recipient, forwarded to moderators.",
+              "mistakes": "Common mistake: Break E2EE for moderation, lose user trust."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dr",
+      "title": {
+        "ar": "الـ Disaster Recovery",
+        "en": "Disaster Recovery"
+      },
+      "shortTitle": {
+        "ar": "DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "إيه الـ DR strategy؟ وإيه الـ RPO/RTO؟",
+        "en": "What is the DR strategy? What are RPO/RTO?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "RPO: near-zero لـ messages (async replication)، RTO: < 5 minutes",
+            "en": "RPO: near-zero for messages (async replication), RTO: < 5 minutes"
+          },
+          "detail": {
+            "ar": {
+              "why": "Chat: losing messages = unacceptable. Downtime: users will wait.",
+              "how": "Async replication to standby region. Hot standby for fast failover.",
+              "tradeoffs": "Sync replication: zero RPO بس high latency. Async: near-zero RPO.",
+              "examples": "Primary: us-east. Standby: us-west. Replication lag: < 1 sec.",
+              "mistakes": "خطأ شائع: no async replication، lose minutes of messages in disaster."
+            },
+            "en": {
+              "why": "Chat: losing messages = unacceptable. Downtime: users will wait.",
+              "how": "Async replication to standby region. Hot standby for fast failover.",
+              "tradeoffs": "Sync replication: zero RPO but high latency. Async: near-zero RPO.",
+              "examples": "Primary: us-east. Standby: us-west. Replication lag: < 1 sec.",
+              "mistakes": "Common mistake: No async replication, lose minutes of messages in disaster."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Multi-region: user affinity لـ home region، failover لـ standby",
+            "en": "Multi-region: user affinity to home region, failover to standby"
+          },
+          "detail": {
+            "ar": {
+              "why": "Global users محتاجين low latency. Single region = single point of failure.",
+              "how": "User assigned to home region. Data replicated to standby. Failover via DNS.",
+              "tradeoffs": "Cross-region chat is slower. But simpler consistency.",
+              "examples": "User in Egypt: home = eu-west. Chat with US user: message goes through 2 regions.",
+              "mistakes": "خطأ شائع: no affinity، data scattered and hard to manage."
+            },
+            "en": {
+              "why": "Global users need low latency. Single region = single point of failure.",
+              "how": "User assigned to home region. Data replicated to standby. Failover via DNS.",
+              "tradeoffs": "Cross-region chat is slower. But simpler consistency.",
+              "examples": "User in Egypt: home = eu-west. Chat with US user: message goes through 2 regions.",
+              "mistakes": "Common mistake: No affinity, data scattered and hard to manage."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cross-region message routing: regional gateways",
+            "en": "Cross-region message routing: regional gateways"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو sender وrecipient في regions مختلفة، message لازم يعدي.",
+              "how": "Regional gateway: receives message → routes to correct region → delivers.",
+              "tradeoffs": "Added latency للـ cross-region. بس necessary.",
+              "examples": "AWS: 50-150ms inter-region latency. Acceptable.",
+              "mistakes": "خطأ شائع: direct connection بين regions، complex mesh."
+            },
+            "en": {
+              "why": "If sender and recipient in different regions, message must pass through.",
+              "how": "Regional gateway: receives message → routes to correct region → delivers.",
+              "tradeoffs": "Added latency for cross-region. But necessary.",
+              "examples": "AWS: 50-150ms inter-region latency. Acceptable.",
+              "mistakes": "Common mistake: Direct connection between regions, complex mesh."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Failover: messages stored until delivered، لو region وقع",
+            "en": "Failover: messages stored until delivered, if region fails"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو region وقع، messages لازم تستنى.",
+              "how": "Messages stored in sender region حتى delivery ack. Retry عند failover.",
+              "tradeoffs": "Longer retention في sender region أثناء الـ outage.",
+              "examples": "Region down 1 hour → messages queue، deliver عند recovery.",
+              "mistakes": "خطأ شائع: تعتبر message delivered قبل الـ ack، message lost."
+            },
+            "en": {
+              "why": "If region is down, messages must wait.",
+              "how": "Messages stored in sender region until delivery ack. Retry on failover.",
+              "tradeoffs": "Longer retention in sender region during outage.",
+              "examples": "Region down 1 hour → messages queue, deliver on recovery.",
+              "mistakes": "Common mistake: Considering message delivered before ack, message lost."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "helpers": [
+      {
+        "id": "dau",
+        "label": {
+          "ar": "اليوزرز النشطين يومياً",
+          "en": "Daily Active Users"
+        },
+        "unit": {
+          "ar": "يوزر",
+          "en": "users"
+        },
+        "reference": 500000000
+      },
+      {
+        "id": "msgsPerUser",
+        "label": {
+          "ar": "رسائل/يوزر/يوم",
+          "en": "Messages/user/day"
+        },
+        "unit": {
+          "ar": "رسالة",
+          "en": "msgs"
+        },
+        "reference": 100
+      },
+      {
+        "id": "msgSize",
+        "label": {
+          "ar": "متوسط حجم الرسالة",
+          "en": "Avg message size"
+        },
+        "unit": {
+          "ar": "KB",
+          "en": "KB"
+        },
+        "reference": 1
+      },
+      {
+        "id": "concurrentPct",
+        "label": {
+          "ar": "نسبة الـ concurrent",
+          "en": "Concurrent %"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "reference": 30
+      }
+    ],
+    "fields": [
+      {
+        "id": "msgQps",
+        "label": {
+          "ar": "Messages/sec",
+          "en": "Messages/sec"
+        },
+        "unit": {
+          "ar": "رسالة/ث",
+          "en": "msg/s"
+        },
+        "reference": 580000
+      },
+      {
+        "id": "peakQps",
+        "label": {
+          "ar": "Peak messages/sec",
+          "en": "Peak messages/sec"
+        },
+        "unit": {
+          "ar": "رسالة/ث",
+          "en": "msg/s"
+        },
+        "reference": 1500000
+      },
+      {
+        "id": "storageDay",
+        "label": {
+          "ar": "تخزين/يوم",
+          "en": "Storage/day"
+        },
+        "unit": {
+          "ar": "TB",
+          "en": "TB"
+        },
+        "reference": 50
+      },
+      {
+        "id": "connections",
+        "label": {
+          "ar": "Concurrent connections",
+          "en": "Concurrent connections"
+        },
+        "unit": {
+          "ar": "مليون",
+          "en": "million"
+        },
+        "reference": 150
+      },
+      {
+        "id": "wsServers",
+        "label": {
+          "ar": "WebSocket servers",
+          "en": "WebSocket servers"
+        },
+        "unit": {
+          "ar": "سيرفر",
+          "en": "servers"
+        },
+        "reference": 1500
+      },
+      {
+        "id": "bandwidth",
+        "label": {
+          "ar": "Bandwidth يومي",
+          "en": "Daily bandwidth"
+        },
+        "unit": {
+          "ar": "TB",
+          "en": "TB"
+        },
+        "reference": 100
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Messages/day = 500M × 100 = 50B. QPS = 50B/86400 ≈ 580K. Peak ≈ 1.5M.",
+        "en": "1) Messages/day = 500M × 100 = 50B. QPS = 50B/86400 ≈ 580K. Peak ≈ 1.5M."
+      },
+      {
+        "ar": "2) Storage/day = 50B × 1KB = 50TB. Connections = 500M × 30% = 150M.",
+        "en": "2) Storage/day = 50B × 1KB = 50TB. Connections = 500M × 30% = 150M."
+      },
+      {
+        "ar": "3) WS servers = 150M / 100K ≈ 1500. Bandwidth ≈ 100TB/day (send+receive).",
+        "en": "3) WS servers = 150M / 100K ≈ 1500. Bandwidth ≈ 100TB/day (send+receive)."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "ws-storm",
+      "title": {
+        "ar": "WebSocket reconnect storm",
+        "en": "WebSocket reconnect storm"
+      },
+      "description": {
+        "ar": "بعد outage قصير، 40M clients بيحاولوا يعملوا reconnect في نفس الوقت. الـ LB والـ WS servers بتسقط تاني. إيه هتعمل؟",
+        "en": "After a brief outage, 40M clients try to reconnect at once. LB and WS servers are falling again. What do you do?"
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Client jitter / exponential backoff",
+          "en": "Client jitter / exponential backoff"
+        },
+        {
+          "ar": "Connection rate limiting على الـ LB",
+          "en": "Connection rate limiting on LB"
+        },
+        {
+          "ar": "Scale WS fleet وshed load gracefully",
+          "en": "Scale WS fleet and shed load gracefully"
+        },
+        {
+          "ar": "Stagger reconnect by user shard",
+          "en": "Stagger reconnect by user shard"
+        }
+      ]
+    },
+    {
+      "id": "celebrity-group",
+      "title": {
+        "ar": "Celebrity في group chat",
+        "en": "Celebrity in a group chat"
+      },
+      "description": {
+        "ar": "مشهور انضم لجروب 500 عضو وبيبعت رسائل، بس الـ fan-out بقى لـ millions بسبب shared groups وتكديس. النظام بيتأخر. الحل؟",
+        "en": "A celebrity joined a 500-member group and is messaging, but fan-out exploded to millions via shared groups and backlog. System is lagging. Fix?"
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Switch large fan-out لـ read-time / hybrid",
+          "en": "Switch large fan-out to read-time / hybrid"
+        },
+        {
+          "ar": "Rate limit celebrity senders",
+          "en": "Rate limit celebrity senders"
+        },
+        {
+          "ar": "Isolate hot conversations على shards منفصلة",
+          "en": "Isolate hot conversations on dedicated shards"
+        },
+        {
+          "ar": "Push notifications batching بدل per-message",
+          "en": "Batch push notifications instead of per-message"
+        }
+      ]
+    },
+    {
+      "id": "presence-storm",
+      "title": {
+        "ar": "Presence update storm",
+        "en": "Presence update storm"
+      },
+      "description": {
+        "ar": "بعد مباراة، ملايين اليوزرز online/offline بسرعة. الـ presence pub/sub بيغرق الـ connections. إيه التخفيف؟",
+        "en": "After a match, millions of users go online/offline rapidly. Presence pub/sub is flooding connections. What is the mitigation?"
+      },
+      "afterStage": "bottlenecks",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Batch وthrottle presence broadcasts",
+          "en": "Batch and throttle presence broadcasts"
+        },
+        {
+          "ar": "Only notify contacts / open conversations",
+          "en": "Only notify contacts / open conversations"
+        },
+        {
+          "ar": "Increase TTL وreduce heartbeat frequency مؤقتاً",
+          "en": "Increase TTL and reduce heartbeat frequency temporarily"
+        },
+        {
+          "ar": "Degrade presence accuracy أثناء الـ spike",
+          "en": "Degrade presence accuracy during the spike"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "ws-polling",
+      "question": {
+        "ar": "Real-time delivery: WebSocket ولا long polling؟",
+        "en": "Real-time delivery: WebSocket or long polling?"
+      },
+      "optionA": {
+        "ar": "WebSocket",
+        "en": "WebSocket"
+      },
+      "optionB": {
+        "ar": "Long polling",
+        "en": "Long polling"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "WebSocket هو المتوقع لنظام chat بحجم WhatsApp.",
+        "en": "WebSocket is expected for a WhatsApp-scale chat system."
+      },
+      "prosA": {
+        "ar": "Push فوري، أقل overhead",
+        "en": "Immediate push, less overhead"
+      },
+      "consA": {
+        "ar": "Stateful connections وصعوبة الـ scale",
+        "en": "Stateful connections and harder scaling"
+      },
+      "prosB": {
+        "ar": "أبسط مع الـ proxies والـ firewalls",
+        "en": "Simpler with proxies and firewalls"
+      },
+      "consB": {
+        "ar": "Latency أعلى وload أكبر",
+        "en": "Higher latency and more load"
+      },
+      "whenOtherWins": {
+        "ar": "Long polling fallback للشبكات اللي بتمنع WebSocket.",
+        "en": "Long polling as fallback on networks that block WebSocket."
+      }
+    },
+    {
+      "id": "fanout",
+      "question": {
+        "ar": "Group fan-out: write-time ولا read-time؟",
+        "en": "Group fan-out: write-time or read-time?"
+      },
+      "optionA": {
+        "ar": "Write-time fan-out",
+        "en": "Write-time fan-out"
+      },
+      "optionB": {
+        "ar": "Read-time fan-out",
+        "en": "Read-time fan-out"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "Hybrid شائع: write-time للجروبات الصغيرة، read-time للكبيرة.",
+        "en": "Hybrid is common: write-time for small groups, read-time for large ones."
+      },
+      "prosA": {
+        "ar": "قراءة سريعة للـ inbox",
+        "en": "Fast inbox reads"
+      },
+      "consA": {
+        "ar": "Write amplification للجروبات الكبيرة",
+        "en": "Write amplification for large groups"
+      },
+      "prosB": {
+        "ar": "كتابة واحدة، أرخص للجروبات الضخمة",
+        "en": "Single write, cheaper for huge groups"
+      },
+      "consB": {
+        "ar": "قراءة أثقل وأكثر تعقيداً",
+        "en": "Heavier, more complex reads"
+      },
+      "whenOtherWins": {
+        "ar": "Write-time للجروبات <100، read-time للـ broadcast/celebrity.",
+        "en": "Write-time for groups <100, read-time for broadcast/celebrity."
+      }
+    },
+    {
+      "id": "consistency",
+      "question": {
+        "ar": "Message visibility: strong ولا eventual consistency؟",
+        "en": "Message visibility: strong or eventual consistency?"
+      },
+      "optionA": {
+        "ar": "Strong consistency",
+        "en": "Strong consistency"
+      },
+      "optionB": {
+        "ar": "Eventual consistency",
+        "en": "Eventual consistency"
+      },
+      "expected": "B",
+      "expectedNote": {
+        "ar": "Chat يتحمل تأخير ثواني؛ الـ availability أهم.",
+        "en": "Chat can tolerate seconds of delay; availability matters more."
+      },
+      "prosA": {
+        "ar": "كل الأجهزة تشوف نفس الترتيب فوراً",
+        "en": "All devices see the same order immediately"
+      },
+      "consA": {
+        "ar": "Latency أعلى وصعوبة multi-region",
+        "en": "Higher latency and harder multi-region"
+      },
+      "prosB": {
+        "ar": "أسرع وأكثر availability",
+        "en": "Faster and more available"
+      },
+      "consB": {
+        "ar": "ممكن تشوف رسالة متأخرة لحظياً",
+        "en": "Might briefly see a delayed message"
+      },
+      "whenOtherWins": {
+        "ar": "Strong consistency أهم في financial/ledger-like messaging.",
+        "en": "Strong consistency matters more for financial/ledger-like messaging."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "websocket",
+      "router",
+      "queue",
+      "db",
+      "presence",
+      "push",
+      "cache",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "connect",
+          "en": "connect"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "websocket",
+        "label": {
+          "ar": "sticky",
+          "en": "sticky"
+        }
+      },
+      {
+        "from": "websocket",
+        "to": "router",
+        "label": {
+          "ar": "route message",
+          "en": "route message"
+        }
+      },
+      {
+        "from": "router",
+        "to": "queue",
+        "label": {
+          "ar": "persist/async",
+          "en": "persist/async"
+        }
+      },
+      {
+        "from": "queue",
+        "to": "db",
+        "label": {
+          "ar": "store",
+          "en": "store"
+        }
+      },
+      {
+        "from": "router",
+        "to": "websocket",
+        "label": {
+          "ar": "deliver online",
+          "en": "deliver online"
+        }
+      },
+      {
+        "from": "websocket",
+        "to": "presence",
+        "label": {
+          "ar": "heartbeat",
+          "en": "heartbeat"
+        }
+      },
+      {
+        "from": "router",
+        "to": "push",
+        "label": {
+          "ar": "offline notify",
+          "en": "offline notify"
+        }
+      },
+      {
+        "from": "presence",
+        "to": "cache",
+        "label": {
+          "ar": "online map",
+          "en": "online map"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 40
+      },
+      {
+        "type": "lb",
+        "x": 140,
+        "y": 40
+      },
+      {
+        "type": "websocket",
+        "x": 260,
+        "y": 40
+      },
+      {
+        "type": "router",
+        "x": 400,
+        "y": 40
+      },
+      {
+        "type": "queue",
+        "x": 400,
+        "y": 140
+      },
+      {
+        "type": "db",
+        "x": 400,
+        "y": 220
+      },
+      {
+        "type": "presence",
+        "x": 260,
+        "y": 140
+      },
+      {
+        "type": "cache",
+        "x": 140,
+        "y": 140
+      },
+      {
+        "type": "push",
+        "x": 260,
+        "y": 220
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 220
+      }
+    ]
+  }
+}

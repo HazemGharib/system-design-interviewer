@@ -1,0 +1,4152 @@
+{
+  "categories": [
+    {
+      "id": "caching",
+      "title": {
+        "en": "Caching",
+        "ar": "الكاش"
+      }
+    },
+    {
+      "id": "data",
+      "title": {
+        "en": "Data & Storage",
+        "ar": "البيانات والتخزين"
+      }
+    },
+    {
+      "id": "messaging",
+      "title": {
+        "en": "Messaging & Async",
+        "ar": "الرسائل والـ Async"
+      }
+    },
+    {
+      "id": "consistency",
+      "title": {
+        "en": "Consistency & Consensus",
+        "ar": "الاتساق والإجماع"
+      }
+    },
+    {
+      "id": "resilience",
+      "title": {
+        "en": "Resilience",
+        "ar": "الموثوقية والمقاومة"
+      }
+    },
+    {
+      "id": "networking",
+      "title": {
+        "en": "Networking & Edge",
+        "ar": "الشبكات والـ Edge"
+      }
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "en": "Architecture Patterns",
+        "ar": "أنماط المعمارية"
+      }
+    },
+    {
+      "id": "scale",
+      "title": {
+        "en": "Scaling",
+        "ar": "الـ Scaling"
+      }
+    },
+    {
+      "id": "security",
+      "title": {
+        "en": "Security",
+        "ar": "الأمان"
+      }
+    },
+    {
+      "id": "ops",
+      "title": {
+        "en": "Ops & Delivery",
+        "ar": "التشغيل والنشر"
+      }
+    },
+    {
+      "id": "search",
+      "title": {
+        "en": "Search & Analytics",
+        "ar": "البحث والتحليلات"
+      }
+    },
+    {
+      "id": "realtime",
+      "title": {
+        "en": "Realtime",
+        "ar": "الوقت الفعلي"
+      }
+    }
+  ],
+  "terms": [
+    {
+      "id": "cache-aside",
+      "category": "caching",
+      "name": {
+        "en": "Cache-aside",
+        "ar": "Cache-aside"
+      },
+      "short": {
+        "en": "Application reads/writes the cache explicitly: miss loads from DB then populates cache.",
+        "ar": "التطبيق يقرأ/يكتب الكاش بنفسه: عند الـ miss يقرأ من الـ DB ثم يملأ الكاش."
+      },
+      "definition": {
+        "en": "Application reads/writes the cache explicitly: miss loads from DB then populates cache.",
+        "ar": "التطبيق يقرأ/يكتب الكاش بنفسه: عند الـ miss يقرأ من الـ DB ثم يملأ الكاش."
+      },
+      "when": {
+        "en": "General app-level caching for hot keys.",
+        "ar": "كاش عام على مستوى التطبيق للمفاتيح الساخنة."
+      },
+      "pros": {
+        "en": "Simple; app controls TTL and invalidation.",
+        "ar": "بسيط؛ التطبيق يتحكم في الـ TTL والإبطال."
+      },
+      "cons": {
+        "en": "Miss path slower; stampede risk.",
+        "ar": "مسار الـ miss أبطأ؛ خطر stampede."
+      },
+      "example": {
+        "en": "API checks Redis, on miss reads Postgres and sets Redis.",
+        "ar": "الـ API يفحص Redis، عند الـ miss يقرأ Postgres ويملأ Redis."
+      },
+      "related": [
+        "write-through",
+        "write-behind",
+        "cache-stampede",
+        "ttl"
+      ]
+    },
+    {
+      "id": "write-through",
+      "category": "caching",
+      "name": {
+        "en": "Write-through",
+        "ar": "Write-through"
+      },
+      "short": {
+        "en": "Writes go to cache and backing store together before acknowledging success.",
+        "ar": "الكتابة تروح للكاش والـ store مع بعض قبل تأكيد النجاح."
+      },
+      "definition": {
+        "en": "Writes go to cache and backing store together before acknowledging success.",
+        "ar": "الكتابة تروح للكاش والـ store مع بعض قبل تأكيد النجاح."
+      },
+      "when": {
+        "en": "When stronger cache/DB consistency is needed.",
+        "ar": "لما تحتاج اتساق أقوى بين الكاش والـ DB."
+      },
+      "pros": {
+        "en": "Fresher reads after writes.",
+        "ar": "قراءات أحدث بعد الكتابة."
+      },
+      "cons": {
+        "en": "Higher write latency.",
+        "ar": "latency كتابة أعلى."
+      },
+      "example": {
+        "en": "Profile update writes Redis and Postgres in one path.",
+        "ar": "تحديث الملف يكتب Redis وPostgres في نفس المسار."
+      },
+      "related": [
+        "cache-aside",
+        "write-behind"
+      ]
+    },
+    {
+      "id": "write-behind",
+      "category": "caching",
+      "name": {
+        "en": "Write-behind / Write-back",
+        "ar": "Write-behind / Write-back"
+      },
+      "short": {
+        "en": "Writes hit cache first; durable store is updated asynchronously later.",
+        "ar": "الكتابة تضرب الكاش أولاً؛ الـ store يتحدث لاحقاً بشكل async."
+      },
+      "definition": {
+        "en": "Writes hit cache first; durable store is updated asynchronously later.",
+        "ar": "الكتابة تضرب الكاش أولاً؛ الـ store يتحدث لاحقاً بشكل async."
+      },
+      "when": {
+        "en": "Absorb write spikes when small durability risk is acceptable.",
+        "ar": "امتصاص طفرات الكتابة لما خطر فقدان بسيط مقبول."
+      },
+      "pros": {
+        "en": "Very fast writes.",
+        "ar": "كتابة سريعة جداً."
+      },
+      "cons": {
+        "en": "Data loss if cache dies before flush.",
+        "ar": "فقدان بيانات لو الكاش وقع قبل الـ flush."
+      },
+      "example": {
+        "en": "Counters batched in Redis then flushed to DB.",
+        "ar": "عدادات تتجمّع في Redis ثم تتنقل للـ DB."
+      },
+      "related": [
+        "write-through",
+        "cache-aside"
+      ]
+    },
+    {
+      "id": "read-through",
+      "category": "caching",
+      "name": {
+        "en": "Read-through",
+        "ar": "Read-through"
+      },
+      "short": {
+        "en": "Cache itself loads from the store on miss, hiding load logic from the app.",
+        "ar": "الكاش نفسه يحمّل من الـ store عند الـ miss، ويخبّي منطق التحميل عن التطبيق."
+      },
+      "definition": {
+        "en": "Cache itself loads from the store on miss, hiding load logic from the app.",
+        "ar": "الكاش نفسه يحمّل من الـ store عند الـ miss، ويخبّي منطق التحميل عن التطبيق."
+      },
+      "when": {
+        "en": "When you want caching library/service to own miss handling.",
+        "ar": "لما تحب مكتبة/خدمة الكاش تدير الـ miss."
+      },
+      "pros": {
+        "en": "Simpler app code.",
+        "ar": "كود التطبيق أبسط."
+      },
+      "cons": {
+        "en": "Less control over load behavior.",
+        "ar": "تحكم أقل في سلوك التحميل."
+      },
+      "example": {
+        "en": "CDN or cache proxy fetches origin on miss.",
+        "ar": "CDN أو cache proxy يجيب من الـ origin عند الـ miss."
+      },
+      "related": [
+        "cache-aside",
+        "cdn"
+      ]
+    },
+    {
+      "id": "ttl",
+      "category": "caching",
+      "name": {
+        "en": "TTL",
+        "ar": "TTL"
+      },
+      "short": {
+        "en": "Time-to-live: how long a cache entry stays valid before expiry.",
+        "ar": "مدة صلاحية عنصر الكاش قبل ما ينتهي."
+      },
+      "definition": {
+        "en": "Time-to-live: how long a cache entry stays valid before expiry.",
+        "ar": "مدة صلاحية عنصر الكاش قبل ما ينتهي."
+      },
+      "when": {
+        "en": "Any cached data with freshness needs.",
+        "ar": "أي بيانات مكاشة محتاجة freshness."
+      },
+      "pros": {
+        "en": "Bounds staleness.",
+        "ar": "يحد من الـ staleness."
+      },
+      "cons": {
+        "en": "Expiry storms if many keys share the same TTL.",
+        "ar": "عواصف انتهاء لو مفاتيح كتير بنفس الـ TTL."
+      },
+      "example": {
+        "en": "Session presence key with 60s TTL refreshed by heartbeat.",
+        "ar": "مفتاح presence بـ TTL 60 ثانية يتجدد بالـ heartbeat."
+      },
+      "related": [
+        "cache-aside",
+        "cache-stampede",
+        "eviction-lru"
+      ]
+    },
+    {
+      "id": "eviction-lru",
+      "category": "caching",
+      "name": {
+        "en": "LRU Eviction",
+        "ar": "طرد LRU"
+      },
+      "short": {
+        "en": "Evict least-recently-used items when the cache is full.",
+        "ar": "اطرد العناصر الأقل استخداماً مؤخراً لما الكاش يمتلئ."
+      },
+      "definition": {
+        "en": "Evict least-recently-used items when the cache is full.",
+        "ar": "اطرد العناصر الأقل استخداماً مؤخراً لما الكاش يمتلئ."
+      },
+      "when": {
+        "en": "General-purpose memory-bounded caches.",
+        "ar": "كاش بحدود ذاكرة للاستخدام العام."
+      },
+      "pros": {
+        "en": "Good for temporal locality.",
+        "ar": "مناسب للـ temporal locality."
+      },
+      "cons": {
+        "en": "Weak when access is scattered.",
+        "ar": "ضعيف لو الوصول مبعثر."
+      },
+      "example": {
+        "en": "CDN edge cache using LRU for HTML fragments.",
+        "ar": "كاش edge بـ LRU لقطع HTML."
+      },
+      "related": [
+        "eviction-lfu",
+        "ttl"
+      ]
+    },
+    {
+      "id": "eviction-lfu",
+      "category": "caching",
+      "name": {
+        "en": "LFU Eviction",
+        "ar": "طرد LFU"
+      },
+      "short": {
+        "en": "Evict least-frequently-used items when the cache is full.",
+        "ar": "اطرد العناصر الأقل تكراراً في الاستخدام لما الكاش يمتلئ."
+      },
+      "definition": {
+        "en": "Evict least-frequently-used items when the cache is full.",
+        "ar": "اطرد العناصر الأقل تكراراً في الاستخدام لما الكاش يمتلئ."
+      },
+      "when": {
+        "en": "Workloads with stable hot sets.",
+        "ar": "أحمال فيها مجموعة hot ثابتة."
+      },
+      "pros": {
+        "en": "Keeps frequently accessed keys.",
+        "ar": "يحافظ على المفاتيح كثيرة الاستخدام."
+      },
+      "cons": {
+        "en": "Higher bookkeeping cost; cold start bias.",
+        "ar": "تكلفة تتبع أعلى؛ تحيز في البداية."
+      },
+      "example": {
+        "en": "API response cache preferring frequently hit endpoints.",
+        "ar": "كاش ردود API يفضّل الـ endpoints الأكثر ضرباً."
+      },
+      "related": [
+        "eviction-lru"
+      ]
+    },
+    {
+      "id": "cache-stampede",
+      "category": "caching",
+      "name": {
+        "en": "Cache Stampede",
+        "ar": "Cache Stampede"
+      },
+      "short": {
+        "en": "Many concurrent requests miss the same key and overload the origin.",
+        "ar": "طلبات كتير متزامنة تعمل miss على نفس المفتاح وتغرق الـ origin."
+      },
+      "definition": {
+        "en": "Many concurrent requests miss the same key and overload the origin.",
+        "ar": "طلبات كتير متزامنة تعمل miss على نفس المفتاح وتغرق الـ origin."
+      },
+      "when": {
+        "en": "Hot keys with synchronized expiry.",
+        "ar": "مفاتيح ساخنة بتنتهي مع بعض."
+      },
+      "pros": {
+        "en": "Mitigations recover origin capacity.",
+        "ar": "المعالجات بترجع سعة الـ origin."
+      },
+      "cons": {
+        "en": "Needs locks/coalescing complexity.",
+        "ar": "محتاج تعقيد locks/coalescing."
+      },
+      "example": {
+        "en": "Singleflight so only one request repopulates Redis.",
+        "ar": "Singleflight بحيث request واحد بس يملأ Redis."
+      },
+      "related": [
+        "cache-aside",
+        "request-coalescing",
+        "hot-key"
+      ]
+    },
+    {
+      "id": "request-coalescing",
+      "category": "caching",
+      "name": {
+        "en": "Request Coalescing",
+        "ar": "دمج الطلبات"
+      },
+      "short": {
+        "en": "Collapse duplicate in-flight requests for the same key into one origin call.",
+        "ar": "دمج الطلبات المكررة الجارية لنفس المفتاح في نداء origin واحد."
+      },
+      "definition": {
+        "en": "Collapse duplicate in-flight requests for the same key into one origin call.",
+        "ar": "دمج الطلبات المكررة الجارية لنفس المفتاح في نداء origin واحد."
+      },
+      "when": {
+        "en": "Prevent stampedes on popular keys.",
+        "ar": "منع stampedes على المفاتيح الشائعة."
+      },
+      "pros": {
+        "en": "Protects DB under bursts.",
+        "ar": "يحمي الـ DB تحت الطفرات."
+      },
+      "cons": {
+        "en": "Callers wait on the leader request.",
+        "ar": "الـ callers يستنوا على الطلب القائد."
+      },
+      "example": {
+        "en": "Go singleflight or async-lock around miss path.",
+        "ar": "Go singleflight أو async-lock حول مسار الـ miss."
+      },
+      "related": [
+        "cache-stampede",
+        "hot-key"
+      ]
+    },
+    {
+      "id": "refresh-ahead",
+      "category": "caching",
+      "name": {
+        "en": "Refresh-ahead",
+        "ar": "Refresh-ahead"
+      },
+      "short": {
+        "en": "Refresh cache entries before TTL expiry based on access patterns.",
+        "ar": "تحديث عناصر الكاش قبل انتهاء الـ TTL حسب أنماط الوصول."
+      },
+      "definition": {
+        "en": "Refresh cache entries before TTL expiry based on access patterns.",
+        "ar": "تحديث عناصر الكاش قبل انتهاء الـ TTL حسب أنماط الوصول."
+      },
+      "when": {
+        "en": "Predictable hot keys where misses are costly.",
+        "ar": "مفاتيح hot متوقعة والـ miss غالي."
+      },
+      "pros": {
+        "en": "Fewer user-facing misses.",
+        "ar": "misses أقل على مسار اليوزر."
+      },
+      "cons": {
+        "en": "Wasted refresh work if prediction is wrong.",
+        "ar": "شغل refresh ضايع لو التوقع غلط."
+      },
+      "example": {
+        "en": "Pre-refresh homepage fragments every few seconds.",
+        "ar": "تحديث مسبق لمحتوى الصفحة الرئيسية كل ثواني."
+      },
+      "related": [
+        "ttl",
+        "cache-aside"
+      ]
+    },
+    {
+      "id": "cdn",
+      "category": "networking",
+      "name": {
+        "en": "CDN",
+        "ar": "CDN"
+      },
+      "short": {
+        "en": "Edge network caching content close to users to cut latency and origin load.",
+        "ar": "شبكة طرفية تكاش المحتوى قرب اليوزرز لتقليل الـ latency وحمل الـ origin."
+      },
+      "definition": {
+        "en": "Edge network caching content close to users to cut latency and origin load.",
+        "ar": "شبكة طرفية تكاش المحتوى قرب اليوزرز لتقليل الـ latency وحمل الـ origin."
+      },
+      "when": {
+        "en": "Static assets and cacheable public responses.",
+        "ar": "أصول ثابتة وردود عامة قابلة للكاش."
+      },
+      "pros": {
+        "en": "Lower latency and egress cost.",
+        "ar": "latency وتكلفة egress أقل."
+      },
+      "cons": {
+        "en": "Invalidation complexity.",
+        "ar": "تعقيد الإبطال."
+      },
+      "example": {
+        "en": "Images served via CloudFront/Fastly.",
+        "ar": "صور عبر CloudFront/Fastly."
+      },
+      "related": [
+        "read-through",
+        "cache-aside",
+        "geo-dns"
+      ]
+    },
+    {
+      "id": "sharding",
+      "category": "scale",
+      "name": {
+        "en": "Sharding / Partitioning",
+        "ar": "Sharding / Partitioning"
+      },
+      "short": {
+        "en": "Split data across nodes so each shard owns a subset of keys/rows.",
+        "ar": "تقسيم البيانات على nodes بحيث كل shard يملك جزء من المفاتيح/الصفوف."
+      },
+      "definition": {
+        "en": "Split data across nodes so each shard owns a subset of keys/rows.",
+        "ar": "تقسيم البيانات على nodes بحيث كل shard يملك جزء من المفاتيح/الصفوف."
+      },
+      "when": {
+        "en": "Dataset or write load exceeds one machine.",
+        "ar": "البيانات أو حمل الكتابة أكبر من ماكينة واحدة."
+      },
+      "pros": {
+        "en": "Horizontal scale.",
+        "ar": "توسع أفقي."
+      },
+      "cons": {
+        "en": "Cross-shard queries and rebalancing hard.",
+        "ar": "استعلامات عبر الـ shards وإعادة التوازن صعبة."
+      },
+      "example": {
+        "en": "Messages sharded by conversation_id.",
+        "ar": "الرسائل متقسمة بـ conversation_id."
+      },
+      "related": [
+        "consistent-hashing",
+        "hot-key",
+        "range-sharding"
+      ]
+    },
+    {
+      "id": "range-sharding",
+      "category": "scale",
+      "name": {
+        "en": "Range Sharding",
+        "ar": "Range Sharding"
+      },
+      "short": {
+        "en": "Partition by contiguous key ranges (e.g. A–M, N–Z).",
+        "ar": "تقسيم حسب نطاقات مفاتيح متصلة (مثلاً A–M, N–Z)."
+      },
+      "definition": {
+        "en": "Partition by contiguous key ranges (e.g. A–M, N–Z).",
+        "ar": "تقسيم حسب نطاقات مفاتيح متصلة (مثلاً A–M, N–Z)."
+      },
+      "when": {
+        "en": "Range scans important.",
+        "ar": "لما الـ range scans مهمة."
+      },
+      "pros": {
+        "en": "Efficient range queries.",
+        "ar": "استعلامات نطاق كفء."
+      },
+      "cons": {
+        "en": "Hot ranges possible.",
+        "ar": "نطاقات ساخنة ممكنة."
+      },
+      "example": {
+        "en": "Time-ordered events by date ranges.",
+        "ar": "أحداث مرتبة زمنياً حسب نطاقات التاريخ."
+      },
+      "related": [
+        "sharding",
+        "hash-sharding"
+      ]
+    },
+    {
+      "id": "hash-sharding",
+      "category": "scale",
+      "name": {
+        "en": "Hash Sharding",
+        "ar": "Hash Sharding"
+      },
+      "short": {
+        "en": "Partition by hash(key) for even distribution.",
+        "ar": "تقسيم بـ hash(key) لتوزيع متساوٍ."
+      },
+      "definition": {
+        "en": "Partition by hash(key) for even distribution.",
+        "ar": "تقسيم بـ hash(key) لتوزيع متساوٍ."
+      },
+      "when": {
+        "en": "Point lookups dominate.",
+        "ar": "لما الـ point lookups هي الغالب."
+      },
+      "pros": {
+        "en": "Avoids ordered hotspots.",
+        "ar": "يتجنب hotspots مرتبة."
+      },
+      "cons": {
+        "en": "Range queries expensive.",
+        "ar": "range queries غالية."
+      },
+      "example": {
+        "en": "User profiles by hash(user_id).",
+        "ar": "ملفات يوزر بـ hash(user_id)."
+      },
+      "related": [
+        "sharding",
+        "consistent-hashing"
+      ]
+    },
+    {
+      "id": "directory-sharding",
+      "category": "scale",
+      "name": {
+        "en": "Directory Sharding",
+        "ar": "Directory Sharding"
+      },
+      "short": {
+        "en": "A lookup service maps keys to shard locations.",
+        "ar": "خدمة دليل تربط المفاتيح بمواقع الـ shards."
+      },
+      "definition": {
+        "en": "A lookup service maps keys to shard locations.",
+        "ar": "خدمة دليل تربط المفاتيح بمواقع الـ shards."
+      },
+      "when": {
+        "en": "Flexible remapping needed.",
+        "ar": "لما تحتاج إعادة توزيع مرنة."
+      },
+      "pros": {
+        "en": "Can move keys without full rehash.",
+        "ar": "تنقل مفاتيح من غير rehash كامل."
+      },
+      "cons": {
+        "en": "Directory can be a bottleneck/SPOF.",
+        "ar": "الدليل ممكن يبقى bottleneck/SPOF."
+      },
+      "example": {
+        "en": "Lookup table routes tenant_id to DB.",
+        "ar": "جدول lookup يوجّه tenant_id لقاعدة."
+      },
+      "related": [
+        "sharding"
+      ]
+    },
+    {
+      "id": "consistent-hashing",
+      "category": "scale",
+      "name": {
+        "en": "Consistent Hashing",
+        "ar": "Consistent Hashing"
+      },
+      "short": {
+        "en": "Hash ring mapping that minimizes remapping when nodes are added/removed.",
+        "ar": "حلقة hash تقلل إعادة التوزيع لما نضيف/نشيل nodes."
+      },
+      "definition": {
+        "en": "Hash ring mapping that minimizes remapping when nodes are added/removed.",
+        "ar": "حلقة hash تقلل إعادة التوزيع لما نضيف/نشيل nodes."
+      },
+      "when": {
+        "en": "Caches, DHTs, partitioned queues.",
+        "ar": "كاش، DHT، طوابير مقسمة."
+      },
+      "pros": {
+        "en": "Small remapping on membership change.",
+        "ar": "إعادة توزيع صغيرة عند تغيّر الأعضاء."
+      },
+      "cons": {
+        "en": "Hot keys still possible without salting/vnodes.",
+        "ar": "المفاتيح الساخنة لسه ممكنة من غير salting/vnodes."
+      },
+      "example": {
+        "en": "Redis Cluster / Cassandra token ring.",
+        "ar": "Redis Cluster / حلقة Cassandra."
+      },
+      "related": [
+        "sharding",
+        "hot-key",
+        "virtual-nodes"
+      ]
+    },
+    {
+      "id": "virtual-nodes",
+      "category": "scale",
+      "name": {
+        "en": "Virtual Nodes",
+        "ar": "Virtual Nodes"
+      },
+      "short": {
+        "en": "Multiple hash points per physical node to smooth load on a consistent-hash ring.",
+        "ar": "نقاط hash متعددة لكل node فعلي لتوزيع أحسن على حلقة consistent hashing."
+      },
+      "definition": {
+        "en": "Multiple hash points per physical node to smooth load on a consistent-hash ring.",
+        "ar": "نقاط hash متعددة لكل node فعلي لتوزيع أحسن على حلقة consistent hashing."
+      },
+      "when": {
+        "en": "Uneven node capacities or sparse rings.",
+        "ar": "قدرات nodes غير متساوية أو حلقات قليلة النقاط."
+      },
+      "pros": {
+        "en": "Better balance.",
+        "ar": "توازن أفضل."
+      },
+      "cons": {
+        "en": "More metadata to track.",
+        "ar": "metadata أكتر للتتبع."
+      },
+      "example": {
+        "en": "Cassandra vnode tokens per host.",
+        "ar": "tokens vnode لكل هوست في Cassandra."
+      },
+      "related": [
+        "consistent-hashing"
+      ]
+    },
+    {
+      "id": "hot-key",
+      "category": "scale",
+      "name": {
+        "en": "Hot Key",
+        "ar": "Hot Key"
+      },
+      "short": {
+        "en": "A single key receiving disproportionate traffic.",
+        "ar": "مفتاح واحد بياخد ترافيك غير متناسب."
+      },
+      "definition": {
+        "en": "A single key receiving disproportionate traffic.",
+        "ar": "مفتاح واحد بياخد ترافيك غير متناسب."
+      },
+      "when": {
+        "en": "Viral items, celebrities, popular counters.",
+        "ar": "عناصر فيروسية، مشاهير، عدادات شائعة."
+      },
+      "pros": {
+        "en": "Detectable and mitigable with salting/edge cache.",
+        "ar": "قابل للكشف والمعالجة بالـ salting/edge cache."
+      },
+      "cons": {
+        "en": "Mitigations complicate aggregate reads.",
+        "ar": "المعالجات تصعّب القراءات المجمّعة."
+      },
+      "example": {
+        "en": "One short URL getting 30% of redirects.",
+        "ar": "رابط قصير بياخد 30% من الـ redirects."
+      },
+      "related": [
+        "key-salting",
+        "request-coalescing",
+        "cdn"
+      ]
+    },
+    {
+      "id": "key-salting",
+      "category": "scale",
+      "name": {
+        "en": "Key Salting",
+        "ar": "Key Salting"
+      },
+      "short": {
+        "en": "Split one logical key into many salted keys to spread load.",
+        "ar": "تقسيم مفتاح منطقي لعدة مفاتيح مملّحة لتوزيع الحمل."
+      },
+      "definition": {
+        "en": "Split one logical key into many salted keys to spread load.",
+        "ar": "تقسيم مفتاح منطقي لعدة مفاتيح مملّحة لتوزيع الحمل."
+      },
+      "when": {
+        "en": "Extreme hot keys.",
+        "ar": "مفاتيح ساخنة جداً."
+      },
+      "pros": {
+        "en": "Spreads load across shards/nodes.",
+        "ar": "يوزّع الحمل على الـ shards/nodes."
+      },
+      "cons": {
+        "en": "Reads must merge shards.",
+        "ar": "القراءة لازم تدمج الـ shards."
+      },
+      "example": {
+        "en": "counter#0..#15 for a viral like count.",
+        "ar": "counter#0..#15 لعداد لايكات فيروسي."
+      },
+      "related": [
+        "hot-key",
+        "sharding"
+      ]
+    },
+    {
+      "id": "read-replica",
+      "category": "data",
+      "name": {
+        "en": "Read Replica",
+        "ar": "Read Replica"
+      },
+      "short": {
+        "en": "Async copy of a primary used to scale reads.",
+        "ar": "نسخة async من الـ primary لتكبير القراءة."
+      },
+      "definition": {
+        "en": "Async copy of a primary used to scale reads.",
+        "ar": "نسخة async من الـ primary لتكبير القراءة."
+      },
+      "when": {
+        "en": "Read-heavy relational workloads.",
+        "ar": "أحمال قراءة عالية على قواعد علائقية."
+      },
+      "pros": {
+        "en": "Cheap horizontal read scale.",
+        "ar": "توسع قراءة رخيص."
+      },
+      "cons": {
+        "en": "Replication lag / stale reads.",
+        "ar": "تأخر نسخ / قراءات قديمة."
+      },
+      "example": {
+        "en": "Postgres primary + 3 replicas behind a read pool.",
+        "ar": "Postgres primary + 3 replicas خلف read pool."
+      },
+      "related": [
+        "replication",
+        "quorum"
+      ]
+    },
+    {
+      "id": "replication",
+      "category": "consistency",
+      "name": {
+        "en": "Replication",
+        "ar": "Replication"
+      },
+      "short": {
+        "en": "Keeping copies of data on multiple nodes for HA and/or scale.",
+        "ar": "الاحتفاظ بنسخ من البيانات على nodes متعددة للـ HA و/أو التوسع."
+      },
+      "definition": {
+        "en": "Keeping copies of data on multiple nodes for HA and/or scale.",
+        "ar": "الاحتفاظ بنسخ من البيانات على nodes متعددة للـ HA و/أو التوسع."
+      },
+      "when": {
+        "en": "Any stateful critical store.",
+        "ar": "أي store stateful حرج."
+      },
+      "pros": {
+        "en": "Survives node failure.",
+        "ar": "يتحمّل سقوط node."
+      },
+      "cons": {
+        "en": "Consistency and conflict trade-offs.",
+        "ar": "مقايضات اتساق وتعارضات."
+      },
+      "example": {
+        "en": "Leader-follower MySQL across AZs.",
+        "ar": "MySQL leader-follower عبر AZs."
+      },
+      "related": [
+        "leader-follower",
+        "multi-leader",
+        "leaderless",
+        "quorum"
+      ]
+    },
+    {
+      "id": "leader-follower",
+      "category": "consistency",
+      "name": {
+        "en": "Leader-Follower Replication",
+        "ar": "نسخ Leader-Follower"
+      },
+      "short": {
+        "en": "One leader takes writes; followers replicate.",
+        "ar": "قائد واحد يستقبل الكتابة؛ والتابعون ينسخون."
+      },
+      "definition": {
+        "en": "One leader takes writes; followers replicate.",
+        "ar": "قائد واحد يستقبل الكتابة؛ والتابعون ينسخون."
+      },
+      "when": {
+        "en": "Simple HA for databases.",
+        "ar": "HA بسيط لقواعد البيانات."
+      },
+      "pros": {
+        "en": "Clear write authority.",
+        "ar": "سلطة كتابة واضحة."
+      },
+      "cons": {
+        "en": "Failover complexity; follower lag.",
+        "ar": "تعقيد failover؛ تأخر التابعين."
+      },
+      "example": {
+        "en": "Promote standby on primary failure.",
+        "ar": "ترقية standby عند فشل الـ primary."
+      },
+      "related": [
+        "replication",
+        "multi-leader",
+        "leader-election"
+      ]
+    },
+    {
+      "id": "multi-leader",
+      "category": "consistency",
+      "name": {
+        "en": "Multi-Leader Replication",
+        "ar": "نسخ Multi-Leader"
+      },
+      "short": {
+        "en": "Multiple nodes accept writes and replicate between them.",
+        "ar": "أكثر من node تقبل الكتابة وتنسخ بينها."
+      },
+      "definition": {
+        "en": "Multiple nodes accept writes and replicate between them.",
+        "ar": "أكثر من node تقبل الكتابة وتنسخ بينها."
+      },
+      "when": {
+        "en": "Multi-region active-active writes.",
+        "ar": "كتابة active-active عبر المناطق."
+      },
+      "pros": {
+        "en": "Local write latency.",
+        "ar": "latency كتابة محلية."
+      },
+      "cons": {
+        "en": "Conflict resolution required.",
+        "ar": "لازم حل تعارضات."
+      },
+      "example": {
+        "en": "Calendar apps with regional writers.",
+        "ar": "تطبيقات تقويم بكتّاب إقليميين."
+      },
+      "related": [
+        "leader-follower",
+        "crdt",
+        "vector-clock"
+      ]
+    },
+    {
+      "id": "leaderless",
+      "category": "consistency",
+      "name": {
+        "en": "Leaderless Replication",
+        "ar": "نسخ بدون قائد"
+      },
+      "short": {
+        "en": "Clients write/read quorums of replicas with no single leader.",
+        "ar": "العميل يكتب/يقرأ quorums من النسخ من غير قائد واحد."
+      },
+      "definition": {
+        "en": "Clients write/read quorums of replicas with no single leader.",
+        "ar": "العميل يكتب/يقرأ quorums من النسخ من غير قائد واحد."
+      },
+      "when": {
+        "en": "High availability key-value stores.",
+        "ar": "مخازن key-value عالية التوافر."
+      },
+      "pros": {
+        "en": "No leader failover.",
+        "ar": "مفيش failover لقائد."
+      },
+      "cons": {
+        "en": "Quorum math and repair needed.",
+        "ar": "محتاج حساب quorum وإصلاح."
+      },
+      "example": {
+        "en": "Cassandra/Dynamo-style stores.",
+        "ar": "مخازن بأسلوب Cassandra/Dynamo."
+      },
+      "related": [
+        "quorum",
+        "replication"
+      ]
+    },
+    {
+      "id": "quorum",
+      "category": "consistency",
+      "name": {
+        "en": "Quorum",
+        "ar": "Quorum"
+      },
+      "short": {
+        "en": "Require R+W > N overlapping nodes for reads/writes to get consistency guarantees.",
+        "ar": "اشتراط R+W > N من الـ nodes المتداخلة للقراءة/الكتابة لضمان الاتساق."
+      },
+      "definition": {
+        "en": "Require R+W > N overlapping nodes for reads/writes to get consistency guarantees.",
+        "ar": "اشتراط R+W > N من الـ nodes المتداخلة للقراءة/الكتابة لضمان الاتساق."
+      },
+      "when": {
+        "en": "Leaderless systems.",
+        "ar": "أنظمة بدون قائد."
+      },
+      "pros": {
+        "en": "Tunable consistency.",
+        "ar": "اتساق قابل للضبط."
+      },
+      "cons": {
+        "en": "Higher latency than single-node.",
+        "ar": "latency أعلى من node واحد."
+      },
+      "example": {
+        "en": "N=3, W=2, R=2 for durable reads.",
+        "ar": "N=3, W=2, R=2 لقراءات متينة."
+      },
+      "related": [
+        "leaderless",
+        "cap",
+        "pacelc"
+      ]
+    },
+    {
+      "id": "cap",
+      "category": "consistency",
+      "name": {
+        "en": "CAP Theorem",
+        "ar": "نظرية CAP"
+      },
+      "short": {
+        "en": "Under network partition, a system must choose consistency or availability.",
+        "ar": "تحت انقطاع الشبكة، النظام لازم يختار الاتساق أو التوافر."
+      },
+      "definition": {
+        "en": "Under network partition, a system must choose consistency or availability.",
+        "ar": "تحت انقطاع الشبكة، النظام لازم يختار الاتساق أو التوافر."
+      },
+      "when": {
+        "en": "Designing distributed data stores.",
+        "ar": "تصميم مخازن بيانات موزّعة."
+      },
+      "pros": {
+        "en": "Clarifies inevitable trade-offs.",
+        "ar": "يوضح المقايضات الحتمية."
+      },
+      "cons": {
+        "en": "Often oversimplified; see PACELC.",
+        "ar": "غالباً مبسّطة زيادة؛ شوف PACELC."
+      },
+      "example": {
+        "en": "Chat may prefer AP; ledger may prefer CP.",
+        "ar": "الشات يميل لـ AP؛ الدفتر يميل لـ CP."
+      },
+      "related": [
+        "pacelc",
+        "quorum",
+        "eventual-consistency"
+      ]
+    },
+    {
+      "id": "pacelc",
+      "category": "consistency",
+      "name": {
+        "en": "PACELC",
+        "ar": "PACELC"
+      },
+      "short": {
+        "en": "If partition: choose A/C; else trade latency vs consistency.",
+        "ar": "لو في partition: اختار A/C؛ وإلا وازن بين الـ latency والاتساق."
+      },
+      "definition": {
+        "en": "If partition: choose A/C; else trade latency vs consistency.",
+        "ar": "لو في partition: اختار A/C؛ وإلا وازن بين الـ latency والاتساق."
+      },
+      "when": {
+        "en": "Nuanced distributed store choices.",
+        "ar": "اختيارات أدق لمخازن موزّعة."
+      },
+      "pros": {
+        "en": "Captures normal-case latency trade-offs.",
+        "ar": "يغطي مقايضات الـ latency في الحالة العادية."
+      },
+      "cons": {
+        "en": "Still qualitative, not a formula.",
+        "ar": "لسه نوعي مش معادلة."
+      },
+      "example": {
+        "en": "PA/EL store: available under partition, latency over strong C otherwise.",
+        "ar": "مخزن PA/EL: متاح تحت partition، ويفضّل latency على C القوي غير كده."
+      },
+      "related": [
+        "cap",
+        "strong-consistency",
+        "eventual-consistency"
+      ]
+    },
+    {
+      "id": "strong-consistency",
+      "category": "consistency",
+      "name": {
+        "en": "Strong Consistency",
+        "ar": "اتساق قوي"
+      },
+      "short": {
+        "en": "After a write is acknowledged, all readers see that write (linearizability/similar).",
+        "ar": "بعد تأكيد الكتابة، كل القراء يشوفوا الكتابة دي (linearizability أو مشابه)."
+      },
+      "definition": {
+        "en": "After a write is acknowledged, all readers see that write (linearizability/similar).",
+        "ar": "بعد تأكيد الكتابة، كل القراء يشوفوا الكتابة دي (linearizability أو مشابه)."
+      },
+      "when": {
+        "en": "Balances, inventory, critical correctness.",
+        "ar": "أرصدة، مخزون، صحة حرجة."
+      },
+      "pros": {
+        "en": "Simpler mental model for clients.",
+        "ar": "نموذج ذهني أبسط للعملاء."
+      },
+      "cons": {
+        "en": "Higher latency; harder multi-region.",
+        "ar": "latency أعلى؛ multi-region أصعب."
+      },
+      "example": {
+        "en": "Bank balance reads after debit.",
+        "ar": "قراءة رصيد بعد خصم."
+      },
+      "related": [
+        "eventual-consistency",
+        "quorum",
+        "cap"
+      ]
+    },
+    {
+      "id": "eventual-consistency",
+      "category": "consistency",
+      "name": {
+        "en": "Eventual Consistency",
+        "ar": "اتساق نهائي"
+      },
+      "short": {
+        "en": "Replicas converge over time; temporary divergence allowed.",
+        "ar": "النسخ تتوافق مع الوقت؛ اختلاف مؤقت مسموح."
+      },
+      "definition": {
+        "en": "Replicas converge over time; temporary divergence allowed.",
+        "ar": "النسخ تتوافق مع الوقت؛ اختلاف مؤقت مسموح."
+      },
+      "when": {
+        "en": "Feeds, likes, presence, many chat views.",
+        "ar": "الـ feeds واللايكات والـ presence وكثير من واجهات الشات."
+      },
+      "pros": {
+        "en": "High availability and lower latency.",
+        "ar": "توافر أعلى وlatency أقل."
+      },
+      "cons": {
+        "en": "Clients may see stale/out-of-order views briefly.",
+        "ar": "العملاء ممكن يشوفوا بيانات قديمة/غير مرتبة لحظياً."
+      },
+      "example": {
+        "en": "Like counts catching up across regions.",
+        "ar": "عدادات اللايكات تلحق عبر المناطق."
+      },
+      "related": [
+        "strong-consistency",
+        "crdt",
+        "vector-clock"
+      ]
+    },
+    {
+      "id": "vector-clock",
+      "category": "consistency",
+      "name": {
+        "en": "Vector Clock",
+        "ar": "Vector Clock"
+      },
+      "short": {
+        "en": "Version metadata tracking causal history across replicas.",
+        "ar": "metadata إصدارات بتتبع التاريخ السببي عبر النسخ."
+      },
+      "definition": {
+        "en": "Version metadata tracking causal history across replicas.",
+        "ar": "metadata إصدارات بتتبع التاريخ السببي عبر النسخ."
+      },
+      "when": {
+        "en": "Detect concurrent conflicting updates.",
+        "ar": "اكتشاف تحديثات متعارضة متزامنة."
+      },
+      "pros": {
+        "en": "Preserves causality information.",
+        "ar": "يحافظ على معلومات السببية."
+      },
+      "cons": {
+        "en": "Metadata grows with actors.",
+        "ar": "الـ metadata بتكبر مع عدد الفاعلين."
+      },
+      "example": {
+        "en": "Dynamo-style conflict detection.",
+        "ar": "كشف تعارضات بأسلوب Dynamo."
+      },
+      "related": [
+        "crdt",
+        "multi-leader"
+      ]
+    },
+    {
+      "id": "crdt",
+      "category": "consistency",
+      "name": {
+        "en": "CRDT",
+        "ar": "CRDT"
+      },
+      "short": {
+        "en": "Conflict-free replicated data types that merge concurrent updates automatically.",
+        "ar": "أنواع بيانات متكررة بدون تعارض تدمج التحديثات المتزامنة تلقائياً."
+      },
+      "definition": {
+        "en": "Conflict-free replicated data types that merge concurrent updates automatically.",
+        "ar": "أنواع بيانات متكررة بدون تعارض تدمج التحديثات المتزامنة تلقائياً."
+      },
+      "when": {
+        "en": "Collaborative editing, counters, sets without central locks.",
+        "ar": "تحرير تعاوني، عدادات، مجموعات من غير أقفال مركزية."
+      },
+      "pros": {
+        "en": "Automatic merge.",
+        "ar": "دمج تلقائي."
+      },
+      "cons": {
+        "en": "Limited to supported data types/semantics.",
+        "ar": "محدود بأنواع/دلالات مدعومة."
+      },
+      "example": {
+        "en": "Shared document editing with CRDT merge.",
+        "ar": "تحرير مستند مشترك بدمج CRDT."
+      },
+      "related": [
+        "vector-clock",
+        "eventual-consistency"
+      ]
+    },
+    {
+      "id": "wal",
+      "category": "data",
+      "name": {
+        "en": "Write-Ahead Log",
+        "ar": "Write-Ahead Log"
+      },
+      "short": {
+        "en": "Append durable log before applying state changes so recovery can replay.",
+        "ar": "سجل متين يُلحق قبل تطبيق تغيّر الحالة عشان الاستعادة تعيد التشغيل."
+      },
+      "definition": {
+        "en": "Append durable log before applying state changes so recovery can replay.",
+        "ar": "سجل متين يُلحق قبل تطبيق تغيّر الحالة عشان الاستعادة تعيد التشغيل."
+      },
+      "when": {
+        "en": "Databases, queues, consensus.",
+        "ar": "قواعد بيانات، طوابير، إجماع."
+      },
+      "pros": {
+        "en": "Durability before ack.",
+        "ar": "متانة قبل الـ ack."
+      },
+      "cons": {
+        "en": "Disk I/O can bottleneck.",
+        "ar": "I/O القرص ممكن يبقى bottleneck."
+      },
+      "example": {
+        "en": "Postgres WAL before commit.",
+        "ar": "Postgres WAL قبل الـ commit."
+      },
+      "related": [
+        "replication",
+        "consensus-raft"
+      ]
+    },
+    {
+      "id": "lsm",
+      "category": "data",
+      "name": {
+        "en": "LSM Tree",
+        "ar": "LSM Tree"
+      },
+      "short": {
+        "en": "Log-structured merge tree optimized for high write throughput.",
+        "ar": "شجرة دمج مبنية على السجل ومُحسَّنة لكتابة عالية."
+      },
+      "definition": {
+        "en": "Log-structured merge tree optimized for high write throughput.",
+        "ar": "شجرة دمج مبنية على السجل ومُحسَّنة لكتابة عالية."
+      },
+      "when": {
+        "en": "Write-heavy stores.",
+        "ar": "مخازن كتابة كثيفة."
+      },
+      "pros": {
+        "en": "Sequential writes are fast.",
+        "ar": "الكتابة التسلسلية سريعة."
+      },
+      "cons": {
+        "en": "Read amplification / compaction cost.",
+        "ar": "تضخيم قراءة / تكلفة compaction."
+      },
+      "example": {
+        "en": "Cassandra/RocksDB storage engines.",
+        "ar": "محركات Cassandra/RocksDB."
+      },
+      "related": [
+        "wal",
+        "write-behind"
+      ]
+    },
+    {
+      "id": "bloom-filter",
+      "category": "search",
+      "name": {
+        "en": "Bloom Filter",
+        "ar": "Bloom Filter"
+      },
+      "short": {
+        "en": "Probabilistic set membership structure with false positives but no false negatives.",
+        "ar": "هيكل احتمالي للعضوية: false positives ممكنة لكن مفيش false negatives."
+      },
+      "definition": {
+        "en": "Probabilistic set membership structure with false positives but no false negatives.",
+        "ar": "هيكل احتمالي للعضوية: false positives ممكنة لكن مفيش false negatives."
+      },
+      "when": {
+        "en": "Skip expensive lookups when key is absent.",
+        "ar": "تخطّي lookups غالية لو المفتاح مش موجود."
+      },
+      "pros": {
+        "en": "Tiny memory footprint.",
+        "ar": "بصمة ذاكرة صغيرة."
+      },
+      "cons": {
+        "en": "False positives; deletes awkward.",
+        "ar": "false positives؛ الحذف صعب."
+      },
+      "example": {
+        "en": "LSM SSTables skip disk if bloom says no.",
+        "ar": "SSTables تتخطى القرص لو الـ bloom قال لا."
+      },
+      "related": [
+        "lsm",
+        "cache-aside"
+      ]
+    },
+    {
+      "id": "inverted-index",
+      "category": "search",
+      "name": {
+        "en": "Inverted Index",
+        "ar": "Inverted Index"
+      },
+      "short": {
+        "en": "Maps terms to documents/postings for full-text search.",
+        "ar": "يربط المصطلحات بالمستندات/القوائم للبحث النصي."
+      },
+      "definition": {
+        "en": "Maps terms to documents/postings for full-text search.",
+        "ar": "يربط المصطلحات بالمستندات/القوائم للبحث النصي."
+      },
+      "when": {
+        "en": "Product/message search.",
+        "ar": "بحث منتجات/رسائل."
+      },
+      "pros": {
+        "en": "Fast keyword retrieval.",
+        "ar": "استرجاع كلمات سريع."
+      },
+      "cons": {
+        "en": "Index lag and storage overhead.",
+        "ar": "تأخر فهرسة وتخزين إضافي."
+      },
+      "example": {
+        "en": "Elasticsearch message search index.",
+        "ar": "فهرس بحث رسائل في Elasticsearch."
+      },
+      "related": [
+        "materialized-view",
+        "scatter-gather"
+      ]
+    },
+    {
+      "id": "materialized-view",
+      "category": "data",
+      "name": {
+        "en": "Materialized View",
+        "ar": "Materialized View"
+      },
+      "short": {
+        "en": "Precomputed query result stored for fast reads.",
+        "ar": "نتيجة استعلام محسوبة مسبقاً ومخزّنة لقراءة سريعة."
+      },
+      "definition": {
+        "en": "Precomputed query result stored for fast reads.",
+        "ar": "نتيجة استعلام محسوبة مسبقاً ومخزّنة لقراءة سريعة."
+      },
+      "when": {
+        "en": "Repeated heavy queries/dashboards/feeds.",
+        "ar": "استعلامات ثقيلة متكررة/لوحات/feeds."
+      },
+      "pros": {
+        "en": "Fast reads.",
+        "ar": "قراءة سريعة."
+      },
+      "cons": {
+        "en": "Write amplification and staleness.",
+        "ar": "تضخيم كتابة وstale."
+      },
+      "example": {
+        "en": "Precomputed leaderboard every minute.",
+        "ar": "لوحة متصدرين كل دقيقة."
+      },
+      "related": [
+        "denormalization",
+        "cqrs"
+      ]
+    },
+    {
+      "id": "denormalization",
+      "category": "data",
+      "name": {
+        "en": "Denormalization",
+        "ar": "Denormalization"
+      },
+      "short": {
+        "en": "Duplicate data to optimize read paths.",
+        "ar": "تكرار البيانات لتحسين مسارات القراءة."
+      },
+      "definition": {
+        "en": "Duplicate data to optimize read paths.",
+        "ar": "تكرار البيانات لتحسين مسارات القراءة."
+      },
+      "when": {
+        "en": "Read-heavy access patterns.",
+        "ar": "أنماط وصول قراءة كثيفة."
+      },
+      "pros": {
+        "en": "Fewer joins / faster reads.",
+        "ar": "joins أقل / قراءة أسرع."
+      },
+      "cons": {
+        "en": "Harder writes and consistency.",
+        "ar": "كتابة واتساق أصعب."
+      },
+      "example": {
+        "en": "Message copied into sender outbox and recipient inbox.",
+        "ar": "الرسالة تتكرر في outbox المرسل وinbox المستلم."
+      },
+      "related": [
+        "materialized-view",
+        "cqrs"
+      ]
+    },
+    {
+      "id": "polyglot-persistence",
+      "category": "data",
+      "name": {
+        "en": "Polyglot Persistence",
+        "ar": "Polyglot Persistence"
+      },
+      "short": {
+        "en": "Use different storage technologies for different access patterns.",
+        "ar": "استخدام تقنيات تخزين مختلفة لأنماط وصول مختلفة."
+      },
+      "definition": {
+        "en": "Use different storage technologies for different access patterns.",
+        "ar": "استخدام تقنيات تخزين مختلفة لأنماط وصول مختلفة."
+      },
+      "when": {
+        "en": "Complex systems with mixed workloads.",
+        "ar": "أنظمة معقدة بأحمال مختلطة."
+      },
+      "pros": {
+        "en": "Best tool per job.",
+        "ar": "أفضل أداة لكل شغل."
+      },
+      "cons": {
+        "en": "Operational complexity.",
+        "ar": "تعقيد تشغيلي."
+      },
+      "example": {
+        "en": "Postgres + Redis + Elastic + S3.",
+        "ar": "Postgres + Redis + Elastic + S3."
+      },
+      "related": [
+        "object-storage",
+        "inverted-index"
+      ]
+    },
+    {
+      "id": "object-storage",
+      "category": "data",
+      "name": {
+        "en": "Object / Blob Storage",
+        "ar": "Object / Blob Storage"
+      },
+      "short": {
+        "en": "Durable store for large unstructured objects addressed by key.",
+        "ar": "تخزين متين لكائنات كبيرة غير منظمة بعنوان مفتاح."
+      },
+      "definition": {
+        "en": "Durable store for large unstructured objects addressed by key.",
+        "ar": "تخزين متين لكائنات كبيرة غير منظمة بعنوان مفتاح."
+      },
+      "when": {
+        "en": "Media, backups, data lakes.",
+        "ar": "ميديا، نسخ احتياطي، بحيرات بيانات."
+      },
+      "pros": {
+        "en": "Cheap durable capacity.",
+        "ar": "سعة رخيصة ومتينة."
+      },
+      "cons": {
+        "en": "Higher latency; expensive listing.",
+        "ar": "latency أعلى؛ listing غالي."
+      },
+      "example": {
+        "en": "S3/GCS for user uploads.",
+        "ar": "S3/GCS لرفع اليوزرز."
+      },
+      "related": [
+        "presigned-url",
+        "claim-check"
+      ]
+    },
+    {
+      "id": "presigned-url",
+      "category": "data",
+      "name": {
+        "en": "Presigned URL",
+        "ar": "Presigned URL"
+      },
+      "short": {
+        "en": "Time-limited URL granting direct upload/download to object storage.",
+        "ar": "رابط محدود زمنياً يسمح بالرفع/التنزيل المباشر لتخزين الكائنات."
+      },
+      "definition": {
+        "en": "Time-limited URL granting direct upload/download to object storage.",
+        "ar": "رابط محدود زمنياً يسمح بالرفع/التنزيل المباشر لتخزين الكائنات."
+      },
+      "when": {
+        "en": "Large uploads without proxying through app servers.",
+        "ar": "رفع كبير من غير مرور على سيرفرات التطبيق."
+      },
+      "pros": {
+        "en": "Offloads bandwidth from app tier.",
+        "ar": "يشيل الضغط عن طبقة التطبيق."
+      },
+      "cons": {
+        "en": "Auth window must be short-lived.",
+        "ar": "نافذة التفويض لازم قصيرة."
+      },
+      "example": {
+        "en": "Browser uploads directly to S3 with multipart.",
+        "ar": "المتصفح يرفع مباشرة لـ S3 بـ multipart."
+      },
+      "related": [
+        "object-storage",
+        "multipart-upload"
+      ]
+    },
+    {
+      "id": "multipart-upload",
+      "category": "data",
+      "name": {
+        "en": "Multipart Upload",
+        "ar": "Multipart Upload"
+      },
+      "short": {
+        "en": "Upload large objects in parallel parts then assemble.",
+        "ar": "رفع كائنات كبيرة على أجزاء متوازية ثم تجميعها."
+      },
+      "definition": {
+        "en": "Upload large objects in parallel parts then assemble.",
+        "ar": "رفع كائنات كبيرة على أجزاء متوازية ثم تجميعها."
+      },
+      "when": {
+        "en": "Large files over unreliable networks.",
+        "ar": "ملفات كبيرة على شبكات غير مستقرة."
+      },
+      "pros": {
+        "en": "Resumable and parallel.",
+        "ar": "قابل للاستئناف ومتوازي."
+      },
+      "cons": {
+        "en": "More client/server coordination.",
+        "ar": "تنسيق أكتر بين العميل والسيرفر."
+      },
+      "example": {
+        "en": "Video upload in 8MB parts.",
+        "ar": "رفع فيديو بأجزاء 8MB."
+      },
+      "related": [
+        "presigned-url",
+        "object-storage"
+      ]
+    },
+    {
+      "id": "message-queue",
+      "category": "messaging",
+      "name": {
+        "en": "Message Queue",
+        "ar": "Message Queue"
+      },
+      "short": {
+        "en": "Broker where producers enqueue work and consumers compete to process.",
+        "ar": "وسيط يضع فيه المنتجون الشغل والمستهلكون يتنافسون على المعالجة."
+      },
+      "definition": {
+        "en": "Broker where producers enqueue work and consumers compete to process.",
+        "ar": "وسيط يضع فيه المنتجون الشغل والمستهلكون يتنافسون على المعالجة."
+      },
+      "when": {
+        "en": "Async jobs, decoupling producers/consumers.",
+        "ar": "مهام async وفصل المنتجين عن المستهلكين."
+      },
+      "pros": {
+        "en": "Simple consume-once semantics.",
+        "ar": "دلالات consume-once بسيطة."
+      },
+      "cons": {
+        "en": "Replay/history weaker than logs.",
+        "ar": "إعادة التشغيل/التاريخ أضعف من الـ logs."
+      },
+      "example": {
+        "en": "SQS/Rabbit for email jobs.",
+        "ar": "SQS/Rabbit لمهام الإيميل."
+      },
+      "related": [
+        "competing-consumers",
+        "dlq",
+        "kafka"
+      ]
+    },
+    {
+      "id": "kafka",
+      "category": "messaging",
+      "name": {
+        "en": "Log / Kafka",
+        "ar": "Log / Kafka"
+      },
+      "short": {
+        "en": "Append-only partitioned log supporting replay and many consumer groups.",
+        "ar": "سجل ملحق مقسّم يدعم إعادة التشغيل ومجموعات مستهلكين كثيرة."
+      },
+      "definition": {
+        "en": "Append-only partitioned log supporting replay and many consumer groups.",
+        "ar": "سجل ملحق مقسّم يدعم إعادة التشغيل ومجموعات مستهلكين كثيرة."
+      },
+      "when": {
+        "en": "Event streaming, analytics pipelines.",
+        "ar": "بث أحداث ومسارات تحليلات."
+      },
+      "pros": {
+        "en": "Replay and fan-out to many consumers.",
+        "ar": "إعادة تشغيل وfan-out لمستهلكين كتير."
+      },
+      "cons": {
+        "en": "Operational complexity; ordering per partition.",
+        "ar": "تعقيد تشغيلي؛ ترتيب لكل partition."
+      },
+      "example": {
+        "en": "Click events on Kafka topics.",
+        "ar": "أحداث النقر على topics في Kafka."
+      },
+      "related": [
+        "message-queue",
+        "event-driven",
+        "competing-consumers"
+      ]
+    },
+    {
+      "id": "competing-consumers",
+      "category": "messaging",
+      "name": {
+        "en": "Competing Consumers",
+        "ar": "Competing Consumers"
+      },
+      "short": {
+        "en": "Multiple workers race to consume the same queue for parallelism.",
+        "ar": "عمال كتير يتسابقوا يستهلكوا نفس الطابور للتوازي."
+      },
+      "definition": {
+        "en": "Multiple workers race to consume the same queue for parallelism.",
+        "ar": "عمال كتير يتسابقوا يستهلكوا نفس الطابور للتوازي."
+      },
+      "when": {
+        "en": "Growing backlog.",
+        "ar": "تراكم backlog."
+      },
+      "pros": {
+        "en": "Horizontal scale of processing.",
+        "ar": "توسع أفقي للمعالجة."
+      },
+      "cons": {
+        "en": "Cross-message ordering usually lost.",
+        "ar": "ترتيب الرسائل غالباً يضيع."
+      },
+      "example": {
+        "en": "N workers on one SQS queue.",
+        "ar": "N workers على طابور SQS واحد."
+      },
+      "related": [
+        "message-queue",
+        "dlq"
+      ]
+    },
+    {
+      "id": "priority-queue",
+      "category": "messaging",
+      "name": {
+        "en": "Priority Queue",
+        "ar": "Priority Queue"
+      },
+      "short": {
+        "en": "Higher-priority messages are processed before lower-priority ones.",
+        "ar": "الرسائل الأعلى أولوية تتعالج قبل الأقل."
+      },
+      "definition": {
+        "en": "Higher-priority messages are processed before lower-priority ones.",
+        "ar": "الرسائل الأعلى أولوية تتعالج قبل الأقل."
+      },
+      "when": {
+        "en": "Paid/urgent work vs bulk.",
+        "ar": "شغل مدفوع/عاجل مقابل bulk."
+      },
+      "pros": {
+        "en": "Protects critical latency.",
+        "ar": "يحمي latency الحرج."
+      },
+      "cons": {
+        "en": "Starvation of low priority.",
+        "ar": "تجويع الأولوية المنخفضة."
+      },
+      "example": {
+        "en": "Separate urgent notifications queue.",
+        "ar": "طابور إشعارات عاجلة منفصل."
+      },
+      "related": [
+        "message-queue"
+      ]
+    },
+    {
+      "id": "dlq",
+      "category": "messaging",
+      "name": {
+        "en": "Dead Letter Queue (DLQ)",
+        "ar": "Dead Letter Queue (DLQ)"
+      },
+      "short": {
+        "en": "Side queue for messages that repeatedly fail processing.",
+        "ar": "طابور جانبي للرسائل اللي بتفشل معالجتها مراراً."
+      },
+      "definition": {
+        "en": "Side queue for messages that repeatedly fail processing.",
+        "ar": "طابور جانبي للرسائل اللي بتفشل معالجتها مراراً."
+      },
+      "when": {
+        "en": "Poison messages / persistent failures.",
+        "ar": "رسائل سامة / فشل متكرر."
+      },
+      "pros": {
+        "en": "Keeps main queue healthy.",
+        "ar": "يحافظ على صحة الطابور الأساسي."
+      },
+      "cons": {
+        "en": "Needs ops triage process.",
+        "ar": "محتاج عملية مراجعة تشغيلية."
+      },
+      "example": {
+        "en": "Failed image jobs land in DLQ for replay.",
+        "ar": "مهام الصور الفاشلة تروح DLQ لإعادة المحاولة."
+      },
+      "related": [
+        "message-queue",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "claim-check",
+      "category": "messaging",
+      "name": {
+        "en": "Claim Check",
+        "ar": "Claim Check"
+      },
+      "short": {
+        "en": "Store large payload externally and pass only a reference in the message.",
+        "ar": "تخزين الحمولة الكبيرة خارجياً وتمرير مرجع فقط في الرسالة."
+      },
+      "definition": {
+        "en": "Store large payload externally and pass only a reference in the message.",
+        "ar": "تخزين الحمولة الكبيرة خارجياً وتمرير مرجع فقط في الرسالة."
+      },
+      "when": {
+        "en": "Payloads exceed broker limits.",
+        "ar": "حمولات أكبر من حدود الـ broker."
+      },
+      "pros": {
+        "en": "Keeps broker light.",
+        "ar": "يبقي الـ broker خفيف."
+      },
+      "cons": {
+        "en": "Extra storage dependency.",
+        "ar": "اعتماد تخزين إضافي."
+      },
+      "example": {
+        "en": "S3 URL inside queue message for video.",
+        "ar": "رابط S3 داخل رسالة الطابور لفيديو."
+      },
+      "related": [
+        "object-storage",
+        "message-queue"
+      ]
+    },
+    {
+      "id": "idempotency",
+      "category": "messaging",
+      "name": {
+        "en": "Idempotency",
+        "ar": "Idempotency"
+      },
+      "short": {
+        "en": "Processing the same request/message multiple times has the same effect as once.",
+        "ar": "معالجة نفس الطلب/الرسالة أكتر من مرة لها نفس أثر مرة واحدة."
+      },
+      "definition": {
+        "en": "Processing the same request/message multiple times has the same effect as once.",
+        "ar": "معالجة نفس الطلب/الرسالة أكتر من مرة لها نفس أثر مرة واحدة."
+      },
+      "when": {
+        "en": "At-least-once delivery systems.",
+        "ar": "أنظمة توصيل at-least-once."
+      },
+      "pros": {
+        "en": "Safe retries.",
+        "ar": "إعادة محاولة آمنة."
+      },
+      "cons": {
+        "en": "Needs dedupe keys/storage.",
+        "ar": "محتاج مفاتيح/تخزين dedupe."
+      },
+      "example": {
+        "en": "Unique payment_id constraint before charging.",
+        "ar": "قيد unique على payment_id قبل الخصم."
+      },
+      "related": [
+        "outbox",
+        "saga",
+        "dlq"
+      ]
+    },
+    {
+      "id": "outbox",
+      "category": "messaging",
+      "name": {
+        "en": "Transactional Outbox",
+        "ar": "Transactional Outbox"
+      },
+      "short": {
+        "en": "Write business row and outbound event in one DB transaction; relay publishes later.",
+        "ar": "كتابة صف العمل والحدث الصادر في transaction واحدة؛ والناقل ينشر لاحقاً."
+      },
+      "definition": {
+        "en": "Write business row and outbound event in one DB transaction; relay publishes later.",
+        "ar": "كتابة صف العمل والحدث الصادر في transaction واحدة؛ والناقل ينشر لاحقاً."
+      },
+      "when": {
+        "en": "Align DB commit with message publish.",
+        "ar": "مواءمة commit الـ DB مع نشر الرسالة."
+      },
+      "pros": {
+        "en": "Avoids dual-write loss.",
+        "ar": "يتجنب ضياع dual-write."
+      },
+      "cons": {
+        "en": "Needs poller/CDC relay.",
+        "ar": "محتاج poller/CDC."
+      },
+      "example": {
+        "en": "orders + outbox table then Kafka publisher.",
+        "ar": "جدول orders + outbox ثم ناشر Kafka."
+      },
+      "related": [
+        "inbox",
+        "saga",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "inbox",
+      "category": "messaging",
+      "name": {
+        "en": "Inbox Pattern",
+        "ar": "نمط الـ Inbox"
+      },
+      "short": {
+        "en": "Consumer records processed message ids to ignore duplicates.",
+        "ar": "المستهلك يسجّل IDs الرسائل المعالجة لتجاهل التكرار."
+      },
+      "definition": {
+        "en": "Consumer records processed message ids to ignore duplicates.",
+        "ar": "المستهلك يسجّل IDs الرسائل المعالجة لتجاهل التكرار."
+      },
+      "when": {
+        "en": "Exactly/effectively-once side effects.",
+        "ar": "آثار جانبية exactly/effectively-once."
+      },
+      "pros": {
+        "en": "Dedupes retries.",
+        "ar": "يزيل تكرار إعادة المحاولة."
+      },
+      "cons": {
+        "en": "Inbox store growth/cleanup.",
+        "ar": "نمو/تنظيف مخزن الـ inbox."
+      },
+      "example": {
+        "en": "Store event_id before applying credit.",
+        "ar": "تخزين event_id قبل تطبيق الرصيد."
+      },
+      "related": [
+        "outbox",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "saga",
+      "category": "messaging",
+      "name": {
+        "en": "Saga",
+        "ar": "Saga"
+      },
+      "short": {
+        "en": "Sequence of local transactions with compensations instead of a distributed lock/2PC.",
+        "ar": "تسلسل معاملات محلية مع تعويضات بدل قفل موزّع/2PC."
+      },
+      "definition": {
+        "en": "Sequence of local transactions with compensations instead of a distributed lock/2PC.",
+        "ar": "تسلسل معاملات محلية مع تعويضات بدل قفل موزّع/2PC."
+      },
+      "when": {
+        "en": "Business flows across services.",
+        "ar": "تدفقات أعمال عبر خدمات."
+      },
+      "pros": {
+        "en": "Avoids 2PC fragility.",
+        "ar": "يتجنب هشاشة 2PC."
+      },
+      "cons": {
+        "en": "Eventual consistency; complex compensations.",
+        "ar": "اتساق نهائي؛ تعويضات معقدة."
+      },
+      "example": {
+        "en": "Order → payment → shipping with refunds on failure.",
+        "ar": "طلب → دفع → شحن مع استرداد عند الفشل."
+      },
+      "related": [
+        "saga-orchestration",
+        "saga-choreography",
+        "outbox"
+      ]
+    },
+    {
+      "id": "saga-orchestration",
+      "category": "messaging",
+      "name": {
+        "en": "Saga Orchestration",
+        "ar": "تنسيق Saga مركزي"
+      },
+      "short": {
+        "en": "A central orchestrator tells each step what to do.",
+        "ar": "منسّق مركزي يقول لكل خطوة تعمل إيه."
+      },
+      "definition": {
+        "en": "A central orchestrator tells each step what to do.",
+        "ar": "منسّق مركزي يقول لكل خطوة تعمل إيه."
+      },
+      "when": {
+        "en": "Complex multi-step flows needing visibility.",
+        "ar": "تدفقات معقدة محتاجة وضوح."
+      },
+      "pros": {
+        "en": "Easier to observe/control.",
+        "ar": "أسهل في المراقبة والتحكم."
+      },
+      "cons": {
+        "en": "Orchestrator can become a hotspot.",
+        "ar": "المنسّق ممكن يبقى نقطة ضغط."
+      },
+      "example": {
+        "en": "Order orchestrator service drives steps.",
+        "ar": "خدمة منسّق الطلبات تدير الخطوات."
+      },
+      "related": [
+        "saga",
+        "saga-choreography"
+      ]
+    },
+    {
+      "id": "saga-choreography",
+      "category": "messaging",
+      "name": {
+        "en": "Saga Choreography",
+        "ar": "Saga Choreography"
+      },
+      "short": {
+        "en": "Each service reacts to events and emits the next event.",
+        "ar": "كل خدمة تتفاعل مع الأحداث وتصدر الحدث التالي."
+      },
+      "definition": {
+        "en": "Each service reacts to events and emits the next event.",
+        "ar": "كل خدمة تتفاعل مع الأحداث وتصدر الحدث التالي."
+      },
+      "when": {
+        "en": "Loosely coupled async workflows.",
+        "ar": "تدفقات async ضعيفة الربط."
+      },
+      "pros": {
+        "en": "No central coordinator.",
+        "ar": "من غير منسّق مركزي."
+      },
+      "cons": {
+        "en": "Harder to understand end-to-end.",
+        "ar": "أصعب تفهم المسار كامل."
+      },
+      "example": {
+        "en": "PaymentSucceeded triggers Shipping service.",
+        "ar": "PaymentSucceeded يشغّل خدمة الشحن."
+      },
+      "related": [
+        "saga",
+        "event-driven"
+      ]
+    },
+    {
+      "id": "two-phase-commit",
+      "category": "consistency",
+      "name": {
+        "en": "Two-Phase Commit (2PC)",
+        "ar": "Two-Phase Commit (2PC)"
+      },
+      "short": {
+        "en": "Distributed commit protocol: prepare then commit across participants.",
+        "ar": "بروتوكول commit موزّع: prepare ثم commit عبر المشاركين."
+      },
+      "definition": {
+        "en": "Distributed commit protocol: prepare then commit across participants.",
+        "ar": "بروتوكول commit موزّع: prepare ثم commit عبر المشاركين."
+      },
+      "when": {
+        "en": "Rare strong cross-resource commits.",
+        "ar": "commits قوية نادرة عبر موارد."
+      },
+      "pros": {
+        "en": "Strong atomicity when it works.",
+        "ar": "ذرية قوية لما يشتغل."
+      },
+      "cons": {
+        "en": "Blocking and fragile under partitions.",
+        "ar": "حاجز وهش تحت الـ partitions."
+      },
+      "example": {
+        "en": "Prefer saga/outbox in microservices.",
+        "ar": "فضّل saga/outbox في الـ microservices."
+      },
+      "related": [
+        "saga",
+        "cap"
+      ]
+    },
+    {
+      "id": "cqrs",
+      "category": "architecture",
+      "name": {
+        "en": "CQRS",
+        "ar": "CQRS"
+      },
+      "short": {
+        "en": "Separate read and write models/paths.",
+        "ar": "فصل نماذج/مسارات القراءة عن الكتابة."
+      },
+      "definition": {
+        "en": "Separate read and write models/paths.",
+        "ar": "فصل نماذج/مسارات القراءة عن الكتابة."
+      },
+      "when": {
+        "en": "Very different read vs write shapes.",
+        "ar": "أشكال قراءة وكتابة مختلفة جداً."
+      },
+      "pros": {
+        "en": "Optimize each side independently.",
+        "ar": "تحسين كل جانب لوحده."
+      },
+      "cons": {
+        "en": "More moving parts; eventual read models.",
+        "ar": "أجزاء أكتر؛ نماذج قراءة eventual."
+      },
+      "example": {
+        "en": "Write orders commands; read from projections.",
+        "ar": "أوامر كتابة للطلبات؛ قراءة من projections."
+      },
+      "related": [
+        "event-sourcing",
+        "materialized-view"
+      ]
+    },
+    {
+      "id": "event-sourcing",
+      "category": "architecture",
+      "name": {
+        "en": "Event Sourcing",
+        "ar": "Event Sourcing"
+      },
+      "short": {
+        "en": "Persist state as a sequence of events; rebuild by replay.",
+        "ar": "تخزين الحالة كتسلسل أحداث؛ وإعادة البناء بالـ replay."
+      },
+      "definition": {
+        "en": "Persist state as a sequence of events; rebuild by replay.",
+        "ar": "تخزين الحالة كتسلسل أحداث؛ وإعادة البناء بالـ replay."
+      },
+      "when": {
+        "en": "Audit-heavy domains.",
+        "ar": "نطاقات محتاجة تدقيق عالي."
+      },
+      "pros": {
+        "en": "Full history and rebuildability.",
+        "ar": "تاريخ كامل وقابلية إعادة البناء."
+      },
+      "cons": {
+        "en": "High complexity; schema evolution hard.",
+        "ar": "تعقيد عالي؛ تطور الـ schema صعب."
+      },
+      "example": {
+        "en": "Banking ledger as append-only events.",
+        "ar": "دفتر بنكي كأحداث ملحق فقط."
+      },
+      "related": [
+        "cqrs",
+        "event-driven",
+        "kafka"
+      ]
+    },
+    {
+      "id": "event-driven",
+      "category": "architecture",
+      "name": {
+        "en": "Event-Driven Architecture",
+        "ar": "معمارية قائمة على الأحداث"
+      },
+      "short": {
+        "en": "Components communicate by producing/consuming events.",
+        "ar": "المكوّنات بتتواصل بإنتاج/استهلاك الأحداث."
+      },
+      "definition": {
+        "en": "Components communicate by producing/consuming events.",
+        "ar": "المكوّنات بتتواصل بإنتاج/استهلاك الأحداث."
+      },
+      "when": {
+        "en": "Decoupled async workflows.",
+        "ar": "تدفقات async مفصولة."
+      },
+      "pros": {
+        "en": "Loose coupling and extensibility.",
+        "ar": "ربط ضعيف وقابلية توسع."
+      },
+      "cons": {
+        "en": "Harder debugging/ordering.",
+        "ar": "تصحيح وترتيب أصعب."
+      },
+      "example": {
+        "en": "user.created fans out to email + analytics.",
+        "ar": "user.created يتوزع على الإيميل والتحليلات."
+      },
+      "related": [
+        "kafka",
+        "saga-choreography",
+        "pub-sub"
+      ]
+    },
+    {
+      "id": "pub-sub",
+      "category": "messaging",
+      "name": {
+        "en": "Pub/Sub",
+        "ar": "Pub/Sub"
+      },
+      "short": {
+        "en": "Publishers emit events; many subscribers receive copies.",
+        "ar": "الناشرون يصدروا أحداث؛ ومشتركين كتير يستلموا نسخ."
+      },
+      "definition": {
+        "en": "Publishers emit events; many subscribers receive copies.",
+        "ar": "الناشرون يصدروا أحداث؛ ومشتركين كتير يستلموا نسخ."
+      },
+      "when": {
+        "en": "Broadcast notifications and fan-out.",
+        "ar": "إشعارات بث وfan-out."
+      },
+      "pros": {
+        "en": "Easy multi-consumer fan-out.",
+        "ar": "fan-out سهل لمستهلكين كتير."
+      },
+      "cons": {
+        "en": "Delivery guarantees vary.",
+        "ar": "ضمانات التوصيل تختلف."
+      },
+      "example": {
+        "en": "Redis pub/sub for presence updates.",
+        "ar": "Redis pub/sub لتحديثات الـ presence."
+      },
+      "related": [
+        "event-driven",
+        "fan-out-write",
+        "websocket"
+      ]
+    },
+    {
+      "id": "fan-out-write",
+      "category": "realtime",
+      "name": {
+        "en": "Fan-out on Write (Push)",
+        "ar": "Fan-out عند الكتابة (Push)"
+      },
+      "short": {
+        "en": "On write, push/copy to each recipient inbox/feed.",
+        "ar": "عند الكتابة، ادفع/انسخ لكل inbox/feed للمستلمين."
+      },
+      "definition": {
+        "en": "On write, push/copy to each recipient inbox/feed.",
+        "ar": "عند الكتابة، ادفع/انسخ لكل inbox/feed للمستلمين."
+      },
+      "when": {
+        "en": "Small fan-out sizes.",
+        "ar": "أحجام fan-out صغيرة."
+      },
+      "pros": {
+        "en": "Very fast reads.",
+        "ar": "قراءة سريعة جداً."
+      },
+      "cons": {
+        "en": "Write amplification for large audiences.",
+        "ar": "تضخيم كتابة للجماهير الكبيرة."
+      },
+      "example": {
+        "en": "Group chat <100 members write-time fan-out.",
+        "ar": "جروب شات أقل من 100 عضو write-time fan-out."
+      },
+      "related": [
+        "fan-out-read",
+        "pub-sub"
+      ]
+    },
+    {
+      "id": "fan-out-read",
+      "category": "realtime",
+      "name": {
+        "en": "Fan-out on Read (Pull)",
+        "ar": "Fan-out عند القراءة (Pull)"
+      },
+      "short": {
+        "en": "Store once; recipients assemble timeline at read time.",
+        "ar": "تخزين مرة؛ والمستلمون يجمّعوا الـ timeline وقت القراءة."
+      },
+      "definition": {
+        "en": "Store once; recipients assemble timeline at read time.",
+        "ar": "تخزين مرة؛ والمستلمون يجمّعوا الـ timeline وقت القراءة."
+      },
+      "when": {
+        "en": "Large/celebrity audiences.",
+        "ar": "جماهير كبيرة/مشاهير."
+      },
+      "pros": {
+        "en": "Cheap writes.",
+        "ar": "كتابة رخيصة."
+      },
+      "cons": {
+        "en": "Heavier reads.",
+        "ar": "قراءة أثقل."
+      },
+      "example": {
+        "en": "Celebrity posts pulled into follower timelines.",
+        "ar": "منشورات المشاهير تُسحب لتيملاين المتابعين."
+      },
+      "related": [
+        "fan-out-write"
+      ]
+    },
+    {
+      "id": "websocket",
+      "category": "realtime",
+      "name": {
+        "en": "WebSocket",
+        "ar": "WebSocket"
+      },
+      "short": {
+        "en": "Full-duplex persistent connection for realtime messages.",
+        "ar": "اتصال دائم ثنائي الاتجاه لرسائل الوقت الفعلي."
+      },
+      "definition": {
+        "en": "Full-duplex persistent connection for realtime messages.",
+        "ar": "اتصال دائم ثنائي الاتجاه لرسائل الوقت الفعلي."
+      },
+      "when": {
+        "en": "Chat, collab, live updates.",
+        "ar": "شات، تعاون، تحديثات حية."
+      },
+      "pros": {
+        "en": "Low latency push.",
+        "ar": "دفع بـ latency واطي."
+      },
+      "cons": {
+        "en": "Stateful connections harder to scale.",
+        "ar": "اتصالات stateful أصعب في التوسع."
+      },
+      "example": {
+        "en": "Chat clients keep WS to connection servers.",
+        "ar": "عملاء الشات يحافظوا على WS مع سيرفرات الاتصال."
+      },
+      "related": [
+        "sse",
+        "long-polling",
+        "pub-sub"
+      ]
+    },
+    {
+      "id": "sse",
+      "category": "realtime",
+      "name": {
+        "en": "Server-Sent Events (SSE)",
+        "ar": "Server-Sent Events (SSE)"
+      },
+      "short": {
+        "en": "Server-to-client one-way event stream over HTTP.",
+        "ar": "بث أحداث من السيرفر للعميل باتجاه واحد عبر HTTP."
+      },
+      "definition": {
+        "en": "Server-to-client one-way event stream over HTTP.",
+        "ar": "بث أحداث من السيرفر للعميل باتجاه واحد عبر HTTP."
+      },
+      "when": {
+        "en": "Live feeds where client rarely sends.",
+        "ar": "feeds حية والعميل نادراً يبعت."
+      },
+      "pros": {
+        "en": "Simpler than WebSocket for one-way.",
+        "ar": "أبسط من WebSocket للاتجاه الواحد."
+      },
+      "cons": {
+        "en": "Not bidirectional.",
+        "ar": "مش ثنائي الاتجاه."
+      },
+      "example": {
+        "en": "Live score ticker via SSE.",
+        "ar": "شريط نتائج مباشرة عبر SSE."
+      },
+      "related": [
+        "websocket",
+        "long-polling"
+      ]
+    },
+    {
+      "id": "long-polling",
+      "category": "realtime",
+      "name": {
+        "en": "Long Polling",
+        "ar": "Long Polling"
+      },
+      "short": {
+        "en": "Client holds an HTTP request until the server has data or times out.",
+        "ar": "العميل يمسك طلب HTTP لحد ما السيرفر يبقى عنده بيانات أو يحصل timeout."
+      },
+      "definition": {
+        "en": "Client holds an HTTP request until the server has data or times out.",
+        "ar": "العميل يمسك طلب HTTP لحد ما السيرفر يبقى عنده بيانات أو يحصل timeout."
+      },
+      "when": {
+        "en": "Fallback when WebSockets are blocked.",
+        "ar": "بديل لما الـ WebSockets متقفلة."
+      },
+      "pros": {
+        "en": "Works through many proxies.",
+        "ar": "يشتغل عبر proxies كتير."
+      },
+      "cons": {
+        "en": "Higher overhead and latency.",
+        "ar": "overhead وlatency أعلى."
+      },
+      "example": {
+        "en": "Mobile fallback for chat delivery.",
+        "ar": "fallback موبايل لتوصيل الشات."
+      },
+      "related": [
+        "websocket",
+        "sse"
+      ]
+    },
+    {
+      "id": "webhook",
+      "category": "realtime",
+      "name": {
+        "en": "Webhook",
+        "ar": "Webhook"
+      },
+      "short": {
+        "en": "HTTP callback to notify another system of an event.",
+        "ar": "نداء HTTP لإخطار نظام تاني بحدث."
+      },
+      "definition": {
+        "en": "HTTP callback to notify another system of an event.",
+        "ar": "نداء HTTP لإخطار نظام تاني بحدث."
+      },
+      "when": {
+        "en": "Integrations between services/products.",
+        "ar": "تكاملات بين خدمات/منتجات."
+      },
+      "pros": {
+        "en": "Simple push integration.",
+        "ar": "تكامل دفع بسيط."
+      },
+      "cons": {
+        "en": "Retry/security concerns.",
+        "ar": "مخاوف إعادة محاولة/أمان."
+      },
+      "example": {
+        "en": "Stripe payment webhook to order service.",
+        "ar": "webhook دفع Stripe لخدمة الطلبات."
+      },
+      "related": [
+        "event-driven",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "heartbeat",
+      "category": "realtime",
+      "name": {
+        "en": "Heartbeat",
+        "ar": "Heartbeat"
+      },
+      "short": {
+        "en": "Periodic signal proving a connection/process is alive.",
+        "ar": "إشارة دورية تثبت إن اتصال/عملية لسه حية."
+      },
+      "definition": {
+        "en": "Periodic signal proving a connection/process is alive.",
+        "ar": "إشارة دورية تثبت إن اتصال/عملية لسه حية."
+      },
+      "when": {
+        "en": "Presence and connection health.",
+        "ar": "Presence وصحة الاتصال."
+      },
+      "pros": {
+        "en": "Detects dead peers.",
+        "ar": "يكشف الأقران الميتة."
+      },
+      "cons": {
+        "en": "Extra traffic; approximate accuracy.",
+        "ar": "ترافيك إضافي؛ دقة تقريبية."
+      },
+      "example": {
+        "en": "WS heartbeat every 30s updates Redis TTL.",
+        "ar": "heartbeat كل 30 ثانية يحدّث Redis TTL."
+      },
+      "related": [
+        "ttl",
+        "websocket",
+        "gossip"
+      ]
+    },
+    {
+      "id": "gossip",
+      "category": "consistency",
+      "name": {
+        "en": "Gossip Protocol",
+        "ar": "بروتوكول Gossip"
+      },
+      "short": {
+        "en": "Nodes randomly exchange state to spread membership/info epidemically.",
+        "ar": "الـ nodes تتبادل الحالة عشوائياً لنشر العضوية/المعلومات بشكل وبائي."
+      },
+      "definition": {
+        "en": "Nodes randomly exchange state to spread membership/info epidemically.",
+        "ar": "الـ nodes تتبادل الحالة عشوائياً لنشر العضوية/المعلومات بشكل وبائي."
+      },
+      "when": {
+        "en": "Cluster membership without central coordinator.",
+        "ar": "عضوية الكلستر من غير منسّق مركزي."
+      },
+      "pros": {
+        "en": "Scales and tolerates failure.",
+        "ar": "يتوسع ويتحمّل الفشل."
+      },
+      "cons": {
+        "en": "Convergence not instant.",
+        "ar": "التوافق مش فوري."
+      },
+      "example": {
+        "en": "SWIM/Cassandra membership.",
+        "ar": "عضوية SWIM/Cassandra."
+      },
+      "related": [
+        "heartbeat",
+        "leader-election"
+      ]
+    },
+    {
+      "id": "leader-election",
+      "category": "consistency",
+      "name": {
+        "en": "Leader Election",
+        "ar": "انتخاب قائد"
+      },
+      "short": {
+        "en": "Agree on one leader among peers for coordinated work.",
+        "ar": "الاتفاق على قائد واحد بين الأقران للشغل المنسّق."
+      },
+      "definition": {
+        "en": "Agree on one leader among peers for coordinated work.",
+        "ar": "الاتفاق على قائد واحد بين الأقران للشغل المنسّق."
+      },
+      "when": {
+        "en": "Schedulers, primary failover.",
+        "ar": "مجدولات، failover للـ primary."
+      },
+      "pros": {
+        "en": "Single writer/coordinator.",
+        "ar": "كاتب/منسّق واحد."
+      },
+      "cons": {
+        "en": "Split-brain without fencing.",
+        "ar": "split-brain من غير fencing."
+      },
+      "example": {
+        "en": "Only leader runs compaction cron.",
+        "ar": "القائد بس يشغّل cron الـ compaction."
+      },
+      "related": [
+        "consensus-raft",
+        "distributed-lock"
+      ]
+    },
+    {
+      "id": "consensus-raft",
+      "category": "consistency",
+      "name": {
+        "en": "Raft / Paxos",
+        "ar": "Raft / Paxos"
+      },
+      "short": {
+        "en": "Protocols for strong agreement on a replicated log/state.",
+        "ar": "بروتوكولات لاتفاق قوي على سجل/حالة منسوخة."
+      },
+      "definition": {
+        "en": "Protocols for strong agreement on a replicated log/state.",
+        "ar": "بروتوكولات لاتفاق قوي على سجل/حالة منسوخة."
+      },
+      "when": {
+        "en": "Control planes, config, locks, metadata.",
+        "ar": "طبقات تحكم، إعدادات، أقفال، metadata."
+      },
+      "pros": {
+        "en": "Strong consistency for critical metadata.",
+        "ar": "اتساق قوي لـ metadata حرجة."
+      },
+      "cons": {
+        "en": "Limited throughput; not for all data paths.",
+        "ar": "throughput محدود؛ مش لكل مسارات البيانات."
+      },
+      "example": {
+        "en": "etcd for Kubernetes control plane.",
+        "ar": "etcd لطبقة تحكم Kubernetes."
+      },
+      "related": [
+        "leader-election",
+        "wal",
+        "quorum"
+      ]
+    },
+    {
+      "id": "distributed-lock",
+      "category": "consistency",
+      "name": {
+        "en": "Distributed Lock",
+        "ar": "قفل موزّع"
+      },
+      "short": {
+        "en": "Mutex across processes/machines, ideally with fencing tokens.",
+        "ar": "قفل عبر العمليات/الماكينات، ويفضّل مع fencing tokens."
+      },
+      "definition": {
+        "en": "Mutex across processes/machines, ideally with fencing tokens.",
+        "ar": "قفل عبر العمليات/الماكينات، ويفضّل مع fencing tokens."
+      },
+      "when": {
+        "en": "Exactly-one leader tasks or critical sections.",
+        "ar": "مهام قائد واحد أو أقسام حرجة."
+      },
+      "pros": {
+        "en": "Coordinates exclusive work.",
+        "ar": "ينسّق الشغل الحصري."
+      },
+      "cons": {
+        "en": "Expiry/lock loss hazards.",
+        "ar": "مخاطر انتهاء/فقدان القفل."
+      },
+      "example": {
+        "en": "etcd lease with fencing before inventory decrement.",
+        "ar": "lease في etcd مع fencing قبل إنقاص المخزون."
+      },
+      "related": [
+        "leader-election",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "snowflake-id",
+      "category": "data",
+      "name": {
+        "en": "Snowflake / Distributed ID",
+        "ar": "Snowflake / معرف موزّع"
+      },
+      "short": {
+        "en": "Time-ordered unique IDs generated without a central DB sequence.",
+        "ar": "IDs فريدة مرتبة زمنياً من غير sequence مركزي في الـ DB."
+      },
+      "definition": {
+        "en": "Time-ordered unique IDs generated without a central DB sequence.",
+        "ar": "IDs فريدة مرتبة زمنياً من غير sequence مركزي في الـ DB."
+      },
+      "when": {
+        "en": "Sharded systems needing sortable IDs.",
+        "ar": "أنظمة مجزأة محتاجة IDs قابلة للترتيب."
+      },
+      "pros": {
+        "en": "No single sequence bottleneck.",
+        "ar": "مفيش عنق زجاجة sequence واحد."
+      },
+      "cons": {
+        "en": "Clock skew considerations.",
+        "ar": "اعتبارات انحراف الساعة."
+      },
+      "example": {
+        "en": "64-bit IDs with timestamp + worker + sequence.",
+        "ar": "IDs 64-bit بوقت + worker + sequence."
+      },
+      "related": [
+        "uuid",
+        "ticket-server",
+        "base62"
+      ]
+    },
+    {
+      "id": "uuid",
+      "category": "data",
+      "name": {
+        "en": "UUID",
+        "ar": "UUID"
+      },
+      "short": {
+        "en": "128-bit identifiers generatable independently.",
+        "ar": "معرفات 128-bit يمكن توليدها بشكل مستقل."
+      },
+      "definition": {
+        "en": "128-bit identifiers generatable independently.",
+        "ar": "معرفات 128-bit يمكن توليدها بشكل مستقل."
+      },
+      "when": {
+        "en": "Simple unique IDs without coordination.",
+        "ar": "IDs فريدة بسيطة من غير تنسيق."
+      },
+      "pros": {
+        "en": "No central allocator.",
+        "ar": "من غير مخصّص مركزي."
+      },
+      "cons": {
+        "en": "Not naturally sortable (except UUIDv7).",
+        "ar": "مش قابلة للترتيب طبيعياً (إلا UUIDv7)."
+      },
+      "example": {
+        "en": "Client-generated request ids.",
+        "ar": "request ids مولّدة من العميل."
+      },
+      "related": [
+        "snowflake-id",
+        "base62"
+      ]
+    },
+    {
+      "id": "ticket-server",
+      "category": "data",
+      "name": {
+        "en": "Ticket Server",
+        "ar": "Ticket Server"
+      },
+      "short": {
+        "en": "Central (often HA) service issuing monotonic IDs/ranges.",
+        "ar": "خدمة مركزية (غالباً HA) تصدر IDs/نطاقات متزايدة."
+      },
+      "definition": {
+        "en": "Central (often HA) service issuing monotonic IDs/ranges.",
+        "ar": "خدمة مركزية (غالباً HA) تصدر IDs/نطاقات متزايدة."
+      },
+      "when": {
+        "en": "Short codes / dense IDs.",
+        "ar": "أكواد قصيرة / IDs كثيفة."
+      },
+      "pros": {
+        "en": "Simple sequential allocation.",
+        "ar": "تخصيص تسلسلي بسيط."
+      },
+      "cons": {
+        "en": "Can be SPOF if not highly available.",
+        "ar": "ممكن يبقى SPOF لو مش HA."
+      },
+      "example": {
+        "en": "Flickr-style ticket DB for IDs.",
+        "ar": "قاعدة ticket بأسلوب Flickr للـ IDs."
+      },
+      "related": [
+        "base62",
+        "snowflake-id"
+      ]
+    },
+    {
+      "id": "base62",
+      "category": "data",
+      "name": {
+        "en": "Base62 Encoding",
+        "ar": "ترميز Base62"
+      },
+      "short": {
+        "en": "Encode numbers with 0-9A-Za-z for compact URL-safe strings.",
+        "ar": "ترميز أرقام بـ 0-9A-Za-z لنصوص قصيرة آمنة في الـ URL."
+      },
+      "definition": {
+        "en": "Encode numbers with 0-9A-Za-z for compact URL-safe strings.",
+        "ar": "ترميز أرقام بـ 0-9A-Za-z لنصوص قصيرة آمنة في الـ URL."
+      },
+      "when": {
+        "en": "URL shorteners and compact public ids.",
+        "ar": "مختصرات روابط وIDs عامة قصيرة."
+      },
+      "pros": {
+        "en": "Short human-shareable codes.",
+        "ar": "أكواد قصيرة قابلة للمشاركة."
+      },
+      "cons": {
+        "en": "Needs unique numeric source.",
+        "ar": "محتاج مصدر رقمي فريد."
+      },
+      "example": {
+        "en": "Counter → Base62 7-char short links.",
+        "ar": "عداد → روابط قصيرة Base62 من 7 حروف."
+      },
+      "related": [
+        "ticket-server",
+        "snowflake-id"
+      ]
+    },
+    {
+      "id": "rate-limiting",
+      "category": "resilience",
+      "name": {
+        "en": "Rate Limiting",
+        "ar": "Rate Limiting"
+      },
+      "short": {
+        "en": "Restrict how many requests a client can make in a window/algorithm.",
+        "ar": "تقييد عدد الطلبات اللي العميل يقدر يعملها في نافذة/خوارزمية."
+      },
+      "definition": {
+        "en": "Restrict how many requests a client can make in a window/algorithm.",
+        "ar": "تقييد عدد الطلبات اللي العميل يقدر يعملها في نافذة/خوارزمية."
+      },
+      "when": {
+        "en": "Public APIs and abuse control.",
+        "ar": "APIs عامة ومكافحة إساءة الاستخدام."
+      },
+      "pros": {
+        "en": "Protects capacity.",
+        "ar": "يحمي السعة."
+      },
+      "cons": {
+        "en": "False positives on shared IPs.",
+        "ar": "false positives على IPs مشتركة."
+      },
+      "example": {
+        "en": "100 req/min per API key.",
+        "ar": "100 طلب/دقيقة لكل API key."
+      },
+      "related": [
+        "token-bucket",
+        "leaky-bucket",
+        "load-shedding"
+      ]
+    },
+    {
+      "id": "token-bucket",
+      "category": "resilience",
+      "name": {
+        "en": "Token Bucket",
+        "ar": "Token Bucket"
+      },
+      "short": {
+        "en": "Tokens refill over time; each request spends tokens, allowing bursts.",
+        "ar": "رموز تتجدد مع الوقت؛ كل طلب يستهلك رموز، ويسمح بطفرات."
+      },
+      "definition": {
+        "en": "Tokens refill over time; each request spends tokens, allowing bursts.",
+        "ar": "رموز تتجدد مع الوقت؛ كل طلب يستهلك رموز، ويسمح بطفرات."
+      },
+      "when": {
+        "en": "APIs needing burst tolerance.",
+        "ar": "APIs محتاجة تحمّل طفرات."
+      },
+      "pros": {
+        "en": "Smooth average with bursts.",
+        "ar": "متوسط ناعم مع bursts."
+      },
+      "cons": {
+        "en": "Parameter tuning needed.",
+        "ar": "محتاج ضبط معاملات."
+      },
+      "example": {
+        "en": "Gateway token bucket per user.",
+        "ar": "token bucket على الـ gateway لكل يوزر."
+      },
+      "related": [
+        "rate-limiting",
+        "leaky-bucket"
+      ]
+    },
+    {
+      "id": "leaky-bucket",
+      "category": "resilience",
+      "name": {
+        "en": "Leaky Bucket",
+        "ar": "Leaky Bucket"
+      },
+      "short": {
+        "en": "Requests drain at a fixed rate, smoothing bursts into a steady outflow.",
+        "ar": "الطلبات تتصرف بمعدل ثابت، فتنعّم الطفرات لتدفق ثابت."
+      },
+      "definition": {
+        "en": "Requests drain at a fixed rate, smoothing bursts into a steady outflow.",
+        "ar": "الطلبات تتصرف بمعدل ثابت، فتنعّم الطفرات لتدفق ثابت."
+      },
+      "when": {
+        "en": "Protect downstream at constant rate.",
+        "ar": "حماية الـ downstream بمعدل ثابت."
+      },
+      "pros": {
+        "en": "Very smooth egress.",
+        "ar": "خروج ناعم جداً."
+      },
+      "cons": {
+        "en": "Less burst friendly.",
+        "ar": "أقل تسامحاً مع الـ bursts."
+      },
+      "example": {
+        "en": "Queue drain to payment provider at fixed QPS.",
+        "ar": "تفريغ طابور لمزوّد الدفع بـ QPS ثابت."
+      },
+      "related": [
+        "token-bucket",
+        "backpressure"
+      ]
+    },
+    {
+      "id": "backpressure",
+      "category": "resilience",
+      "name": {
+        "en": "Backpressure",
+        "ar": "Backpressure"
+      },
+      "short": {
+        "en": "Slow producers when consumers cannot keep up.",
+        "ar": "إبطاء المنتجين لما المستهلكين مش لاحقين."
+      },
+      "definition": {
+        "en": "Slow producers when consumers cannot keep up.",
+        "ar": "إبطاء المنتجين لما المستهلكين مش لاحقين."
+      },
+      "when": {
+        "en": "Pipelines with mismatched speeds.",
+        "ar": "مسارات بسرعات غير متطابقة."
+      },
+      "pros": {
+        "en": "Prevents unbounded queues.",
+        "ar": "يمنع طوابير بلا حدود."
+      },
+      "cons": {
+        "en": "Can reduce accepted throughput.",
+        "ar": "ممكن يقلل الـ throughput المقبول."
+      },
+      "example": {
+        "en": "HTTP 429 / queue full signals to clients.",
+        "ar": "إشارات HTTP 429 / طابور ممتلئ للعملاء."
+      },
+      "related": [
+        "load-shedding",
+        "rate-limiting"
+      ]
+    },
+    {
+      "id": "load-shedding",
+      "category": "resilience",
+      "name": {
+        "en": "Load Shedding",
+        "ar": "Load Shedding"
+      },
+      "short": {
+        "en": "Drop/reject lower-priority work to keep the system alive under overload.",
+        "ar": "إسقاط/رفض شغل أقل أولوية عشان النظام يفضل شغال تحت الضغط."
+      },
+      "definition": {
+        "en": "Drop/reject lower-priority work to keep the system alive under overload.",
+        "ar": "إسقاط/رفض شغل أقل أولوية عشان النظام يفضل شغال تحت الضغط."
+      },
+      "when": {
+        "en": "Overload emergencies.",
+        "ar": "حالات ضغط طارئة."
+      },
+      "pros": {
+        "en": "Protects critical path.",
+        "ar": "يحمي المسار الحرج."
+      },
+      "cons": {
+        "en": "Some users get errors.",
+        "ar": "بعض اليوزرز ياخدوا أخطاء."
+      },
+      "example": {
+        "en": "Reject expensive search during spike; keep checkout.",
+        "ar": "ارفض البحث الغالي أثناء الطفرة؛ خلّي checkout."
+      },
+      "related": [
+        "backpressure",
+        "circuit-breaker"
+      ]
+    },
+    {
+      "id": "circuit-breaker",
+      "category": "resilience",
+      "name": {
+        "en": "Circuit Breaker",
+        "ar": "Circuit Breaker"
+      },
+      "short": {
+        "en": "Stop calling a failing dependency temporarily and fail fast.",
+        "ar": "وقف نداء dependency فاشلة مؤقتاً وافشل بسرعة."
+      },
+      "definition": {
+        "en": "Stop calling a failing dependency temporarily and fail fast.",
+        "ar": "وقف نداء dependency فاشلة مؤقتاً وافشل بسرعة."
+      },
+      "when": {
+        "en": "Flaky upstreams causing cascades.",
+        "ar": "خدمات upstream متذبذبة بتعمل cascades."
+      },
+      "pros": {
+        "en": "Contains blast radius.",
+        "ar": "يحتوي نصف قطر الضرر."
+      },
+      "cons": {
+        "en": "Open circuit means degraded mode.",
+        "ar": "الدائرة المفتوحة تعني وضع متدهور."
+      },
+      "example": {
+        "en": "Fail fast to payments after 5 consecutive errors.",
+        "ar": "فشل سريع للمدفوعات بعد 5 أخطاء متتالية."
+      },
+      "related": [
+        "retry-backoff",
+        "timeout",
+        "bulkhead",
+        "fallback"
+      ]
+    },
+    {
+      "id": "bulkhead",
+      "category": "resilience",
+      "name": {
+        "en": "Bulkhead",
+        "ar": "Bulkhead"
+      },
+      "short": {
+        "en": "Isolate resources (pools/queues) so one failure does not starve everything.",
+        "ar": "عزل الموارد (pools/طوابير) عشان فشل واحد ميستنزفش كل حاجة."
+      },
+      "definition": {
+        "en": "Isolate resources (pools/queues) so one failure does not starve everything.",
+        "ar": "عزل الموارد (pools/طوابير) عشان فشل واحد ميستنزفش كل حاجة."
+      },
+      "when": {
+        "en": "Shared services with multiple workloads.",
+        "ar": "خدمات مشتركة بأحمال متعددة."
+      },
+      "pros": {
+        "en": "Failure isolation.",
+        "ar": "عزل الفشل."
+      },
+      "cons": {
+        "en": "Lower peak efficiency.",
+        "ar": "كفاءة ذروة أقل."
+      },
+      "example": {
+        "en": "Separate thread pools for search vs checkout.",
+        "ar": "thread pools منفصلة للبحث وcheckout."
+      },
+      "related": [
+        "circuit-breaker",
+        "timeout"
+      ]
+    },
+    {
+      "id": "retry-backoff",
+      "category": "resilience",
+      "name": {
+        "en": "Retry with Backoff + Jitter",
+        "ar": "إعادة محاولة مع Backoff + Jitter"
+      },
+      "short": {
+        "en": "Retry failed calls with increasing delays and randomness.",
+        "ar": "أعد محاولات النداءات الفاشلة بتأخير متزايد وعشوائية."
+      },
+      "definition": {
+        "en": "Retry failed calls with increasing delays and randomness.",
+        "ar": "أعد محاولات النداءات الفاشلة بتأخير متزايد وعشوائية."
+      },
+      "when": {
+        "en": "Transient failures.",
+        "ar": "أعطال عابرة."
+      },
+      "pros": {
+        "en": "Recovers from blips.",
+        "ar": "يتعافى من الهزات."
+      },
+      "cons": {
+        "en": "Without jitter can amplify storms.",
+        "ar": "من غير jitter ممكن يضخّم العواصف."
+      },
+      "example": {
+        "en": "Exponential backoff 100ms..2s with full jitter.",
+        "ar": "backoff أسي 100ms..2s مع jitter كامل."
+      },
+      "related": [
+        "timeout",
+        "circuit-breaker",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "timeout",
+      "category": "resilience",
+      "name": {
+        "en": "Timeout",
+        "ar": "Timeout"
+      },
+      "short": {
+        "en": "Bound how long you wait for a dependency before failing.",
+        "ar": "حد أقصى لزمن انتظار dependency قبل الفشل."
+      },
+      "definition": {
+        "en": "Bound how long you wait for a dependency before failing.",
+        "ar": "حد أقصى لزمن انتظار dependency قبل الفشل."
+      },
+      "when": {
+        "en": "Any remote call.",
+        "ar": "أي نداء بعيد."
+      },
+      "pros": {
+        "en": "Prevents stuck resources.",
+        "ar": "يمنع موارد معلّقة."
+      },
+      "cons": {
+        "en": "Too aggressive causes false failures.",
+        "ar": "العدوانية الزيادة تسبب فشل كاذب."
+      },
+      "example": {
+        "en": "200ms timeout on recommendation service.",
+        "ar": "timeout 200ms لخدمة التوصيات."
+      },
+      "related": [
+        "retry-backoff",
+        "circuit-breaker"
+      ]
+    },
+    {
+      "id": "fallback",
+      "category": "resilience",
+      "name": {
+        "en": "Fallback / Graceful Degradation",
+        "ar": "Fallback / تدهور لطيف"
+      },
+      "short": {
+        "en": "Serve a reduced but useful response when a dependency fails.",
+        "ar": "قدّم رد مخفّف لكن مفيد لما dependency تفشل."
+      },
+      "definition": {
+        "en": "Serve a reduced but useful response when a dependency fails.",
+        "ar": "قدّم رد مخفّف لكن مفيد لما dependency تفشل."
+      },
+      "when": {
+        "en": "Non-critical personalization paths.",
+        "ar": "مسارات تخصيص غير حرجة."
+      },
+      "pros": {
+        "en": "Keeps UX partially working.",
+        "ar": "يبقي جزء من التجربة شغال."
+      },
+      "cons": {
+        "en": "Lower quality results.",
+        "ar": "نتائج بجودة أقل."
+      },
+      "example": {
+        "en": "Show popular items if recommendations are down.",
+        "ar": "اعرض العناصر الشائعة لو التوصيات واقفة."
+      },
+      "related": [
+        "circuit-breaker",
+        "cache-aside"
+      ]
+    },
+    {
+      "id": "health-check",
+      "category": "ops",
+      "name": {
+        "en": "Health Checks",
+        "ar": "فحوصات الصحة"
+      },
+      "short": {
+        "en": "Liveness/readiness probes to decide if an instance should receive traffic.",
+        "ar": "فحوصات liveness/readiness لتقرير إذا الـ instance تستقبل ترافيك."
+      },
+      "definition": {
+        "en": "Liveness/readiness probes to decide if an instance should receive traffic.",
+        "ar": "فحوصات liveness/readiness لتقرير إذا الـ instance تستقبل ترافيك."
+      },
+      "when": {
+        "en": "Orchestrators and load balancers.",
+        "ar": "منسّقات وموازنات حمل."
+      },
+      "pros": {
+        "en": "Removes bad instances.",
+        "ar": "يشيل الـ instances العاطلة."
+      },
+      "cons": {
+        "en": "Bad checks cause flapping.",
+        "ar": "فحوصات غلط بتعمل flapping."
+      },
+      "example": {
+        "en": "K8s readiness on /healthz.",
+        "ar": "K8s readiness على /healthz."
+      },
+      "related": [
+        "load-balancer",
+        "blue-green"
+      ]
+    },
+    {
+      "id": "load-balancer",
+      "category": "networking",
+      "name": {
+        "en": "Load Balancer",
+        "ar": "Load Balancer"
+      },
+      "short": {
+        "en": "Distributes traffic across instances (L4/L7 algorithms).",
+        "ar": "يوزّع الترافيك على الـ instances (خوارزميات L4/L7)."
+      },
+      "definition": {
+        "en": "Distributes traffic across instances (L4/L7 algorithms).",
+        "ar": "يوزّع الترافيك على الـ instances (خوارزميات L4/L7)."
+      },
+      "when": {
+        "en": "Any horizontally scaled service.",
+        "ar": "أي خدمة متوسعة أفقياً."
+      },
+      "pros": {
+        "en": "Enables HA and scale-out.",
+        "ar": "يمكّن HA والتوسع."
+      },
+      "cons": {
+        "en": "Can become bottleneck/SPOF if not HA.",
+        "ar": "ممكن يبقى bottleneck/SPOF لو مش HA."
+      },
+      "example": {
+        "en": "Least-connections for HTTP APIs; sticky for WS.",
+        "ar": "least-connections لـ HTTP؛ sticky للـ WS."
+      },
+      "related": [
+        "health-check",
+        "consistent-hashing"
+      ]
+    },
+    {
+      "id": "geo-dns",
+      "category": "networking",
+      "name": {
+        "en": "Geo-DNS",
+        "ar": "Geo-DNS"
+      },
+      "short": {
+        "en": "DNS that routes users to nearby regions/edges based on location.",
+        "ar": "DNS يوجّه اليوزرز لأقرب مناطق/edges حسب الموقع."
+      },
+      "definition": {
+        "en": "DNS that routes users to nearby regions/edges based on location.",
+        "ar": "DNS يوجّه اليوزرز لأقرب مناطق/edges حسب الموقع."
+      },
+      "when": {
+        "en": "Global user bases.",
+        "ar": "قواعد يوزرز عالمية."
+      },
+      "pros": {
+        "en": "Lower latency routing.",
+        "ar": "توجيه بـ latency أقل."
+      },
+      "cons": {
+        "en": "DNS caching delays failover.",
+        "ar": "كاش DNS يأخّر الـ failover."
+      },
+      "example": {
+        "en": "Route EU users to eu-west API.",
+        "ar": "وجّه يوزرز أوروبا لـ API في eu-west."
+      },
+      "related": [
+        "cdn",
+        "multi-region"
+      ]
+    },
+    {
+      "id": "multi-region",
+      "category": "networking",
+      "name": {
+        "en": "Multi-Region",
+        "ar": "Multi-Region"
+      },
+      "short": {
+        "en": "Run active or standby capacity in multiple geographic regions.",
+        "ar": "تشغيل سعة نشطة أو احتياطية في مناطق جغرافية متعددة."
+      },
+      "definition": {
+        "en": "Run active or standby capacity in multiple geographic regions.",
+        "ar": "تشغيل سعة نشطة أو احتياطية في مناطق جغرافية متعددة."
+      },
+      "when": {
+        "en": "Global latency and DR.",
+        "ar": "latency عالمي وDR."
+      },
+      "pros": {
+        "en": "Survives region outages.",
+        "ar": "يتحمّل سقوط منطقة."
+      },
+      "cons": {
+        "en": "Data locality/consistency complexity.",
+        "ar": "تعقيد محلية/اتساق البيانات."
+      },
+      "example": {
+        "en": "Active-passive DB with traffic shift on outage.",
+        "ar": "DB active-passive مع تحويل الترافيك عند الانقطاع."
+      },
+      "related": [
+        "geo-dns",
+        "replication",
+        "rpo-rto"
+      ]
+    },
+    {
+      "id": "rpo-rto",
+      "category": "ops",
+      "name": {
+        "en": "RPO / RTO",
+        "ar": "RPO / RTO"
+      },
+      "short": {
+        "en": "Recovery Point/Time Objectives: how much data/time you can lose in a disaster.",
+        "ar": "أهداف نقطة/زمن الاستعادة: قد إيه بيانات/وقت تقدر تضيع في كارثة."
+      },
+      "definition": {
+        "en": "Recovery Point/Time Objectives: how much data/time you can lose in a disaster.",
+        "ar": "أهداف نقطة/زمن الاستعادة: قد إيه بيانات/وقت تقدر تضيع في كارثة."
+      },
+      "when": {
+        "en": "DR planning.",
+        "ar": "تخطيط DR."
+      },
+      "pros": {
+        "en": "Makes DR measurable.",
+        "ar": "يخلي الـ DR قابل للقياس."
+      },
+      "cons": {
+        "en": "Tighter objectives cost more.",
+        "ar": "الأهداف الأضيق أغلى."
+      },
+      "example": {
+        "en": "RPO near-zero via async replication; RTO < 5 min.",
+        "ar": "RPO قريب من صفر بنسخ async؛ RTO أقل من 5 دقايق."
+      },
+      "related": [
+        "multi-region",
+        "replication"
+      ]
+    },
+    {
+      "id": "api-gateway",
+      "category": "architecture",
+      "name": {
+        "en": "API Gateway",
+        "ar": "API Gateway"
+      },
+      "short": {
+        "en": "Edge entrypoint for auth, routing, rate limits, TLS, aggregation.",
+        "ar": "نقطة دخول طرفية للمصادقة والتوجيه وحدود المعدل وTLS والتجميع."
+      },
+      "definition": {
+        "en": "Edge entrypoint for auth, routing, rate limits, TLS, aggregation.",
+        "ar": "نقطة دخول طرفية للمصادقة والتوجيه وحدود المعدل وTLS والتجميع."
+      },
+      "when": {
+        "en": "Many backend services behind one client API.",
+        "ar": "خدمات خلفية كتير خلف API واحد للعميل."
+      },
+      "pros": {
+        "en": "Central policy enforcement.",
+        "ar": "فرض سياسات مركزي."
+      },
+      "cons": {
+        "en": "Can become bottleneck.",
+        "ar": "ممكن يبقى bottleneck."
+      },
+      "example": {
+        "en": "Kong/NGINX gateway in front of microservices.",
+        "ar": "gateway Kong/NGINX قدام microservices."
+      },
+      "related": [
+        "bff",
+        "rate-limiting",
+        "authn-authz"
+      ]
+    },
+    {
+      "id": "bff",
+      "category": "architecture",
+      "name": {
+        "en": "Backend for Frontend (BFF)",
+        "ar": "Backend for Frontend (BFF)"
+      },
+      "short": {
+        "en": "Per-client-type backend tailored to that UI’s needs.",
+        "ar": "خلفية لكل نوع عميل مخصّصة لاحتياجات واجهته."
+      },
+      "definition": {
+        "en": "Per-client-type backend tailored to that UI’s needs.",
+        "ar": "خلفية لكل نوع عميل مخصّصة لاحتياجات واجهته."
+      },
+      "when": {
+        "en": "Mobile vs web needing different shapes.",
+        "ar": "موبايل مقابل ويب بأشكال مختلفة."
+      },
+      "pros": {
+        "en": "Avoids over-fetching for each client.",
+        "ar": "يتجنب over-fetching لكل عميل."
+      },
+      "cons": {
+        "en": "Duplication across BFFs.",
+        "ar": "تكرار عبر الـ BFFs."
+      },
+      "example": {
+        "en": "Mobile BFF aggregates profile+feed.",
+        "ar": "Mobile BFF يجمّع profile+feed."
+      },
+      "related": [
+        "api-gateway"
+      ]
+    },
+    {
+      "id": "service-mesh",
+      "category": "architecture",
+      "name": {
+        "en": "Service Mesh / Sidecar",
+        "ar": "Service Mesh / Sidecar"
+      },
+      "short": {
+        "en": "Out-of-process proxies handling mTLS, retries, metrics between services.",
+        "ar": "بروكسيات خارج العملية تتولى mTLS وإعادة المحاولة والمقاييس بين الخدمات."
+      },
+      "definition": {
+        "en": "Out-of-process proxies handling mTLS, retries, metrics between services.",
+        "ar": "بروكسيات خارج العملية تتولى mTLS وإعادة المحاولة والمقاييس بين الخدمات."
+      },
+      "when": {
+        "en": "Many microservices needing uniform networking policy.",
+        "ar": "microservices كتير محتاجة سياسة شبكات موحّدة."
+      },
+      "pros": {
+        "en": "Cross-cutting concerns without app code.",
+        "ar": "اهتمامات مشتركة من غير كود التطبيق."
+      },
+      "cons": {
+        "en": "Operational complexity.",
+        "ar": "تعقيد تشغيلي."
+      },
+      "example": {
+        "en": "Istio/Linkerd sidecars.",
+        "ar": "sidecars Istio/Linkerd."
+      },
+      "related": [
+        "circuit-breaker",
+        "retry-backoff",
+        "observability"
+      ]
+    },
+    {
+      "id": "strangler-fig",
+      "category": "architecture",
+      "name": {
+        "en": "Strangler Fig",
+        "ar": "Strangler Fig"
+      },
+      "short": {
+        "en": "Gradually replace a legacy system by routing pieces to new services.",
+        "ar": "استبدال نظام قديم تدريجياً بتوجيه أجزاء للخدمات الجديدة."
+      },
+      "definition": {
+        "en": "Gradually replace a legacy system by routing pieces to new services.",
+        "ar": "استبدال نظام قديم تدريجياً بتوجيه أجزاء للخدمات الجديدة."
+      },
+      "when": {
+        "en": "Monolith migrations.",
+        "ar": "ترحيل الـ monolith."
+      },
+      "pros": {
+        "en": "Incremental, lower risk.",
+        "ar": "تدريجي وأقل مخاطرة."
+      },
+      "cons": {
+        "en": "Routing must stay accurate for a long time.",
+        "ar": "التوجيه لازم يفضل دقيق لفترة طويلة."
+      },
+      "example": {
+        "en": "Route /orders to new service, rest to monolith.",
+        "ar": "وجّه /orders للخدمة الجديدة والباقي للـ monolith."
+      },
+      "related": [
+        "anti-corruption-layer",
+        "feature-flags"
+      ]
+    },
+    {
+      "id": "anti-corruption-layer",
+      "category": "architecture",
+      "name": {
+        "en": "Anti-Corruption Layer",
+        "ar": "Anti-Corruption Layer"
+      },
+      "short": {
+        "en": "Translation layer protecting a new domain from legacy models.",
+        "ar": "طبقة ترجمة تحمي نطاقاً جديداً من نماذج الـ legacy."
+      },
+      "definition": {
+        "en": "Translation layer protecting a new domain from legacy models.",
+        "ar": "طبقة ترجمة تحمي نطاقاً جديداً من نماذج الـ legacy."
+      },
+      "when": {
+        "en": "Integrating with messy legacy systems.",
+        "ar": "التكامل مع أنظمة legacy مشوهة."
+      },
+      "pros": {
+        "en": "Keeps new model clean.",
+        "ar": "يبقي النموذج الجديد نظيف."
+      },
+      "cons": {
+        "en": "Extra translation code.",
+        "ar": "كود ترجمة إضافي."
+      },
+      "example": {
+        "en": "Adapter maps legacy order schema to new model.",
+        "ar": "Adapter يحوّل schema الطلب القديم للنموذج الجديد."
+      },
+      "related": [
+        "strangler-fig"
+      ]
+    },
+    {
+      "id": "serverless",
+      "category": "architecture",
+      "name": {
+        "en": "Serverless",
+        "ar": "Serverless"
+      },
+      "short": {
+        "en": "Run code on managed compute that scales per event/request.",
+        "ar": "تشغيل كود على compute مُدار بيتوسع حسب الحدث/الطلب."
+      },
+      "definition": {
+        "en": "Run code on managed compute that scales per event/request.",
+        "ar": "تشغيل كود على compute مُدار بيتوسع حسب الحدث/الطلب."
+      },
+      "when": {
+        "en": "Bursty or glue workloads.",
+        "ar": "أحمال متقطعة أو ربط."
+      },
+      "pros": {
+        "en": "No server ops; scales to zero.",
+        "ar": "من غير تشغيل سيرفرات؛ يتوسع للصفر."
+      },
+      "cons": {
+        "en": "Cold starts and vendor limits.",
+        "ar": "cold starts وحدود المزوّد."
+      },
+      "example": {
+        "en": "S3 event → Lambda image resize.",
+        "ar": "حدث S3 → Lambda لتصغير الصور."
+      },
+      "related": [
+        "event-driven",
+        "message-queue"
+      ]
+    },
+    {
+      "id": "blue-green",
+      "category": "ops",
+      "name": {
+        "en": "Blue-Green Deployment",
+        "ar": "Blue-Green Deployment"
+      },
+      "short": {
+        "en": "Two identical environments; switch traffic after validating the new one.",
+        "ar": "بيئتين متطابقتين؛ حوّل الترافيك بعد التحقق من الجديدة."
+      },
+      "definition": {
+        "en": "Two identical environments; switch traffic after validating the new one.",
+        "ar": "بيئتين متطابقتين؛ حوّل الترافيك بعد التحقق من الجديدة."
+      },
+      "when": {
+        "en": "Zero-downtime releases with fast rollback.",
+        "ar": "إصدارات بدون downtime مع rollback سريع."
+      },
+      "pros": {
+        "en": "Instant switchback.",
+        "ar": "رجوع فوري."
+      },
+      "cons": {
+        "en": "Temporarily double capacity cost.",
+        "ar": "تكلفة سعة مضاعفة مؤقتاً."
+      },
+      "example": {
+        "en": "LB switch from blue to green after smoke tests.",
+        "ar": "تحويل LB من blue لـ green بعد smoke tests."
+      },
+      "related": [
+        "canary",
+        "feature-flags"
+      ]
+    },
+    {
+      "id": "canary",
+      "category": "ops",
+      "name": {
+        "en": "Canary Release",
+        "ar": "Canary Release"
+      },
+      "short": {
+        "en": "Send a small percentage of traffic to the new version first.",
+        "ar": "ارسال نسبة صغيرة من الترافيك للنسخة الجديدة أولاً."
+      },
+      "definition": {
+        "en": "Send a small percentage of traffic to the new version first.",
+        "ar": "ارسال نسبة صغيرة من الترافيك للنسخة الجديدة أولاً."
+      },
+      "when": {
+        "en": "Risky changes needing gradual confidence.",
+        "ar": "تغييرات خطرة محتاجة ثقة تدريجية."
+      },
+      "pros": {
+        "en": "Limits blast radius.",
+        "ar": "يحد من نصف قطر الضرر."
+      },
+      "cons": {
+        "en": "Needs good comparison metrics.",
+        "ar": "محتاج مقاييس مقارنة كويسة."
+      },
+      "example": {
+        "en": "1% traffic on new build.",
+        "ar": "1% ترافيك على البناء الجديد."
+      },
+      "related": [
+        "feature-flags",
+        "blue-green",
+        "observability"
+      ]
+    },
+    {
+      "id": "feature-flags",
+      "category": "ops",
+      "name": {
+        "en": "Feature Flags",
+        "ar": "Feature Flags"
+      },
+      "short": {
+        "en": "Runtime toggles separating deploy from release.",
+        "ar": "مفاتيح تشغيل تفصل الـ deploy عن الـ release."
+      },
+      "definition": {
+        "en": "Runtime toggles separating deploy from release.",
+        "ar": "مفاتيح تشغيل تفصل الـ deploy عن الـ release."
+      },
+      "when": {
+        "en": "Experiments and kill switches.",
+        "ar": "تجارب وkill switches."
+      },
+      "pros": {
+        "en": "Instant disable without redeploy.",
+        "ar": "إيقاف فوري من غير redeploy."
+      },
+      "cons": {
+        "en": "Flag debt if not cleaned.",
+        "ar": "دين أعلام لو ما اتنضفتش."
+      },
+      "example": {
+        "en": "Kill switch for expensive recommendation path.",
+        "ar": "kill switch لمسار توصيات غالي."
+      },
+      "related": [
+        "canary",
+        "strangler-fig"
+      ]
+    },
+    {
+      "id": "observability",
+      "category": "ops",
+      "name": {
+        "en": "Observability (Metrics/Logs/Traces)",
+        "ar": "الملاحظة (Metrics/Logs/Traces)"
+      },
+      "short": {
+        "en": "Telemetry pillars to understand system behavior in production.",
+        "ar": "ركائز القياس لفهم سلوك النظام في الإنتاج."
+      },
+      "definition": {
+        "en": "Telemetry pillars to understand system behavior in production.",
+        "ar": "ركائز القياس لفهم سلوك النظام في الإنتاج."
+      },
+      "when": {
+        "en": "Any production system.",
+        "ar": "أي نظام إنتاج."
+      },
+      "pros": {
+        "en": "Faster incident diagnosis.",
+        "ar": "تشخيص حوادث أسرع."
+      },
+      "cons": {
+        "en": "Cardinality/cost of telemetry.",
+        "ar": "cardinality/تكلفة القياس."
+      },
+      "example": {
+        "en": "RED metrics + distributed traces on checkout.",
+        "ar": "مقاييس RED + traces موزّعة على checkout."
+      },
+      "related": [
+        "slo",
+        "health-check"
+      ]
+    },
+    {
+      "id": "slo",
+      "category": "ops",
+      "name": {
+        "en": "SLO / Error Budget",
+        "ar": "SLO / Error Budget"
+      },
+      "short": {
+        "en": "Service level objectives and the allowed unreliability budget.",
+        "ar": "أهداف مستوى الخدمة وميزانية عدم الموثوقية المسموحة."
+      },
+      "definition": {
+        "en": "Service level objectives and the allowed unreliability budget.",
+        "ar": "أهداف مستوى الخدمة وميزانية عدم الموثوقية المسموحة."
+      },
+      "when": {
+        "en": "Balancing velocity vs reliability.",
+        "ar": "الموازنة بين السرعة والموثوقية."
+      },
+      "pros": {
+        "en": "Data-driven release decisions.",
+        "ar": "قرارات إصدار مبنية على بيانات."
+      },
+      "cons": {
+        "en": "Needs careful SLO selection.",
+        "ar": "محتاج اختيار SLO بعناية."
+      },
+      "example": {
+        "en": "p99 latency SLO with monthly error budget.",
+        "ar": "SLO لـ p99 latency مع ميزانية خطأ شهرية."
+      },
+      "related": [
+        "observability",
+        "canary"
+      ]
+    },
+    {
+      "id": "authn-authz",
+      "category": "security",
+      "name": {
+        "en": "Authn / Authz",
+        "ar": "Authn / Authz"
+      },
+      "short": {
+        "en": "Authentication verifies identity; authorization checks permissions.",
+        "ar": "المصادقة تثبت الهوية؛ والتفويض يتحقق من الصلاحيات."
+      },
+      "definition": {
+        "en": "Authentication verifies identity; authorization checks permissions.",
+        "ar": "المصادقة تثبت الهوية؛ والتفويض يتحقق من الصلاحيات."
+      },
+      "when": {
+        "en": "Any user-facing or service API.",
+        "ar": "أي API موجّه ليوزر أو خدمة."
+      },
+      "pros": {
+        "en": "Controls access.",
+        "ar": "يتحكم في الوصول."
+      },
+      "cons": {
+        "en": "Misconfig causes breaches or lockouts.",
+        "ar": "سوء الإعداد يسبب اختراق أو حظر."
+      },
+      "example": {
+        "en": "OAuth2 login + RBAC on APIs.",
+        "ar": "تسجيل OAuth2 + RBAC على الـ APIs."
+      },
+      "related": [
+        "api-gateway",
+        "encryption"
+      ]
+    },
+    {
+      "id": "encryption",
+      "category": "security",
+      "name": {
+        "en": "Encryption (in transit / at rest)",
+        "ar": "التشفير (أثناء النقل / عند الراحة)"
+      },
+      "short": {
+        "en": "Protect data on the wire and on disk with cryptography.",
+        "ar": "حماية البيانات على الشبكة وعلى القرص بالتشفير."
+      },
+      "definition": {
+        "en": "Protect data on the wire and on disk with cryptography.",
+        "ar": "حماية البيانات على الشبكة وعلى القرص بالتشفير."
+      },
+      "when": {
+        "en": "Sensitive user/business data.",
+        "ar": "بيانات يوزر/أعمال حساسة."
+      },
+      "pros": {
+        "en": "Confidentiality.",
+        "ar": "السرية."
+      },
+      "cons": {
+        "en": "Key management complexity.",
+        "ar": "تعقيد إدارة المفاتيح."
+      },
+      "example": {
+        "en": "TLS everywhere + KMS-encrypted S3.",
+        "ar": "TLS في كل حتة + S3 مشفّر بـ KMS."
+      },
+      "related": [
+        "authn-authz",
+        "e2ee"
+      ]
+    },
+    {
+      "id": "e2ee",
+      "category": "security",
+      "name": {
+        "en": "End-to-End Encryption",
+        "ar": "تشفير طرف لطرف"
+      },
+      "short": {
+        "en": "Only endpoints can read content; servers relay ciphertext.",
+        "ar": "الأطراف فقط تقدر تقرأ المحتوى؛ السيرفرات تمرّر نص مشفّر."
+      },
+      "definition": {
+        "en": "Only endpoints can read content; servers relay ciphertext.",
+        "ar": "الأطراف فقط تقدر تقرأ المحتوى؛ السيرفرات تمرّر نص مشفّر."
+      },
+      "when": {
+        "en": "Private messaging.",
+        "ar": "مراسلة خاصة."
+      },
+      "pros": {
+        "en": "Strong privacy.",
+        "ar": "خصوصية قوية."
+      },
+      "cons": {
+        "en": "Limits server-side features/moderation.",
+        "ar": "يحد من ميزات/إشراف السيرفر."
+      },
+      "example": {
+        "en": "Signal Protocol for chat messages.",
+        "ar": "بروتوكول Signal لرسائل الشات."
+      },
+      "related": [
+        "encryption"
+      ]
+    },
+    {
+      "id": "geohash",
+      "category": "search",
+      "name": {
+        "en": "Geohash / Quadtree",
+        "ar": "Geohash / Quadtree"
+      },
+      "short": {
+        "en": "Spatial indexes encoding location into hierarchical cells.",
+        "ar": "فهارس مكانية ترمّز الموقع لخلايا هرمية."
+      },
+      "definition": {
+        "en": "Spatial indexes encoding location into hierarchical cells.",
+        "ar": "فهارس مكانية ترمّز الموقع لخلايا هرمية."
+      },
+      "when": {
+        "en": "Nearby/geo queries.",
+        "ar": "استعلامات قرب/جغرافيا."
+      },
+      "pros": {
+        "en": "Efficient geo lookup.",
+        "ar": "بحث جغرافي كفء."
+      },
+      "cons": {
+        "en": "Boundary edge cases.",
+        "ar": "حالات حدود الخلايا."
+      },
+      "example": {
+        "en": "Driver location stored as geohash prefix.",
+        "ar": "موقع السائق كـ geohash prefix."
+      },
+      "related": [
+        "scatter-gather"
+      ]
+    },
+    {
+      "id": "scatter-gather",
+      "category": "search",
+      "name": {
+        "en": "Scatter-Gather",
+        "ar": "Scatter-Gather"
+      },
+      "short": {
+        "en": "Fan out a query to many shards then merge results.",
+        "ar": "وزّع الاستعلام على shards كتير ثم ادمج النتائج."
+      },
+      "definition": {
+        "en": "Fan out a query to many shards then merge results.",
+        "ar": "وزّع الاستعلام على shards كتير ثم ادمج النتائج."
+      },
+      "when": {
+        "en": "Search/analytics across partitions.",
+        "ar": "بحث/تحليلات عبر partitions."
+      },
+      "pros": {
+        "en": "Parallelizes large queries.",
+        "ar": "يوازي الاستعلامات الكبيرة."
+      },
+      "cons": {
+        "en": "Tail latency dominated by slowest shard.",
+        "ar": "latency الذيل يتحكم فيه أبطأ shard."
+      },
+      "example": {
+        "en": "Search coordinator merges top-k from each shard.",
+        "ar": "منسّق البحث يدمج top-k من كل shard."
+      },
+      "related": [
+        "sharding",
+        "inverted-index"
+      ]
+    },
+    {
+      "id": "hyperloglog",
+      "category": "search",
+      "name": {
+        "en": "HyperLogLog",
+        "ar": "HyperLogLog"
+      },
+      "short": {
+        "en": "Probabilistic structure estimating unique counts with tiny memory.",
+        "ar": "هيكل احتمالي يقدّر الأعداد الفريدة بذاكرة صغيرة."
+      },
+      "definition": {
+        "en": "Probabilistic structure estimating unique counts with tiny memory.",
+        "ar": "هيكل احتمالي يقدّر الأعداد الفريدة بذاكرة صغيرة."
+      },
+      "when": {
+        "en": "Unique visitors / cardinality.",
+        "ar": "زوّار فريدون / cardinality."
+      },
+      "pros": {
+        "en": "Tiny memory for huge sets.",
+        "ar": "ذاكرة صغيرة لمجموعات ضخمة."
+      },
+      "cons": {
+        "en": "Approximate, not exact.",
+        "ar": "تقريبي مش دقيق."
+      },
+      "example": {
+        "en": "Redis HLL for DAU.",
+        "ar": "Redis HLL لـ DAU."
+      },
+      "related": [
+        "count-min-sketch",
+        "stream-processing"
+      ]
+    },
+    {
+      "id": "count-min-sketch",
+      "category": "search",
+      "name": {
+        "en": "Count-Min Sketch",
+        "ar": "Count-Min Sketch"
+      },
+      "short": {
+        "en": "Probabilistic frequency estimator for heavy hitters.",
+        "ar": "مقدّر تردد احتمالي للعناصر الثقيلة."
+      },
+      "definition": {
+        "en": "Probabilistic frequency estimator for heavy hitters.",
+        "ar": "مقدّر تردد احتمالي للعناصر الثقيلة."
+      },
+      "when": {
+        "en": "Top-K / heavy hitters in streams.",
+        "ar": "Top-K / heavy hitters في الـ streams."
+      },
+      "pros": {
+        "en": "Fixed tiny memory.",
+        "ar": "ذاكرة ثابتة صغيرة."
+      },
+      "cons": {
+        "en": "Over-estimates possible.",
+        "ar": "ممكن يبالغ في التقدير."
+      },
+      "example": {
+        "en": "Detect viral short links in a stream.",
+        "ar": "اكتشاف روابط قصيرة فيروسية في stream."
+      },
+      "related": [
+        "hyperloglog",
+        "stream-processing"
+      ]
+    },
+    {
+      "id": "stream-processing",
+      "category": "search",
+      "name": {
+        "en": "Stream Processing",
+        "ar": "معالجة الـ Streams"
+      },
+      "short": {
+        "en": "Continuous computation over event streams (vs batch).",
+        "ar": "حوسبة مستمرة على تيارات أحداث (مقابل batch)."
+      },
+      "definition": {
+        "en": "Continuous computation over event streams (vs batch).",
+        "ar": "حوسبة مستمرة على تيارات أحداث (مقابل batch)."
+      },
+      "when": {
+        "en": "Realtime analytics/fraud.",
+        "ar": "تحليلات/احتيال في الوقت الفعلي."
+      },
+      "pros": {
+        "en": "Low-latency insights.",
+        "ar": "رؤى بـ latency واطي."
+      },
+      "cons": {
+        "en": "Harder exactly-once ops.",
+        "ar": "عمليات exactly-once أصعب."
+      },
+      "example": {
+        "en": "Kafka Streams fraud scores.",
+        "ar": "درجات احتيال بـ Kafka Streams."
+      },
+      "related": [
+        "kafka",
+        "mapreduce",
+        "lambda-architecture"
+      ]
+    },
+    {
+      "id": "mapreduce",
+      "category": "search",
+      "name": {
+        "en": "MapReduce",
+        "ar": "MapReduce"
+      },
+      "short": {
+        "en": "Batch parallel map then reduce over large datasets.",
+        "ar": "معالجة دفعية متوازية map ثم reduce على بيانات كبيرة."
+      },
+      "definition": {
+        "en": "Batch parallel map then reduce over large datasets.",
+        "ar": "معالجة دفعية متوازية map ثم reduce على بيانات كبيرة."
+      },
+      "when": {
+        "en": "Large offline ETL/analytics.",
+        "ar": "ETL/تحليلات offline كبيرة."
+      },
+      "pros": {
+        "en": "Scales over commodity clusters.",
+        "ar": "يتوسع على كلسترات رخيصة."
+      },
+      "cons": {
+        "en": "High latency vs streaming.",
+        "ar": "latency عالي مقابل الـ streaming."
+      },
+      "example": {
+        "en": "Nightly aggregation jobs.",
+        "ar": "مهام تجميع ليلية."
+      },
+      "related": [
+        "stream-processing",
+        "lambda-architecture"
+      ]
+    },
+    {
+      "id": "lambda-architecture",
+      "category": "search",
+      "name": {
+        "en": "Lambda / Kappa Architecture",
+        "ar": "معمارية Lambda / Kappa"
+      },
+      "short": {
+        "en": "Lambda = batch + speed layers; Kappa = single streaming log replay.",
+        "ar": "Lambda = طبقات batch + speed؛ Kappa = سجل streaming واحد مع replay."
+      },
+      "definition": {
+        "en": "Lambda = batch + speed layers; Kappa = single streaming log replay.",
+        "ar": "Lambda = طبقات batch + speed؛ Kappa = سجل streaming واحد مع replay."
+      },
+      "when": {
+        "en": "Large analytics platforms.",
+        "ar": "منصات تحليلات كبيرة."
+      },
+      "pros": {
+        "en": "Handles realtime + historical views.",
+        "ar": "يغطي رؤى realtime وتاريخية."
+      },
+      "cons": {
+        "en": "Lambda dual pipelines are costly.",
+        "ar": "مسارات Lambda المزدوجة غالية."
+      },
+      "example": {
+        "en": "Prefer Kappa when the log is source of truth.",
+        "ar": "فضّل Kappa لما الـ log يكون مصدر الحقيقة."
+      },
+      "related": [
+        "stream-processing",
+        "kafka",
+        "mapreduce"
+      ]
+    },
+    {
+      "id": "multi-tenancy",
+      "category": "architecture",
+      "name": {
+        "en": "Multi-Tenancy",
+        "ar": "Multi-Tenancy"
+      },
+      "short": {
+        "en": "Serve many customers from shared infrastructure with isolation.",
+        "ar": "خدمة عملاء كتير من بنية مشتركة مع عزل."
+      },
+      "definition": {
+        "en": "Serve many customers from shared infrastructure with isolation.",
+        "ar": "خدمة عملاء كتير من بنية مشتركة مع عزل."
+      },
+      "when": {
+        "en": "SaaS products.",
+        "ar": "منتجات SaaS."
+      },
+      "pros": {
+        "en": "Cost efficiency.",
+        "ar": "كفاءة تكلفة."
+      },
+      "cons": {
+        "en": "Noisy neighbors / isolation trade-offs.",
+        "ar": "جيران مزعجون / مقايضات عزل."
+      },
+      "example": {
+        "en": "tenant_id on rows + per-tenant rate limits.",
+        "ar": "tenant_id على الصفوف + حدود معدل لكل مستأجر."
+      },
+      "related": [
+        "rate-limiting",
+        "sharding"
+      ]
+    },
+    {
+      "id": "zero-downtime-migration",
+      "category": "ops",
+      "name": {
+        "en": "Zero-Downtime Migration",
+        "ar": "ترحيل بدون توقف"
+      },
+      "short": {
+        "en": "Schema/data changes applied safely without taking the service down.",
+        "ar": "تغييرات schema/بيانات تطبَّق بأمان من غير إيقاف الخدمة."
+      },
+      "definition": {
+        "en": "Schema/data changes applied safely without taking the service down.",
+        "ar": "تغييرات schema/بيانات تطبَّق بأمان من غير إيقاف الخدمة."
+      },
+      "when": {
+        "en": "Production schema evolution.",
+        "ar": "تطور schema في الإنتاج."
+      },
+      "pros": {
+        "en": "Continuous availability.",
+        "ar": "توافر مستمر."
+      },
+      "cons": {
+        "en": "Multi-step expand/contract complexity.",
+        "ar": "تعقيد expand/contract متعدد الخطوات."
+      },
+      "example": {
+        "en": "Add nullable column → dual write → backfill → switch.",
+        "ar": "أضف عمود nullable → كتابة مزدوجة → backfill → تحويل."
+      },
+      "related": [
+        "feature-flags",
+        "strangler-fig"
+      ]
+    },
+    {
+      "id": "time-series-db",
+      "category": "data",
+      "name": {
+        "en": "Time-Series Storage",
+        "ar": "تخزين السلاسل الزمنية"
+      },
+      "short": {
+        "en": "Stores optimized for timestamped metrics/events.",
+        "ar": "مخازن مُحسَّنة لمقاييس/أحداث بختم زمني."
+      },
+      "definition": {
+        "en": "Stores optimized for timestamped metrics/events.",
+        "ar": "مخازن مُحسَّنة لمقاييس/أحداث بختم زمني."
+      },
+      "when": {
+        "en": "Monitoring, IoT, analytics.",
+        "ar": "مراقبة، IoT، تحليلات."
+      },
+      "pros": {
+        "en": "Efficient time-range queries/compression.",
+        "ar": "استعلامات نطاق زمني وضغط كفء."
+      },
+      "cons": {
+        "en": "Not ideal for arbitrary mutations.",
+        "ar": "مش مثالي لتعديلات عشوائية."
+      },
+      "example": {
+        "en": "Prometheus / Timescale / ClickHouse.",
+        "ar": "Prometheus / Timescale / ClickHouse."
+      },
+      "related": [
+        "observability",
+        "stream-processing"
+      ]
+    }
+  ]
+}

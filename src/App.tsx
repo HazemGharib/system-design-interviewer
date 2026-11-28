@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, type ReactNode, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, useCallback, type ReactNode, type ChangeEvent, type CSSProperties } from 'react';
 import type { Lang, Level, Scenario, Stage, SavedScenarioState, GlobalState, ChecklistItem } from './types';
 import { SCENARIOS, getScenarioById } from './scenarios';
 import { t, localizedText } from './i18n';
@@ -9,14 +9,32 @@ import { ChaosToggle, ChaosIncidentCard } from './components/ChaosMode';
 import { TradeoffCards } from './components/TradeoffCards';
 import { RadarChart } from './components/RadarChart';
 import { CheatSheet } from './components/CheatSheet';
+import { Glossary } from './components/Glossary';
+import { LinkedText } from './components/TermLink';
+import { GLOSSARY } from './content/loadContent';
 import { emptyDrawing } from './interactive/drawingData';
 import { emptyCapacity } from './interactive/capacityData';
 import { emptyChaos } from './interactive/chaosData';
 import { emptyTradeoffs } from './interactive/tradeoffData';
 import { computeRadarScores, overallFromRadar } from './interactive/radar';
 
+const ALL_TERM_IDS = GLOSSARY.terms.map(term => term.id);
+
 const TOTAL_SECONDS = 45 * 60;
-const STORAGE_KEY = 'sysdesign-interview-v4';
+const STORAGE_KEY = 'sysdesign-interview-v5';
+
+type AppRoute =
+  | { name: 'home' }
+  | { name: 'cheatsheet' }
+  | { name: 'glossary'; termId?: string };
+
+function parseHash(): AppRoute {
+  const hash = typeof location !== 'undefined' ? location.hash : '';
+  if (hash === '#/cheatsheet') return { name: 'cheatsheet' };
+  const gloss = hash.match(/^#\/glossary(?:\/([^/?#]+))?$/);
+  if (gloss) return { name: 'glossary', termId: gloss[1] ? decodeURIComponent(gloss[1]) : undefined };
+  return { name: 'home' };
+}
 
 function getDefaultScenarioState(scenario: Scenario, level: Level, chaosEnabled = false): SavedScenarioState {
   const ticks: Record<string, boolean[]> = {};
@@ -191,7 +209,12 @@ function BodyText({ children, muted }: { children: ReactNode; muted?: boolean })
   return <p style={{ fontSize: '1rem', lineHeight: 1.7, color: muted ? 'var(--text-secondary)' : 'var(--text-primary)', margin: '0 0 20px' }}>{children}</p>;
 }
 
-function Hero({ lang, onOpenCheatsheet }: { lang: Lang; onOpenCheatsheet?: () => void }) {
+function Hero({ lang, onOpenCheatsheet, onOpenGlossary }: { lang: Lang; onOpenCheatsheet?: () => void; onOpenGlossary?: () => void }) {
+  const linkBtn: CSSProperties = {
+    padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(246,241,232,0.35)',
+    background: 'rgba(255,255,255,0.12)', color: '#F6F1E8', fontWeight: 600, fontSize: '0.8125rem',
+    cursor: 'pointer', minHeight: 40, touchAction: 'manipulation',
+  };
   return (
     <div style={{
       width: '100%', borderRadius: 'var(--radius-xl)', padding: 'clamp(24px, 6vw, 36px) clamp(20px, 5vw, 28px)',
@@ -203,19 +226,18 @@ function Hero({ lang, onOpenCheatsheet }: { lang: Lang; onOpenCheatsheet?: () =>
       <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2rem)', fontWeight: 600, color: '#F6F1E8', margin: '0 0 14px' }}>System Design</h1>
       <div style={{ width: 48, height: 3, borderRadius: 99, background: 'var(--color-gold)', marginBottom: 16 }} />
       <p style={{ fontSize: '1rem', lineHeight: 1.6, color: 'rgba(246,241,232,0.86)', margin: '0 0 14px' }}>{t('appDescription', lang)}</p>
-      {onOpenCheatsheet && (
-        <button
-          type="button"
-          onClick={onOpenCheatsheet}
-          style={{
-            padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(246,241,232,0.35)',
-            background: 'rgba(255,255,255,0.12)', color: '#F6F1E8', fontWeight: 600, fontSize: '0.8125rem',
-            cursor: 'pointer', minHeight: 40, touchAction: 'manipulation',
-          }}
-        >
-          {lang === 'ar' ? 'مرجع الأنماط (Cheat Sheet)' : 'Pattern Cheat Sheet'}
-        </button>
-      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {onOpenCheatsheet && (
+          <button type="button" onClick={onOpenCheatsheet} style={linkBtn}>
+            {lang === 'ar' ? 'مرجع الأنماط' : 'Cheat Sheet'}
+          </button>
+        )}
+        {onOpenGlossary && (
+          <button type="button" onClick={onOpenGlossary} style={linkBtn}>
+            {lang === 'ar' ? 'القاموس' : 'Glossary'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -344,8 +366,13 @@ function AnswerArea({ label, value, onChange, placeholder }: { label: string; va
   );
 }
 
-function ExpandableDetail({ item, expanded, onToggle, lang }: { item: ChecklistItem; expanded: boolean; onToggle: () => void; lang: Lang }) {
+function ExpandableDetail({ item, expanded, onToggle, lang, onOpenTerm }: {
+  item: ChecklistItem; expanded: boolean; onToggle: () => void; lang: Lang; onOpenTerm: (id: string) => void;
+}) {
   const detail = item.detail[lang];
+  const link = (text: string) => (
+    <LinkedText text={text} lang={lang} termIds={ALL_TERM_IDS} onOpenTerm={onOpenTerm} />
+  );
   return (
     <div style={{ marginTop: 8 }}>
       <button
@@ -359,25 +386,26 @@ function ExpandableDetail({ item, expanded, onToggle, lang }: { item: ChecklistI
       </button>
       {expanded && (
         <div style={{ marginTop: 12, padding: 16, background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--accent)' }}>{t('whyItMatters', lang)}:</strong> {detail.why}</p>
-          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--accent)' }}>{t('howItWorks', lang)}:</strong> {detail.how}</p>
-          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--warning)' }}>{t('tradeoffs', lang)}:</strong> {detail.tradeoffs}</p>
-          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--success)' }}>{t('examples', lang)}:</strong> {detail.examples}</p>
-          <p style={{ margin: 0 }}><strong style={{ color: 'var(--text-secondary)' }}>{t('commonMistakes', lang)}:</strong> {detail.mistakes}</p>
+          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--accent)' }}>{t('whyItMatters', lang)}:</strong> {link(detail.why)}</p>
+          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--accent)' }}>{t('howItWorks', lang)}:</strong> {link(detail.how)}</p>
+          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--warning)' }}>{t('tradeoffs', lang)}:</strong> {link(detail.tradeoffs)}</p>
+          <p style={{ margin: '0 0 8px' }}><strong style={{ color: 'var(--success)' }}>{t('examples', lang)}:</strong> {link(detail.examples)}</p>
+          <p style={{ margin: 0 }}><strong style={{ color: 'var(--text-secondary)' }}>{t('commonMistakes', lang)}:</strong> {link(detail.mistakes)}</p>
         </div>
       )}
     </div>
   );
 }
 
-function ScoreTicks({ stage, items, values, expanded, onToggle, onToggleExpand, lang }: {
-  stage: Stage;
+function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, onOpenTerm, scenarioId }: {
   items: ChecklistItem[];
   values: boolean[];
   expanded: Record<number, boolean>;
   onToggle: (i: number) => void;
   onToggleExpand: (i: number) => void;
   lang: Lang;
+  onOpenTerm: (id: string) => void;
+  scenarioId: string;
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 20 }}>
@@ -405,10 +433,10 @@ function ScoreTicks({ stage, items, values, expanded, onToggle, onToggleExpand, 
             </button>
             {isDiagram && (
               <div style={{ marginTop: 16 }}>
-                <ArchitectureDiagram scenarioId={stage.id.includes('architecture') ? stage.id.replace('-architecture', '').replace('architecture', '') : ''} lang={lang} />
+                <ArchitectureDiagram scenarioId={scenarioId} lang={lang} />
               </div>
             )}
-            <ExpandableDetail item={item} expanded={!!expanded[i]} onToggle={() => onToggleExpand(i)} lang={lang} />
+            <ExpandableDetail item={item} expanded={!!expanded[i]} onToggle={() => onToggleExpand(i)} lang={lang} onOpenTerm={onOpenTerm} />
           </div>
         );
       })}
@@ -526,7 +554,8 @@ export default function App() {
   const { lang, currentScenario } = globalState;
   const [confirmReset, setConfirmReset] = useState(false);
   const [chaosPref, setChaosPref] = useState(false);
-  const [route, setRoute] = useState(() => (typeof location !== 'undefined' && location.hash === '#/cheatsheet' ? 'cheatsheet' : 'home'));
+  const [route, setRoute] = useState<AppRoute>(() => parseHash());
+  const [routeReturn, setRouteReturn] = useState<string>('');
 
   const scenario = currentScenario ? getScenarioById(currentScenario) : null;
   const scenarioState = scenario
@@ -534,7 +563,7 @@ export default function App() {
     : null;
 
   useEffect(() => {
-    const onHash = () => setRoute(location.hash === '#/cheatsheet' ? 'cheatsheet' : 'home');
+    const onHash = () => setRoute(parseHash());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -570,13 +599,27 @@ export default function App() {
     document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
   };
 
-  const openCheatsheet = () => {
-    location.hash = '#/cheatsheet';
-    setRoute('cheatsheet');
+  const rememberReturn = () => {
+    setRouteReturn(location.hash || '');
   };
-  const closeCheatsheet = () => {
+  const openCheatsheet = () => {
+    rememberReturn();
+    location.hash = '#/cheatsheet';
+    setRoute({ name: 'cheatsheet' });
+  };
+  const openGlossary = (termId?: string) => {
+    rememberReturn();
+    location.hash = termId ? `#/glossary/${termId}` : '#/glossary';
+    setRoute({ name: 'glossary', termId });
+  };
+  const goBackFromContent = () => {
+    if (routeReturn && routeReturn !== location.hash) {
+      location.hash = routeReturn;
+      setRoute(parseHash());
+      return;
+    }
     location.hash = '';
-    setRoute('home');
+    setRoute({ name: 'home' });
   };
 
   const startScenario = (id: string) => {
@@ -654,15 +697,36 @@ export default function App() {
     return { done, total, markedStages, writtenStages, perStage };
   }, [stages, scenarioState]);
 
-  if (route === 'cheatsheet') {
-    return <CheatSheet lang={lang} onBack={closeCheatsheet} onToggleLang={toggleLang} />;
+  if (route.name === 'cheatsheet') {
+    return (
+      <CheatSheet
+        lang={lang}
+        onBack={goBackFromContent}
+        onToggleLang={toggleLang}
+        onOpenTerm={(id) => openGlossary(id)}
+        onOpenGlossary={() => openGlossary()}
+      />
+    );
+  }
+
+  if (route.name === 'glossary') {
+    return (
+      <Glossary
+        lang={lang}
+        termId={route.termId}
+        onBack={goBackFromContent}
+        onToggleLang={toggleLang}
+        onOpenTerm={(id) => openGlossary(id)}
+        onOpenCheatsheet={openCheatsheet}
+      />
+    );
   }
 
   if (!scenario || !scenarioState) {
     return (
       <PageContainer lang={lang}>
         <LangToggle lang={lang} onToggle={toggleLang} />
-        <Hero lang={lang} onOpenCheatsheet={openCheatsheet} />
+        <Hero lang={lang} onOpenCheatsheet={openCheatsheet} onOpenGlossary={() => openGlossary()} />
         <SoftCard lang={lang}>
           <ChaosToggle lang={lang} enabled={chaosPref} onToggle={() => setChaosPref(v => !v)} />
           <CardHeader title={t('chooseScenario', lang)} caption={t('chooseScenarioDesc', lang)} />
@@ -727,7 +791,7 @@ export default function App() {
   return (
     <PageContainer lang={lang}>
       <LangToggle lang={lang} onToggle={toggleLang} />
-      <Hero lang={lang} onOpenCheatsheet={openCheatsheet} />
+      <Hero lang={lang} onOpenCheatsheet={openCheatsheet} onOpenGlossary={() => openGlossary()} />
 
       {scenarioState.chaos.enabled && (
         <ChaosIncidentCard
@@ -837,7 +901,6 @@ export default function App() {
                 </div>
               )}
               <ScoreTicks
-                stage={stage}
                 items={stage.items}
                 values={scenarioState.ticks[stage.id] || []}
                 expanded={scenarioState.expanded[stage.id] || {}}
@@ -850,6 +913,8 @@ export default function App() {
                   updateScenarioState({ expanded: { ...scenarioState.expanded, [stage.id]: { ...current, [i]: !current[i] } } });
                 }}
                 lang={lang}
+                onOpenTerm={(id) => openGlossary(id)}
+                scenarioId={scenario.id}
               />
               <ScoreBadge done={(scenarioState.ticks[stage.id] || []).filter(Boolean).length} total={stage.items.length} lang={lang} />
             </>

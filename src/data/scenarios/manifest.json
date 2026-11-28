@@ -1,0 +1,61 @@
+{
+  "scenarios": [
+    {
+      "id": "image-upload",
+      "title": {
+        "ar": "خدمة رفع الصور",
+        "en": "Image Upload Service"
+      },
+      "description": {
+        "ar": "صمم خدمة رفع صور لأبلكيشن سوشيال ميديا مع thumbnails",
+        "en": "Design an image upload service for a social media app with thumbnails"
+      },
+      "difficulty": {
+        "ar": "متوسط",
+        "en": "Medium"
+      },
+      "estimatedTime": {
+        "ar": "45 دقيقة",
+        "en": "45 minutes"
+      }
+    },
+    {
+      "id": "url-shortener",
+      "title": {
+        "ar": "خدمة اختصار الروابط",
+        "en": "URL Shortener Service"
+      },
+      "description": {
+        "ar": "صمم خدمة اختصار روابط زي bit.ly مع analytics",
+        "en": "Design a URL shortener service like bit.ly with analytics"
+      },
+      "difficulty": {
+        "ar": "متوسط",
+        "en": "Medium"
+      },
+      "estimatedTime": {
+        "ar": "45 دقيقة",
+        "en": "45 minutes"
+      }
+    },
+    {
+      "id": "chat-messaging",
+      "title": {
+        "ar": "نظام الشات والرسائل",
+        "en": "Chat & Messaging System"
+      },
+      "description": {
+        "ar": "صمم نظام شات real-time زي WhatsApp مع group chats",
+        "en": "Design a real-time chat system like WhatsApp with group chats"
+      },
+      "difficulty": {
+        "ar": "صعب",
+        "en": "Hard"
+      },
+      "estimatedTime": {
+        "ar": "50 دقيقة",
+        "en": "50 minutes"
+      }
+    }
+  ]
+}

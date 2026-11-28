@@ -1,0 +1,1560 @@
+{
+  "id": "url-shortener",
+  "title": {
+    "ar": "خدمة اختصار الروابط",
+    "en": "URL Shortener Service"
+  },
+  "description": {
+    "ar": "صمم خدمة اختصار روابط زي bit.ly مع analytics",
+    "en": "Design a URL shortener service like bit.ly with analytics"
+  },
+  "difficulty": {
+    "ar": "متوسط",
+    "en": "Medium"
+  },
+  "estimatedTime": {
+    "ar": "45 دقيقة",
+    "en": "45 minutes"
+  },
+  "problemStatement": {
+    "ar": "عايزينك تصمم خدمة اختصار روابط (URL Shortener). اليوزر بيدّي رابط طويل، والسيستم بيرجّعله رابط قصير. لما حد يفتح الرابط القصير، بيتحوّل للرابط الأصلي. كمان محتاجين analytics (عدد الزيارات، الـ referrers، إلخ)، وإمكانية custom aliases، وانتهاء صلاحية الروابط.",
+    "en": "Design a URL shortener service. Users provide a long URL and get a short URL back. When someone opens the short URL, they are redirected to the original. Also need analytics (visit counts, referrers, etc.), custom aliases, and link expiration."
+  },
+  "facts": [
+    {
+      "label": {
+        "ar": "روابط جديدة في الشهر",
+        "en": "New URLs/month"
+      },
+      "value": {
+        "ar": "حوالي 100 مليون",
+        "en": "~100 million"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ redirects في الشهر",
+        "en": "Redirects/month"
+      },
+      "value": {
+        "ar": "حوالي 10 مليار",
+        "en": "~10 billion"
+      }
+    },
+    {
+      "label": {
+        "ar": "القراءة للكتابة",
+        "en": "Read/Write Ratio"
+      },
+      "value": {
+        "ar": "حوالي 100 إلى 1",
+        "en": "~100:1"
+      }
+    },
+    {
+      "label": {
+        "ar": "طول الرابط القصير",
+        "en": "Short URL Length"
+      },
+      "value": {
+        "ar": "7 characters",
+        "en": "7 characters"
+      }
+    },
+    {
+      "label": {
+        "ar": "هدف الـ redirect latency",
+        "en": "Redirect Latency Target"
+      },
+      "value": {
+        "ar": "أقل من 50ms",
+        "en": "< 50ms"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ availability",
+        "en": "Availability"
+      },
+      "value": {
+        "ar": "99.99%",
+        "en": "99.99%"
+      }
+    },
+    {
+      "label": {
+        "ar": "الـ retention",
+        "en": "Retention"
+      },
+      "value": {
+        "ar": "5 سنين default",
+        "en": "5 years default"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "clarify",
+      "title": {
+        "ar": "الأسئلة التوضيحية والحسبة",
+        "en": "Clarifying Questions & Estimation"
+      },
+      "shortTitle": {
+        "ar": "الحسبة والأسئلة",
+        "en": "Estimation"
+      },
+      "prompt": {
+        "ar": "قبل ما تصمم، اسأل الأسئلة التوضيحية اللي محتاجها، واعمل حسبة سريعة للأرقام. اكتب تقديراتك لعدد الـ URLs، الـ storage، وقد إيه unique short codes محتاج.",
+        "en": "Before designing, ask clarifying questions and do quick estimation. Write your estimates for URLs count, storage, and how many unique short codes you need."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "سألت عن الـ scope: custom aliases، expiration، analytics، API vs web",
+            "en": "Asked about scope: custom aliases, expiration, analytics, API vs web"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ features بتحدد الـ complexity. Custom aliases محتاجة uniqueness check. Analytics محتاجة event streaming.",
+              "how": "اسأل: هل الـ custom aliases مطلوبة؟ هل الروابط ليها expiry؟ هل محتاجين analytics real-time ولا batch؟",
+              "tradeoffs": "كل feature بتزود complexity. ابدأ بالـ core (create + redirect) وزوّد بعدين.",
+              "examples": "bit.ly بيدّي custom aliases للـ premium users. TinyURL مفيهاش analytics.",
+              "mistakes": "خطأ شائع: تفترض إن كل features مطلوبة وتعقّد التصميم من الأول."
+            },
+            "en": {
+              "why": "Features determine complexity. Custom aliases need uniqueness check. Analytics need event streaming.",
+              "how": "Ask: Are custom aliases required? Do links have expiry? Do we need real-time or batch analytics?",
+              "tradeoffs": "Every feature adds complexity. Start with core (create + redirect) and add later.",
+              "examples": "bit.ly gives custom aliases to premium users. TinyURL has no analytics.",
+              "mistakes": "Common mistake: Assuming all features are required and over-complicating design from start."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت الـ writes/sec: ~40 URL/sec، والـ reads/sec: ~4000 redirect/sec",
+            "en": "Estimated writes/sec: ~40 URL/sec, reads/sec: ~4000 redirect/sec"
+          },
+          "detail": {
+            "ar": {
+              "why": "الأرقام دي بتحدد حجم الـ DB والـ cache اللي محتاجهم.",
+              "how": "100M/month ÷ 30 days ÷ 86400 sec ≈ 40/sec writes. 100:1 ratio = 4000/sec reads.",
+              "tradeoffs": "الـ reads هي bottleneck. لازم cache قوي.",
+              "examples": "bit.ly بيعمل billions of redirects/month. 4000/sec معقول لـ mid-size service.",
+              "mistakes": "خطأ شائع: تنسى إن الـ reads أكتر بكتير من الـ writes."
+            },
+            "en": {
+              "why": "These numbers determine DB and cache size needed.",
+              "how": "100M/month ÷ 30 days ÷ 86400 sec ≈ 40/sec writes. 100:1 ratio = 4000/sec reads.",
+              "tradeoffs": "Reads are the bottleneck. Need strong caching.",
+              "examples": "bit.ly does billions of redirects/month. 4000/sec is reasonable for mid-size service.",
+              "mistakes": "Common mistake: Forgetting reads are much more than writes."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت الـ unique codes المحتاجة: 100M × 12 × 5 = 6 billion URLs",
+            "en": "Estimated unique codes needed: 100M × 12 × 5 = 6 billion URLs"
+          },
+          "detail": {
+            "ar": {
+              "why": "لازم تعرف كام unique code محتاج عشان تختار طول الـ short URL.",
+              "how": "100M/month × 12 months × 5 years = 6B URLs. Base62 مع 7 characters = 62^7 = 3.5 trillion.",
+              "tradeoffs": "أطول = أكتر combinations بس أصعب في الـ remember. أقصر = أقل combinations.",
+              "examples": "7 characters كفاية لـ trillions. bit.ly بيستخدم 7.",
+              "mistakes": "خطأ شائع: تقلل طول الـ code وتخلص الـ combinations بسرعة."
+            },
+            "en": {
+              "why": "Need to know how many unique codes to choose short URL length.",
+              "how": "100M/month × 12 months × 5 years = 6B URLs. Base62 with 7 characters = 62^7 = 3.5 trillion.",
+              "tradeoffs": "Longer = more combinations but harder to remember. Shorter = fewer combinations.",
+              "examples": "7 characters enough for trillions. bit.ly uses 7.",
+              "mistakes": "Common mistake: Making code too short and running out of combinations quickly."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "قدّرت الـ storage: ~500GB للـ mappings، زائد analytics events",
+            "en": "Estimated storage: ~500GB for mappings, plus analytics events"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ storage للـ URL mappings صغير، الـ analytics أكبر بكتير.",
+              "how": "6B URLs × (7 + 100 bytes avg long URL + metadata) ≈ 700GB. Analytics: 10B events × 200 bytes = 2TB/month.",
+              "tradeoffs": "Analytics بتاكل storage. ممكن aggregate أو sample.",
+              "examples": "الـ mapping table صغير نسبيًا. الـ analytics هي الـ challenge.",
+              "mistakes": "خطأ شائع: تخزن كل analytics event raw من غير aggregation."
+            },
+            "en": {
+              "why": "Storage for URL mappings is small, analytics is much bigger.",
+              "how": "6B URLs × (7 + 100 bytes avg long URL + metadata) ≈ 700GB. Analytics: 10B events × 200 bytes = 2TB/month.",
+              "tradeoffs": "Analytics consume storage. Can aggregate or sample.",
+              "examples": "Mapping table is relatively small. Analytics is the challenge.",
+              "mistakes": "Common mistake: Storing every analytics event raw without aggregation."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": {
+        "ar": "الأركيتكتشر العامة",
+        "en": "High-Level Architecture"
+      },
+      "shortTitle": {
+        "ar": "الأركيتكتشر",
+        "en": "Architecture"
+      },
+      "prompt": {
+        "ar": "اوصف الأركيتكتشر لإنشاء الروابط القصيرة والـ redirect والـ analytics. فصّل المكونات وشرح كل flow.",
+        "en": "Describe the architecture for creating short links, redirects, and analytics. Detail the components and explain each flow."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "📊 الرسم التخطيطي للأركيتكتشر المقترحة (شوف الرسم أسفل النقط)",
+            "en": "📊 Proposed Architecture Diagram (see diagram below the checklist)"
+          },
+          "detail": {
+            "ar": {
+              "why": "الرسم بيوضح الـ create flow والـ redirect flow والـ analytics flow.",
+              "how": "Create: Client → API → Key Generator → DB. Redirect: Client → Cache (hit) → 301. Analytics: Redirect → Kafka → Aggregator → Analytics DB.",
+              "tradeoffs": "رسم بسيط vs مفصل. الـ 3 flows لازم يكونوا واضحين.",
+              "examples": "الـ redirect flow هو الأهم (99% of traffic)، لازم يكون optimized.",
+              "mistakes": "خطأ شائع: ترسم flow واحد بس وتنسى الـ analytics."
+            },
+            "en": {
+              "why": "Diagram shows create flow, redirect flow, and analytics flow.",
+              "how": "Create: Client → API → Key Generator → DB. Redirect: Client → Cache (hit) → 301. Analytics: Redirect → Kafka → Aggregator → Analytics DB.",
+              "tradeoffs": "Simple vs detailed diagram. The 3 flows must be clear.",
+              "examples": "Redirect flow is most important (99% of traffic), must be optimized.",
+              "mistakes": "Common mistake: Drawing only one flow and forgetting analytics."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key generation strategy: Base62 counter أو hash أو pre-generated key service",
+            "en": "Key generation strategy: Base62 counter or hash or pre-generated key service"
+          },
+          "detail": {
+            "ar": {
+              "why": "كيف تعمل unique short codes هو core الـ system.",
+              "how": "Counter: auto-increment → Base62. Hash: MD5(URL) → take first 7. Pre-generated: pool of unused keys.",
+              "tradeoffs": "Counter: sequential (predictable). Hash: collisions possible. Pre-generated: needs management.",
+              "examples": "bit.ly يستخدم pre-generated keys. Counter أبسط للبداية.",
+              "mistakes": "خطأ شائع: تستخدم MD5 من غير collision handling."
+            },
+            "en": {
+              "why": "How to generate unique short codes is core of the system.",
+              "how": "Counter: auto-increment → Base62. Hash: MD5(URL) → take first 7. Pre-generated: pool of unused keys.",
+              "tradeoffs": "Counter: sequential (predictable). Hash: collisions possible. Pre-generated: needs management.",
+              "examples": "bit.ly uses pre-generated keys. Counter is simpler for start.",
+              "mistakes": "Common mistake: Using MD5 without collision handling."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "الـ redirect path: cache-first architecture للـ low latency",
+            "en": "Redirect path: cache-first architecture for low latency"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ redirect لازم يكون سريع جدًا (< 50ms). DB lookup بياخد وقت.",
+              "how": "Redis cache أمام الـ DB. Cache hit → 301 redirect. Cache miss → DB lookup → cache → redirect.",
+              "tradeoffs": "Cache size vs hit rate. Hot URLs بتستهلك أقل cache.",
+              "examples": "Redis cluster مع 100GB يقدر يخزن billions of mappings.",
+              "mistakes": "خطأ شائع: تعمل DB lookup لكل redirect، الـ latency هتبقى عالية."
+            },
+            "en": {
+              "why": "Redirect must be very fast (< 50ms). DB lookup takes time.",
+              "how": "Redis cache in front of DB. Cache hit → 301 redirect. Cache miss → DB lookup → cache → redirect.",
+              "tradeoffs": "Cache size vs hit rate. Hot URLs consume less cache.",
+              "examples": "Redis cluster with 100GB can store billions of mappings.",
+              "mistakes": "Common mistake: Doing DB lookup for every redirect, latency will be high."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "301 (permanent) vs 302 (temporary) redirect: implications على الـ caching والـ analytics",
+            "en": "301 (permanent) vs 302 (temporary) redirect: implications on caching and analytics"
+          },
+          "detail": {
+            "ar": {
+              "why": "301 بتتـ cache في الـ browser، 302 لأ. ده بيأثر على الـ analytics.",
+              "how": "301: browser يتذكر، أقل requests. 302: كل visit بتوصلنا، analytics أدق.",
+              "tradeoffs": "301: أسرع للـ user بس analytics ناقصة. 302: analytics كاملة بس أكتر load.",
+              "examples": "bit.ly بيستخدم 301. لو analytics مهمة، استخدم 302 أو JavaScript redirect.",
+              "mistakes": "خطأ شائع: تستخدم 301 وتتوقع analytics دقيقة."
+            },
+            "en": {
+              "why": "301 is cached in browser, 302 is not. This affects analytics.",
+              "how": "301: browser remembers, fewer requests. 302: every visit reaches us, more accurate analytics.",
+              "tradeoffs": "301: faster for user but incomplete analytics. 302: complete analytics but more load.",
+              "examples": "bit.ly uses 301. If analytics is important, use 302 or JavaScript redirect.",
+              "mistakes": "Common mistake: Using 301 and expecting accurate analytics."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Analytics pipeline: event streaming (Kafka) → aggregation → time-series DB",
+            "en": "Analytics pipeline: event streaming (Kafka) → aggregation → time-series DB"
+          },
+          "detail": {
+            "ar": {
+              "why": "10B events/month محتاجة pipeline، مش direct writes.",
+              "how": "Redirect service → Kafka → Flink/Spark aggregation → InfluxDB/TimescaleDB.",
+              "tradeoffs": "Real-time vs batch. Real-time أعقد بس أسرع insights.",
+              "examples": "Kafka → 1 hour aggregation → store (clicks per hour per link).",
+              "mistakes": "خطأ شائع: تكتب كل event في الـ main DB، هتغرق."
+            },
+            "en": {
+              "why": "10B events/month need pipeline, not direct writes.",
+              "how": "Redirect service → Kafka → Flink/Spark aggregation → InfluxDB/TimescaleDB.",
+              "tradeoffs": "Real-time vs batch. Real-time is more complex but faster insights.",
+              "examples": "Kafka → 1 hour aggregation → store (clicks per hour per link).",
+              "mistakes": "Common mistake: Writing every event to main DB, it will drown."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Database choice: NoSQL (DynamoDB/Cassandra) للـ simple key-value، مع read replicas",
+            "en": "Database choice: NoSQL (DynamoDB/Cassandra) for simple key-value, with read replicas"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ access pattern بسيط: get by short_code. NoSQL مثالي لده.",
+              "how": "DynamoDB: partition key = short_code. Eventually consistent reads للـ redirects.",
+              "tradeoffs": "NoSQL: scales well بس limited queries. SQL: flexible بس harder to scale.",
+              "examples": "DynamoDB DAX للـ caching. Cassandra مع multiple datacenters.",
+              "mistakes": "خطأ شائع: تستخدم SQL مع complex joins لـ simple lookup."
+            },
+            "en": {
+              "why": "Access pattern is simple: get by short_code. NoSQL is ideal.",
+              "how": "DynamoDB: partition key = short_code. Eventually consistent reads for redirects.",
+              "tradeoffs": "NoSQL: scales well but limited queries. SQL: flexible but harder to scale.",
+              "examples": "DynamoDB DAX for caching. Cassandra with multiple datacenters.",
+              "mistakes": "Common mistake: Using SQL with complex joins for simple lookup."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "scaling",
+      "title": {
+        "ar": "الـ Horizontal Scaling",
+        "en": "Horizontal Scaling"
+      },
+      "shortTitle": {
+        "ar": "الـ Scaling",
+        "en": "Scaling"
+      },
+      "prompt": {
+        "ar": "لو الترافيك زاد 10x، السيستم هيتكبر إزاي؟ اشرح scaling كل component.",
+        "en": "If traffic increases 10x, how will the system scale? Explain scaling for each component."
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "API servers stateless، بيتـ scale horizontally وراء load balancer",
+            "en": "API servers are stateless, scale horizontally behind load balancer"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ redirect service لازم يكون stateless عشان يتكبّر بسهولة.",
+              "how": "Auto Scaling Group. Scale على الـ CPU أو requests/sec.",
+              "tradeoffs": "أكتر servers = أكتر cost. بس الـ latency بتفضل ثابتة.",
+              "examples": "10 servers → 100 servers بناءً على الـ traffic.",
+              "mistakes": "خطأ شائع: تخزن session على الـ server، ده بيكسر الـ scaling."
+            },
+            "en": {
+              "why": "Redirect service must be stateless to scale easily.",
+              "how": "Auto Scaling Group. Scale on CPU or requests/sec.",
+              "tradeoffs": "More servers = more cost. But latency stays stable.",
+              "examples": "10 servers → 100 servers based on traffic.",
+              "mistakes": "Common mistake: Storing session on server, which breaks scaling."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache layer: Redis Cluster مع sharding على الـ short_code",
+            "en": "Cache layer: Redis Cluster with sharding on short_code"
+          },
+          "detail": {
+            "ar": {
+              "why": "Single Redis node ليه limit. Cluster بيوزع الـ load.",
+              "how": "Redis Cluster: automatic sharding. 10 nodes × 10GB = 100GB cache.",
+              "tradeoffs": "Cluster أعقد في الـ management. بس بيدّي unlimited scale.",
+              "examples": "ElastiCache Redis Cluster. أو Memcached لـ simpler use case.",
+              "mistakes": "خطأ شائع: single Redis node، لما يقع كل الـ traffic بيروح للـ DB."
+            },
+            "en": {
+              "why": "Single Redis node has limits. Cluster distributes load.",
+              "how": "Redis Cluster: automatic sharding. 10 nodes × 10GB = 100GB cache.",
+              "tradeoffs": "Cluster is more complex to manage. But gives unlimited scale.",
+              "examples": "ElastiCache Redis Cluster. Or Memcached for simpler use case.",
+              "mistakes": "Common mistake: Single Redis node, when it fails all traffic goes to DB."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Database: partition/shard على الـ short_code لتوزيع الـ load",
+            "en": "Database: partition/shard on short_code to distribute load"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ DB ممكن تكون bottleneck. Sharding بيحل ده.",
+              "how": "DynamoDB auto-shards. Cassandra: partition key = short_code.",
+              "tradeoffs": "Sharding بيعقّد الـ queries اللي across shards.",
+              "examples": "100 partitions كل partition فيه 60M URLs.",
+              "mistakes": "خطأ شائع: shard على الـ user_id بدل الـ short_code، الـ redirects مش بتعرف الـ user."
+            },
+            "en": {
+              "why": "DB can be bottleneck. Sharding solves this.",
+              "how": "DynamoDB auto-shards. Cassandra: partition key = short_code.",
+              "tradeoffs": "Sharding complicates queries across shards.",
+              "examples": "100 partitions each with 60M URLs.",
+              "mistakes": "Common mistake: Sharding on user_id instead of short_code, redirects do not know user."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key generation service: distributed counter أو pre-allocated ranges",
+            "en": "Key generation service: distributed counter or pre-allocated ranges"
+          },
+          "detail": {
+            "ar": {
+              "why": "Key generation بياخد lock لو centralized. محتاج distribution.",
+              "how": "Range allocation: كل server ياخد range (1M-2M)، يستخدم locally.",
+              "tradeoffs": "Range allocation بيخلي gaps لو server مات. بس أسرع.",
+              "examples": "ZooKeeper للـ range allocation. أو Twitter Snowflake-style IDs.",
+              "mistakes": "خطأ شائع: single point of failure في الـ key generation."
+            },
+            "en": {
+              "why": "Key generation takes lock if centralized. Need distribution.",
+              "how": "Range allocation: each server gets range (1M-2M), uses locally.",
+              "tradeoffs": "Range allocation leaves gaps if server dies. But faster.",
+              "examples": "ZooKeeper for range allocation. Or Twitter Snowflake-style IDs.",
+              "mistakes": "Common mistake: Single point of failure in key generation."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": {
+        "ar": "المراقبة والـ Observability",
+        "en": "Monitoring & Observability"
+      },
+      "shortTitle": {
+        "ar": "المراقبة",
+        "en": "Monitoring"
+      },
+      "prompt": {
+        "ar": "هتراقب إيه عشان تضمن الـ 99.99% availability والـ <50ms latency؟",
+        "en": "What will you monitor to ensure 99.99% availability and <50ms latency?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Redirect latency: p50, p99, p999 للـ redirect endpoint",
+            "en": "Redirect latency: p50, p99, p999 for redirect endpoint"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ latency هي أهم metric. 50ms target محتاج monitoring دقيق.",
+              "how": "Application metrics → Prometheus → Grafana. Alert لما p99 > 100ms.",
+              "tradeoffs": "Detailed percentiles بتاكل storage. بس ضرورية.",
+              "examples": "p50 = 10ms، p99 = 50ms، p999 = 200ms. Alert على p99.",
+              "mistakes": "خطأ شائع: تتابع average بس، p99 ممكن يكون سيء."
+            },
+            "en": {
+              "why": "Latency is the most important metric. 50ms target needs careful monitoring.",
+              "how": "Application metrics → Prometheus → Grafana. Alert when p99 > 100ms.",
+              "tradeoffs": "Detailed percentiles consume storage. But necessary.",
+              "examples": "p50 = 10ms, p99 = 50ms, p999 = 200ms. Alert on p99.",
+              "mistakes": "Common mistake: Tracking only average, p99 may be bad."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache hit rate: target > 99% للـ hot URLs",
+            "en": "Cache hit rate: target > 99% for hot URLs"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cache miss بيزود الـ latency ويحمّل الـ DB.",
+              "how": "Redis metrics: hits vs misses. Alert لما hit rate < 95%.",
+              "tradeoffs": "Cache size vs hit rate. أكبر cache = أعلى cost.",
+              "examples": "99% hit rate يعني 1% بس بيروح للـ DB.",
+              "mistakes": "خطأ شائع: متابعش الـ hit rate، الـ cache ممكن يكون مش فعال."
+            },
+            "en": {
+              "why": "Cache miss increases latency and loads DB.",
+              "how": "Redis metrics: hits vs misses. Alert when hit rate < 95%.",
+              "tradeoffs": "Cache size vs hit rate. Bigger cache = higher cost.",
+              "examples": "99% hit rate means only 1% goes to DB.",
+              "mistakes": "Common mistake: Not tracking hit rate, cache may be ineffective."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Error rates: 4xx (not found) vs 5xx (server errors)",
+            "en": "Error rates: 4xx (not found) vs 5xx (server errors)"
+          },
+          "detail": {
+            "ar": {
+              "why": "4xx طبيعي (expired links). 5xx مشكلة.",
+              "how": "Log aggregation → error rate dashboard. Alert على 5xx > 0.1%.",
+              "tradeoffs": "High 4xx ممكن يكون normal (old links). ركز على 5xx.",
+              "examples": "4xx rate 1% (expired links)، 5xx rate 0.01% target.",
+              "mistakes": "خطأ شائع: تعامل 4xx زي 5xx في الـ alerts."
+            },
+            "en": {
+              "why": "4xx is normal (expired links). 5xx is a problem.",
+              "how": "Log aggregation → error rate dashboard. Alert on 5xx > 0.1%.",
+              "tradeoffs": "High 4xx may be normal (old links). Focus on 5xx.",
+              "examples": "4xx rate 1% (expired links), 5xx rate 0.01% target.",
+              "mistakes": "Common mistake: Treating 4xx like 5xx in alerts."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key generation pool: هل باقي keys كافية",
+            "en": "Key generation pool: are remaining keys sufficient"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو الـ keys خلصت، مش هتقدر تعمل URLs جديدة.",
+              "how": "Monitor pool size. Alert لما < 10% remaining.",
+              "tradeoffs": "Large pool = more memory. Small pool = risk of running out.",
+              "examples": "Pool size 10M، alert لما < 1M.",
+              "mistakes": "خطأ شائع: متابعش الـ pool، تكتشف إنه خلص في production."
+            },
+            "en": {
+              "why": "If keys run out, cannot create new URLs.",
+              "how": "Monitor pool size. Alert when < 10% remaining.",
+              "tradeoffs": "Large pool = more memory. Small pool = risk of running out.",
+              "examples": "Pool size 10M, alert when < 1M.",
+              "mistakes": "Common mistake: Not monitoring pool, discover it is empty in production."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bottlenecks",
+      "title": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "shortTitle": {
+        "ar": "الاختناقات",
+        "en": "Bottlenecks"
+      },
+      "prompt": {
+        "ar": "إيه الأماكن اللي متوقع تبقى عنق زجاجة، وإزاي تحلها؟",
+        "en": "What are the expected bottlenecks and how do you solve them?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Database reads للـ cold URLs: cache warming و bloom filters",
+            "en": "Database reads for cold URLs: cache warming and bloom filters"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cold URLs (نادرة الزيارة) بتسبب cache misses كتير.",
+              "how": "Bloom filter: check if URL exists قبل الـ DB. Cache warming لـ popular URLs.",
+              "tradeoffs": "Bloom filter بيستهلك memory. بس بيوفر DB lookups.",
+              "examples": "Bloom filter: 10GB للـ 10B URLs مع 1% false positive rate.",
+              "mistakes": "خطأ شائع: تفترض كل URLs hot، الـ long tail كبير."
+            },
+            "en": {
+              "why": "Cold URLs (rarely visited) cause many cache misses.",
+              "how": "Bloom filter: check if URL exists before DB. Cache warming for popular URLs.",
+              "tradeoffs": "Bloom filter consumes memory. But saves DB lookups.",
+              "examples": "Bloom filter: 10GB for 10B URLs with 1% false positive rate.",
+              "mistakes": "Common mistake: Assuming all URLs are hot, the long tail is big."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key generation contention: distributed counters أو pre-allocation",
+            "en": "Key generation contention: distributed counters or pre-allocation"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو كل create request بيطلب key من service واحد، هيكون bottleneck.",
+              "how": "Pre-allocate ranges: كل API server ياخد batch من الـ keys مقدمًا.",
+              "tradeoffs": "Pre-allocation بتضيع keys لو server مات. بس أسرع.",
+              "examples": "كل server ياخد 100K keys، يستخدمهم locally.",
+              "mistakes": "خطأ شائع: centralized key generation مع lock على كل request."
+            },
+            "en": {
+              "why": "If every create request asks key from one service, it becomes bottleneck.",
+              "how": "Pre-allocate ranges: each API server gets batch of keys upfront.",
+              "tradeoffs": "Pre-allocation wastes keys if server dies. But faster.",
+              "examples": "Each server gets 100K keys, uses locally.",
+              "mistakes": "Common mistake: Centralized key generation with lock on every request."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Analytics writes: بتغرق الـ DB لو synchronous",
+            "en": "Analytics writes: will drown DB if synchronous"
+          },
+          "detail": {
+            "ar": {
+              "why": "10B events/month = 4000/sec. مينفعش تكتب كل واحد في الـ DB.",
+              "how": "Fire-and-forget to Kafka. Async processing. Batch writes.",
+              "tradeoffs": "Async = ممكن تضيع events لو Kafka وقع. بس ده acceptable.",
+              "examples": "Redirect returns فورًا، analytics event بيتبعت async.",
+              "mistakes": "خطأ شائع: synchronous analytics write، الـ redirect بيتأخر."
+            },
+            "en": {
+              "why": "10B events/month = 4000/sec. Cannot write each one to DB.",
+              "how": "Fire-and-forget to Kafka. Async processing. Batch writes.",
+              "tradeoffs": "Async = may lose events if Kafka fails. But acceptable.",
+              "examples": "Redirect returns immediately, analytics event sent async.",
+              "mistakes": "Common mistake: Synchronous analytics write, redirect is delayed."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Custom alias uniqueness check: race conditions وperformance",
+            "en": "Custom alias uniqueness check: race conditions and performance"
+          },
+          "detail": {
+            "ar": {
+              "why": "Two users ممكن يطلبوا نفس الـ custom alias في نفس الوقت.",
+              "how": "DB unique constraint. أو atomic check-and-set في Redis.",
+              "tradeoffs": "Unique constraint بيرجع error. Need retry logic.",
+              "examples": "INSERT ... ON CONFLICT DO NOTHING. Check affected rows.",
+              "mistakes": "خطأ شائع: check then insert من غير transaction، race condition."
+            },
+            "en": {
+              "why": "Two users may request same custom alias at same time.",
+              "how": "DB unique constraint. Or atomic check-and-set in Redis.",
+              "tradeoffs": "Unique constraint returns error. Need retry logic.",
+              "examples": "INSERT ... ON CONFLICT DO NOTHING. Check affected rows.",
+              "mistakes": "Common mistake: Check then insert without transaction, race condition."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tradeoffs",
+      "title": {
+        "ar": "الـ Trade-offs",
+        "en": "Trade-offs"
+      },
+      "shortTitle": {
+        "ar": "الـ Trade-offs",
+        "en": "Trade-offs"
+      },
+      "prompt": {
+        "ar": "إيه القرارات الكبيرة اللي فيها trade-offs، وليه اخترت اللي اخترته؟",
+        "en": "What are the major decisions with trade-offs, and why did you choose what you chose?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "Key generation: randomness vs predictability vs collision risk",
+            "en": "Key generation: randomness vs predictability vs collision risk"
+          },
+          "detail": {
+            "ar": {
+              "why": "Sequential keys predictable (security risk). Random keys risk collision.",
+              "how": "Base62(counter + random salt) للـ best of both.",
+              "tradeoffs": "Pure random: needs collision check. Sequential: enumerable.",
+              "examples": "Counter: abc123 → abc124. Random: x7Kp2m.",
+              "mistakes": "خطأ شائع: sequential keys بتسمح للـ attacker يـ enumerate الـ URLs."
+            },
+            "en": {
+              "why": "Sequential keys predictable (security risk). Random keys risk collision.",
+              "how": "Base62(counter + random salt) for best of both.",
+              "tradeoffs": "Pure random: needs collision check. Sequential: enumerable.",
+              "examples": "Counter: abc123 → abc124. Random: x7Kp2m.",
+              "mistakes": "Common mistake: Sequential keys allow attacker to enumerate URLs."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Availability vs consistency: redirect يشتغل حتى لو الـ DB وقع",
+            "en": "Availability vs consistency: redirect works even if DB is down"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ redirect أهم من الـ create. لو الـ DB وقع، الـ cached URLs لازم تشتغل.",
+              "how": "Cache-first. لو الـ DB وقع، الـ hot URLs بتشتغل من الـ cache.",
+              "tradeoffs": "Cold URLs مش هتشتغل لو DB وقع. بس acceptable.",
+              "examples": "99% من الـ traffic من hot URLs، هيفضلوا شغالين.",
+              "mistakes": "خطأ شائع: fail completely لو DB وقع."
+            },
+            "en": {
+              "why": "Redirect is more important than create. If DB is down, cached URLs must work.",
+              "how": "Cache-first. If DB is down, hot URLs work from cache.",
+              "tradeoffs": "Cold URLs will not work if DB is down. But acceptable.",
+              "examples": "99% of traffic from hot URLs, they will keep working.",
+              "mistakes": "Common mistake: Failing completely if DB is down."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Analytics accuracy vs latency: 302 (accurate) vs 301 (fast)",
+            "en": "Analytics accuracy vs latency: 302 (accurate) vs 301 (fast)"
+          },
+          "detail": {
+            "ar": {
+              "why": "301 بيتـ cache، analytics ناقصة. 302 أدق بس أبطأ للـ repeat visits.",
+              "how": "Default 301 للـ speed. Option للـ 302 للي عايز analytics دقيقة.",
+              "tradeoffs": "Product decision. Business users عايزين analytics، regular users عايزين speed.",
+              "examples": "bit.ly 301. لو analytics مهمة، JavaScript redirect.",
+              "mistakes": "خطأ شائع: 302 لكل حاجة، الـ users بيشتكوا من البطء."
+            },
+            "en": {
+              "why": "301 is cached, analytics incomplete. 302 is more accurate but slower for repeat visits.",
+              "how": "Default 301 for speed. Option for 302 for those wanting accurate analytics.",
+              "tradeoffs": "Product decision. Business users want analytics, regular users want speed.",
+              "examples": "bit.ly uses 301. If analytics is important, JavaScript redirect.",
+              "mistakes": "Common mistake: Using 302 for everything, users complain about slowness."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "followup1",
+      "title": {
+        "ar": "سؤال متابعة: Link Rot والـ Expiration",
+        "en": "Follow-up: Link Rot & Expiration"
+      },
+      "shortTitle": {
+        "ar": "الـ Expiration",
+        "en": "Expiration"
+      },
+      "prompt": {
+        "ar": "لو link قديم expired أو الـ original URL بقى 404، هتتعامل إزاي؟ وإزاي تنظف الـ old data؟",
+        "en": "If an old link expired or the original URL became 404, how do you handle it? How do you clean up old data?"
+      },
+      "level": "senior",
+      "items": [
+        {
+          "text": {
+            "ar": "TTL على الـ records: soft delete أولاً، hard delete بعد grace period",
+            "en": "TTL on records: soft delete first, hard delete after grace period"
+          },
+          "detail": {
+            "ar": {
+              "why": "Hard delete فورًا ممكن يزعل users. Grace period بيدّي فرصة للـ recovery.",
+              "how": "expiry_date column. Soft delete at expiry. Hard delete after 30 days.",
+              "tradeoffs": "Grace period بيستهلك storage. بس بيحمي من mistakes.",
+              "examples": "URL expires → 404 page مع message \"this link expired\".",
+              "mistakes": "خطأ شائع: hard delete فورًا، user مش قادر يـ recover."
+            },
+            "en": {
+              "why": "Hard delete immediately may upset users. Grace period gives chance for recovery.",
+              "how": "expiry_date column. Soft delete at expiry. Hard delete after 30 days.",
+              "tradeoffs": "Grace period consumes storage. But protects against mistakes.",
+              "examples": "URL expires → 404 page with message \"this link expired\".",
+              "mistakes": "Common mistake: Hard delete immediately, user cannot recover."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Background job للـ cleanup: batch processing للـ expired URLs",
+            "en": "Background job for cleanup: batch processing for expired URLs"
+          },
+          "detail": {
+            "ar": {
+              "why": "ما ينفعش تـ check expiry على كل redirect. Batch cleanup أفضل.",
+              "how": "Daily job: SELECT expired URLs → soft delete. Weekly job: hard delete old soft-deleted.",
+              "tradeoffs": "Lag بين expiry والـ cleanup. بس acceptable.",
+              "examples": "AWS Lambda scheduled job. أو cron job.",
+              "mistakes": "خطأ شائع: check expiry synchronously على كل redirect، بيزود latency."
+            },
+            "en": {
+              "why": "Cannot check expiry on every redirect. Batch cleanup is better.",
+              "how": "Daily job: SELECT expired URLs → soft delete. Weekly job: hard delete old soft-deleted.",
+              "tradeoffs": "Lag between expiry and cleanup. But acceptable.",
+              "examples": "AWS Lambda scheduled job. Or cron job.",
+              "mistakes": "Common mistake: Checking expiry synchronously on every redirect, adds latency."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key recycling: هل تعيد استخدام الـ short codes القديمة",
+            "en": "Key recycling: whether to reuse old short codes"
+          },
+          "detail": {
+            "ar": {
+              "why": "Short codes غالية (limited space). بس الـ recycling ممكن يسبب confusion.",
+              "how": "Option 1: never recycle (simpler). Option 2: recycle after 2 years (saves space).",
+              "tradeoffs": "Recycling: code ممكن يوصل لـ URL مختلف. Never recycle: بتستهلك codes أسرع.",
+              "examples": "bit.ly لا تعيد استخدام الـ codes.",
+              "mistakes": "خطأ شائع: recycle بسرعة، الـ users بيلاقوا links بتوصل لحاجة تانية."
+            },
+            "en": {
+              "why": "Short codes are valuable (limited space). But recycling may cause confusion.",
+              "how": "Option 1: never recycle (simpler). Option 2: recycle after 2 years (saves space).",
+              "tradeoffs": "Recycling: code may point to different URL. Never recycle: consume codes faster.",
+              "examples": "bit.ly does not recycle codes.",
+              "mistakes": "Common mistake: Recycling quickly, users find links pointing to something else."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-cost",
+      "title": {
+        "ar": "تقدير التكلفة (Staff)",
+        "en": "Cost Estimation (Staff)"
+      },
+      "shortTitle": {
+        "ar": "التكلفة",
+        "en": "Cost"
+      },
+      "prompt": {
+        "ar": "قدّر التكلفة الشهرية: compute، database، cache، analytics storage. إيه أكبر بند؟",
+        "en": "Estimate monthly cost: compute, database, cache, analytics storage. What is the biggest item?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Database: DynamoDB on-demand ~$1.25/million reads، ~$1.25/million writes",
+            "en": "Database: DynamoDB on-demand ~$1.25/million reads, ~$1.25/million writes"
+          },
+          "detail": {
+            "ar": {
+              "why": "الـ DB هي core cost للـ URL shortener.",
+              "how": "4000 reads/sec × 2.6M sec/month = 10B reads = $12.5K/month. Writes: 100M × $1.25 = $125.",
+              "tradeoffs": "On-demand: flexible بس أغلى. Provisioned: أرخص بس rigid.",
+              "examples": "مع caching 99%، actual DB reads = 100M/month = $125.",
+              "mistakes": "خطأ شائع: تحسب بدون caching، التكلفة تبان أعلى بكتير."
+            },
+            "en": {
+              "why": "DB is core cost for URL shortener.",
+              "how": "4000 reads/sec × 2.6M sec/month = 10B reads = $12.5K/month. Writes: 100M × $1.25 = $125.",
+              "tradeoffs": "On-demand: flexible but expensive. Provisioned: cheaper but rigid.",
+              "examples": "With 99% caching, actual DB reads = 100M/month = $125.",
+              "mistakes": "Common mistake: Calculating without caching, cost looks much higher."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Cache: Redis cluster ~$0.068/GB/hour، 100GB = ~$5K/month",
+            "en": "Cache: Redis cluster ~$0.068/GB/hour, 100GB = ~$5K/month"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cache هو اللي بيخلي الـ latency < 50ms.",
+              "how": "100GB × $0.068 × 730 hours = $5K/month.",
+              "tradeoffs": "أكبر cache = أعلى hit rate بس أعلى cost.",
+              "examples": "ElastiCache Redis r6g.xlarge cluster.",
+              "mistakes": "خطأ شائع: تقلل الـ cache size لتوفر، الـ latency بتعلى."
+            },
+            "en": {
+              "why": "Cache is what makes latency < 50ms.",
+              "how": "100GB × $0.068 × 730 hours = $5K/month.",
+              "tradeoffs": "Bigger cache = higher hit rate but higher cost.",
+              "examples": "ElastiCache Redis r6g.xlarge cluster.",
+              "mistakes": "Common mistake: Reducing cache size to save money, latency increases."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Analytics storage: time-series data ~2TB/month، aggregated ~100GB",
+            "en": "Analytics storage: time-series data ~2TB/month, aggregated ~100GB"
+          },
+          "detail": {
+            "ar": {
+              "why": "Raw events ضخمة. Aggregation بتقلل الـ storage.",
+              "how": "Raw: 10B × 200 bytes = 2TB. Aggregated hourly: 100M × 1KB = 100GB.",
+              "tradeoffs": "Raw = flexible queries. Aggregated = limited queries بس أرخص.",
+              "examples": "InfluxDB أو TimescaleDB للـ aggregated data.",
+              "mistakes": "خطأ شائع: تخزن raw events للأبد، التكلفة بتنفجر."
+            },
+            "en": {
+              "why": "Raw events are huge. Aggregation reduces storage.",
+              "how": "Raw: 10B × 200 bytes = 2TB. Aggregated hourly: 100M × 1KB = 100GB.",
+              "tradeoffs": "Raw = flexible queries. Aggregated = limited queries but cheaper.",
+              "examples": "InfluxDB or TimescaleDB for aggregated data.",
+              "mistakes": "Common mistake: Storing raw events forever, cost explodes."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-security",
+      "title": {
+        "ar": "الأمان والـ Abuse (Staff)",
+        "en": "Security & Abuse (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الأمان",
+        "en": "Security"
+      },
+      "prompt": {
+        "ar": "إيه المخاطر الأمنية: malicious URLs، phishing، rate limiting، enumeration attacks؟",
+        "en": "What are the security risks: malicious URLs, phishing, rate limiting, enumeration attacks?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Malicious URL detection: Google Safe Browsing API، VirusTotal",
+            "en": "Malicious URL detection: Google Safe Browsing API, VirusTotal"
+          },
+          "detail": {
+            "ar": {
+              "why": "Short URLs بتتستخدم للـ phishing. لازم تـ scan.",
+              "how": "Check URL against Safe Browsing قبل الـ create. Block أو warn.",
+              "tradeoffs": "API calls بتزود latency. بس ضرورية.",
+              "examples": "Google Safe Browsing API مجاني لـ non-commercial.",
+              "mistakes": "خطأ شائع: متعملش scanning، platform بيتستخدم للـ phishing."
+            },
+            "en": {
+              "why": "Short URLs are used for phishing. Must scan.",
+              "how": "Check URL against Safe Browsing before create. Block or warn.",
+              "tradeoffs": "API calls add latency. But necessary.",
+              "examples": "Google Safe Browsing API is free for non-commercial.",
+              "mistakes": "Common mistake: Not scanning, platform is used for phishing."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Rate limiting: per-IP وper-user limits للـ create endpoint",
+            "en": "Rate limiting: per-IP and per-user limits for create endpoint"
+          },
+          "detail": {
+            "ar": {
+              "why": "بدون limits، attacker يقدر يستهلك كل الـ keys أو يعمل spam.",
+              "how": "100 creates/hour/IP. 1000 creates/hour/authenticated user.",
+              "tradeoffs": "Aggressive limits بتزعج legitimate users.",
+              "examples": "Token bucket algorithm. Redis-based rate limiter.",
+              "mistakes": "خطأ شائع: rate limit على IP بس، shared NAT بيأثر على users كتير."
+            },
+            "en": {
+              "why": "Without limits, attacker can consume all keys or spam.",
+              "how": "100 creates/hour/IP. 1000 creates/hour/authenticated user.",
+              "tradeoffs": "Aggressive limits upset legitimate users.",
+              "examples": "Token bucket algorithm. Redis-based rate limiter.",
+              "mistakes": "Common mistake: Rate limiting on IP only, shared NAT affects many users."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Enumeration protection: non-sequential keys، rate limit على 404s",
+            "en": "Enumeration protection: non-sequential keys, rate limit on 404s"
+          },
+          "detail": {
+            "ar": {
+              "why": "Sequential keys بتسمح للـ attacker يـ crawl كل الـ URLs.",
+              "how": "Random-looking keys. Rate limit: 10 404s/min/IP → block.",
+              "tradeoffs": "Random keys أطول أو harder to remember.",
+              "examples": "Base62 random بدل counter.",
+              "mistakes": "خطأ شائع: sequential keys، attacker يقدر يشوف URLs الناس كلها."
+            },
+            "en": {
+              "why": "Sequential keys allow attacker to crawl all URLs.",
+              "how": "Random-looking keys. Rate limit: 10 404s/min/IP → block.",
+              "tradeoffs": "Random keys are longer or harder to remember.",
+              "examples": "Base62 random instead of counter.",
+              "mistakes": "Common mistake: Sequential keys, attacker can see everyone's URLs."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "staff-dr",
+      "title": {
+        "ar": "الـ DR والـ Multi-Region (Staff)",
+        "en": "DR & Multi-Region (Staff)"
+      },
+      "shortTitle": {
+        "ar": "الـ DR",
+        "en": "DR"
+      },
+      "prompt": {
+        "ar": "99.99% availability يعني 52 دقيقة downtime/سنة. إزاي تحقق ده مع DR؟",
+        "en": "99.99% availability means 52 minutes downtime/year. How do you achieve this with DR?"
+      },
+      "level": "staff",
+      "items": [
+        {
+          "text": {
+            "ar": "Active-active multi-region: redirects تشتغل من أقرب region",
+            "en": "Active-active multi-region: redirects work from nearest region"
+          },
+          "detail": {
+            "ar": {
+              "why": "Active-passive بيدّي RTO = failover time. Active-active بيدّي RTO ≈ 0.",
+              "how": "DynamoDB global tables. Redis في كل region. Route 53 latency-based routing.",
+              "tradeoffs": "Active-active أعقد وأغلى. بس بيحقق 99.99%+.",
+              "examples": "2 regions: us-east-1، eu-west-1. User بيروح لأقرب واحد.",
+              "mistakes": "خطأ شائع: active-passive بس، الـ failover بياخد دقايق."
+            },
+            "en": {
+              "why": "Active-passive gives RTO = failover time. Active-active gives RTO ≈ 0.",
+              "how": "DynamoDB global tables. Redis in each region. Route 53 latency-based routing.",
+              "tradeoffs": "Active-active is more complex and expensive. But achieves 99.99%+.",
+              "examples": "2 regions: us-east-1, eu-west-1. User goes to nearest one.",
+              "mistakes": "Common mistake: Active-passive only, failover takes minutes."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Key generation across regions: range allocation لتجنب collisions",
+            "en": "Key generation across regions: range allocation to avoid collisions"
+          },
+          "detail": {
+            "ar": {
+              "why": "لو كل region بيعمل keys، ممكن يحصل collision.",
+              "how": "كل region له range مختلف: us = 0-1T، eu = 1T-2T.",
+              "tradeoffs": "Range allocation بيخلي coordination أقل. بس محتاج planning.",
+              "examples": "ZooKeeper أو etcd لـ range assignment.",
+              "mistakes": "خطأ شائع: same counter في كل region، collision."
+            },
+            "en": {
+              "why": "If every region generates keys, collision may happen.",
+              "how": "Each region has different range: us = 0-1T, eu = 1T-2T.",
+              "tradeoffs": "Range allocation needs less coordination. But needs planning.",
+              "examples": "ZooKeeper or etcd for range assignment.",
+              "mistakes": "Common mistake: Same counter in every region, collision."
+            }
+          }
+        },
+        {
+          "text": {
+            "ar": "Replication lag handling: eventual consistency acceptable للـ redirects",
+            "en": "Replication lag handling: eventual consistency acceptable for redirects"
+          },
+          "detail": {
+            "ar": {
+              "why": "Cross-region replication بياخد milliseconds. ده acceptable.",
+              "how": "DynamoDB global tables: ~1 second lag. للـ creates، read-your-writes من same region.",
+              "tradeoffs": "Strong consistency أبطأ. Eventually consistent أسرع.",
+              "examples": "Create في us، immediate redirect في us. Redirect في eu بعد ~1 sec.",
+              "mistakes": "خطأ شائع: تطلب strong consistency للـ redirects، الـ latency بتعلى."
+            },
+            "en": {
+              "why": "Cross-region replication takes milliseconds. This is acceptable.",
+              "how": "DynamoDB global tables: ~1 second lag. For creates, read-your-writes from same region.",
+              "tradeoffs": "Strong consistency is slower. Eventually consistent is faster.",
+              "examples": "Create in us, immediate redirect in us. Redirect in eu after ~1 sec.",
+              "mistakes": "Common mistake: Requiring strong consistency for redirects, latency increases."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "capacity": {
+    "helpers": [
+      {
+        "id": "urlsMonth",
+        "label": {
+          "ar": "روابط جديدة/شهر",
+          "en": "New URLs/month"
+        },
+        "unit": {
+          "ar": "URL",
+          "en": "URLs"
+        },
+        "reference": 100000000
+      },
+      {
+        "id": "rwRatio",
+        "label": {
+          "ar": "نسبة القراءة للكتابة",
+          "en": "Read/Write ratio"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "reference": 100
+      },
+      {
+        "id": "recordBytes",
+        "label": {
+          "ar": "حجم السجل",
+          "en": "Record size"
+        },
+        "unit": {
+          "ar": "bytes",
+          "en": "bytes"
+        },
+        "reference": 500
+      }
+    ],
+    "fields": [
+      {
+        "id": "writeQps",
+        "label": {
+          "ar": "Write QPS",
+          "en": "Write QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "reference": 40
+      },
+      {
+        "id": "readQps",
+        "label": {
+          "ar": "Redirect QPS",
+          "en": "Redirect QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "reference": 4000
+      },
+      {
+        "id": "peakQps",
+        "label": {
+          "ar": "Peak redirect QPS",
+          "en": "Peak redirect QPS"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "reference": 12000
+      },
+      {
+        "id": "storageDay",
+        "label": {
+          "ar": "تخزين/يوم",
+          "en": "Storage/day"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "reference": 1.7
+      },
+      {
+        "id": "storage5y",
+        "label": {
+          "ar": "تخزين 5 سنين",
+          "en": "Storage 5 years"
+        },
+        "unit": {
+          "ar": "TB",
+          "en": "TB"
+        },
+        "reference": 3
+      },
+      {
+        "id": "cacheSize",
+        "label": {
+          "ar": "حجم الـ Cache",
+          "en": "Cache size"
+        },
+        "unit": {
+          "ar": "GB",
+          "en": "GB"
+        },
+        "reference": 80
+      },
+      {
+        "id": "keySpace",
+        "label": {
+          "ar": "Key space (Base62^7)",
+          "en": "Key space (Base62^7)"
+        },
+        "unit": {
+          "ar": "تريليون",
+          "en": "trillion"
+        },
+        "reference": 3.5
+      }
+    ],
+    "steps": [
+      {
+        "ar": "1) Write QPS = 100M / 30 / 86400 ≈ 40. Read = 40 × 100 = 4000. Peak ≈ 12K.",
+        "en": "1) Write QPS = 100M / 30 / 86400 ≈ 40. Read = 40 × 100 = 4000. Peak ≈ 12K."
+      },
+      {
+        "ar": "2) Storage/day = 100M/30 × 500B ≈ 1.7GB. 5 years ≈ 3TB مع overhead.",
+        "en": "2) Storage/day = 100M/30 × 500B ≈ 1.7GB. 5 years ≈ 3TB with overhead."
+      },
+      {
+        "ar": "3) Cache الـ hot 20% من الـ redirects → ~80GB. Base62^7 ≈ 3.5 trillion keys.",
+        "en": "3) Cache hot 20% of redirects → ~80GB. Base62^7 ≈ 3.5 trillion keys."
+      }
+    ]
+  },
+  "chaos": [
+    {
+      "id": "db-primary-fail",
+      "title": {
+        "ar": "DB primary فشل",
+        "en": "DB primary failure"
+      },
+      "description": {
+        "ar": "الـ primary DB مش بيرد. الـ creates واقفة، والـ redirects لسه شغالة من الـ cache بنسبة 80%. إيه هتعمل؟",
+        "en": "Primary DB is not responding. Creates are stuck, redirects still work from cache ~80%. What do you do?"
+      },
+      "afterStage": "architecture",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Promote replica لـ primary فوراً",
+          "en": "Promote replica to primary immediately"
+        },
+        {
+          "ar": "Queue الـ creates مؤقتاً أو رجّع 503 مع retry",
+          "en": "Queue creates temporarily or return 503 with retry"
+        },
+        {
+          "ar": "تأكد الـ cache ما يكتبش mappings خاطئة",
+          "en": "Ensure cache does not write bad mappings"
+        },
+        {
+          "ar": "Runbook: check replication lag قبل الـ promote",
+          "en": "Runbook: check replication lag before promote"
+        }
+      ]
+    },
+    {
+      "id": "hot-key",
+      "title": {
+        "ar": "Hot key على رابط مشهور",
+        "en": "Hot key on a viral link"
+      },
+      "description": {
+        "ar": "رابط واحد بياخد 30% من كل الـ redirects. الـ cache node والـ DB shard بتولّع. إزاي تحل؟",
+        "en": "One link is getting 30% of all redirects. Cache node and DB shard are on fire. How do you fix it?"
+      },
+      "afterStage": "scaling",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Local/edge cache أو CDN للـ hot key",
+          "en": "Local/edge cache or CDN for the hot key"
+        },
+        {
+          "ar": "Replicate key على كذا cache node",
+          "en": "Replicate key across multiple cache nodes"
+        },
+        {
+          "ar": "Rate limit أو serve من memory على الـ API",
+          "en": "Rate limit or serve from memory on API"
+        },
+        {
+          "ar": "Monitor hotspot metrics بعد الإصلاح",
+          "en": "Monitor hotspot metrics after the fix"
+        }
+      ]
+    },
+    {
+      "id": "queue-backlog",
+      "title": {
+        "ar": "Analytics queue backlog",
+        "en": "Analytics queue backlog"
+      },
+      "description": {
+        "ar": "Kafka lag وصل لـ 2 ساعات. الـ dashboards قديمة والـ consumers مش لاحقين. الـ redirects سليمة. إيه الأولوية؟",
+        "en": "Kafka lag hit 2 hours. Dashboards are stale and consumers cannot keep up. Redirects are fine. What is the priority?"
+      },
+      "afterStage": "monitoring",
+      "seconds": 90,
+      "checklist": [
+        {
+          "ar": "Scale consumers وpartition count",
+          "en": "Scale consumers and partition count"
+        },
+        {
+          "ar": "Drop/sample non-critical events مؤقتاً",
+          "en": "Drop/sample non-critical events temporarily"
+        },
+        {
+          "ar": "Separate critical vs batch analytics",
+          "en": "Separate critical vs batch analytics"
+        },
+        {
+          "ar": "Alert على lag قبل ما يوصل لساعات",
+          "en": "Alert on lag before it reaches hours"
+        }
+      ]
+    }
+  ],
+  "tradeoffs": [
+    {
+      "id": "301-302",
+      "question": {
+        "ar": "Redirect: 301 ولا 302؟",
+        "en": "Redirect: 301 or 302?"
+      },
+      "optionA": {
+        "ar": "301 Permanent",
+        "en": "301 Permanent"
+      },
+      "optionB": {
+        "ar": "302 Temporary",
+        "en": "302 Temporary"
+      },
+      "expected": "either",
+      "expectedNote": {
+        "ar": "301 أحسن للـ latency، 302 أحسن للـ analytics الدقيقة.",
+        "en": "301 is better for latency; 302 is better for accurate analytics."
+      },
+      "prosA": {
+        "ar": "Browser/CDN يـ cache، ضغط أقل على السيرفر",
+        "en": "Browser/CDN caches, less server load"
+      },
+      "consA": {
+        "ar": "Analytics ناقصة لأن الطلبات مش بترجع",
+        "en": "Incomplete analytics because requests stop returning"
+      },
+      "prosB": {
+        "ar": "كل click يعدّي على السيرفر → analytics كاملة",
+        "en": "Every click hits server → full analytics"
+      },
+      "consB": {
+        "ar": "Latency أعلى وload أكبر",
+        "en": "Higher latency and more load"
+      },
+      "whenOtherWins": {
+        "ar": "اختار 301 لو analytics مش حرجة، و302 لو الـ product قايم على القياس.",
+        "en": "Choose 301 if analytics are not critical, 302 if the product depends on measurement."
+      }
+    },
+    {
+      "id": "base62-hash",
+      "question": {
+        "ar": "توليد المفاتيح: Base62 counter ولا hash؟",
+        "en": "Key generation: Base62 counter or hash?"
+      },
+      "optionA": {
+        "ar": "Base62 من counter",
+        "en": "Base62 from counter"
+      },
+      "optionB": {
+        "ar": "Hash للـ URL",
+        "en": "Hash of the URL"
+      },
+      "expected": "A",
+      "expectedNote": {
+        "ar": "Counter/KGS أوضح وأقل collisions في المقابلات.",
+        "en": "Counter/KGS is clearer and has fewer collisions in interviews."
+      },
+      "prosA": {
+        "ar": "مفاتيح قصيرة، unique، predictable length",
+        "en": "Short keys, unique, predictable length"
+      },
+      "consA": {
+        "ar": "محتاج خدمة counter موزعة",
+        "en": "Needs a distributed counter service"
+      },
+      "prosB": {
+        "ar": "Stateless، نفس URL → نفس المفتاح",
+        "en": "Stateless, same URL → same key"
+      },
+      "consB": {
+        "ar": "Collisions، طول غير ثابت أو أطول",
+        "en": "Collisions, variable or longer length"
+      },
+      "whenOtherWins": {
+        "ar": "Hash ينفع لو عايز idempotent mapping ومن غير KGS.",
+        "en": "Hash works if you want idempotent mapping without a KGS."
+      }
+    },
+    {
+      "id": "sql-kv",
+      "question": {
+        "ar": "تخزين الـ mapping: SQL ولا Key-Value؟",
+        "en": "Mapping storage: SQL or Key-Value?"
+      },
+      "optionA": {
+        "ar": "SQL",
+        "en": "SQL"
+      },
+      "optionB": {
+        "ar": "Key-Value (Dynamo/Cassandra)",
+        "en": "Key-Value (Dynamo/Cassandra)"
+      },
+      "expected": "B",
+      "expectedNote": {
+        "ar": "Access pattern بسيط (key → URL) فـ KV مناسب جداً.",
+        "en": "Access pattern is simple (key → URL), so KV fits very well."
+      },
+      "prosA": {
+        "ar": "مرونة في الـ queries والـ admin tools",
+        "en": "Flexible queries and admin tools"
+      },
+      "consA": {
+        "ar": "Overkill للـ lookup البسيط",
+        "en": "Overkill for simple lookup"
+      },
+      "prosB": {
+        "ar": "Latency واطي وscale ممتاز",
+        "en": "Low latency and excellent scale"
+      },
+      "consB": {
+        "ar": "Secondary indexes أصعب",
+        "en": "Secondary indexes harder"
+      },
+      "whenOtherWins": {
+        "ar": "SQL لو محتاج تقارير معقدة على نفس الـ store.",
+        "en": "SQL if you need complex reporting on the same store."
+      }
+    }
+  ],
+  "drawing": {
+    "components": [
+      "client",
+      "lb",
+      "api",
+      "kgs",
+      "cache",
+      "db",
+      "queue",
+      "monitoring"
+    ],
+    "edges": [
+      {
+        "from": "client",
+        "to": "lb",
+        "label": {
+          "ar": "create/redirect",
+          "en": "create/redirect"
+        }
+      },
+      {
+        "from": "lb",
+        "to": "api",
+        "label": {
+          "ar": "توزيع",
+          "en": "distribute"
+        }
+      },
+      {
+        "from": "api",
+        "to": "kgs",
+        "label": {
+          "ar": "طلب مفتاح",
+          "en": "get key"
+        }
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": {
+          "ar": "حفظ mapping",
+          "en": "store mapping"
+        }
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "label": {
+          "ar": "cache-first",
+          "en": "cache-first"
+        }
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": {
+          "ar": "miss → DB",
+          "en": "miss → DB"
+        }
+      },
+      {
+        "from": "api",
+        "to": "queue",
+        "label": {
+          "ar": "analytics events",
+          "en": "analytics events"
+        }
+      }
+    ],
+    "referenceLayout": [
+      {
+        "type": "client",
+        "x": 20,
+        "y": 60
+      },
+      {
+        "type": "lb",
+        "x": 140,
+        "y": 60
+      },
+      {
+        "type": "api",
+        "x": 260,
+        "y": 60
+      },
+      {
+        "type": "kgs",
+        "x": 400,
+        "y": 20
+      },
+      {
+        "type": "cache",
+        "x": 400,
+        "y": 100
+      },
+      {
+        "type": "db",
+        "x": 400,
+        "y": 180
+      },
+      {
+        "type": "queue",
+        "x": 260,
+        "y": 180
+      },
+      {
+        "type": "monitoring",
+        "x": 20,
+        "y": 180
+      }
+    ]
+  }
+}

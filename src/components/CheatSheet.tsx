@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Lang } from '../types';
 import { CHEATSHEET, GLOSSARY, getGlossaryTerm } from '../content/loadContent';
 import { localizedText } from '../i18n';
@@ -66,12 +66,22 @@ export function CheatSheet({ lang, onBack, onToggleLang, onOpenTerm, onOpenGloss
 
   const downloadPdf = () => {
     document.documentElement.setAttribute('data-print-cheatsheet', 'true');
-    // Expand all for print
     expandAll(true);
     setTimeout(() => {
       window.print();
       setTimeout(() => document.documentElement.removeAttribute('data-print-cheatsheet'), 500);
     }, 50);
+  };
+
+  const toggleCategory = (id: string, headerEl: HTMLElement | null) => {
+    const wasOpen = open[id] !== false;
+    setOpen(o => ({ ...o, [id]: !wasOpen }));
+    if (wasOpen && headerEl) {
+      // After collapse, keep the header in view (important when it was stuck mid-section)
+      requestAnimationFrame(() => {
+        headerEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
   };
 
   return (
@@ -113,59 +123,54 @@ export function CheatSheet({ lang, onBack, onToggleLang, onOpenTerm, onOpenGloss
       </div>
 
       {filtered.map(cat => (
-        <section key={cat.id} className="cheat-category" style={{ marginBottom: 16, breakInside: 'avoid' }}>
-          <button
-            type="button"
-            className="no-print"
-            onClick={() => setOpen(o => ({ ...o, [cat.id]: !o[cat.id] }))}
-            style={{ width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-default)', background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }}
-          >
-            {open[cat.id] ? '▾' : '▸'} {localizedText(cat.title, lang)} ({cat.entries.length})
-          </button>
-          <h2 className="print-only" style={{ fontSize: '1.1rem', margin: '16px 0 8px', color: 'var(--accent)' }}>{localizedText(cat.title, lang)}</h2>
-          {(open[cat.id] !== false) && (
-            <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-              {cat.entries.map(entry => (
-                <article key={entry.id} id={`cheat-${entry.id}`} className="cheat-entry" style={{ padding: 14, borderRadius: 12, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', breakInside: 'avoid' }}>
-                  <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.95rem' }}>
-                    <span style={{ color: 'var(--accent)' }}>{localizedText(CS.problem, lang)}:</span>{' '}
-                    {localizedText(entry.problem, lang)}
+        <StickyCategory
+          key={cat.id}
+          title={`${localizedText(cat.title, lang)} (${cat.entries.length})`}
+          open={open[cat.id] !== false}
+          lang={lang}
+          onToggle={(el) => toggleCategory(cat.id, el)}
+        >
+          <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+            {cat.entries.map(entry => (
+              <article key={entry.id} id={`cheat-${entry.id}`} className="cheat-entry" style={{ padding: 14, borderRadius: 12, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', breakInside: 'avoid' }}>
+                <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.95rem' }}>
+                  <span style={{ color: 'var(--accent)' }}>{localizedText(CS.problem, lang)}:</span>{' '}
+                  {localizedText(entry.problem, lang)}
+                </p>
+                <p style={{ margin: '0 0 6px', fontSize: '0.875rem', lineHeight: 1.55 }}>
+                  <strong>{localizedText(CS.patterns, lang)}:</strong>{' '}
+                  <LinkedText text={localizedText(entry.patterns, lang)} lang={lang} termIds={entry.termIds || []} onOpenTerm={onOpenTerm} />
+                </p>
+                <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+                  <strong>{localizedText(CS.when, lang)}:</strong> {localizedText(entry.when, lang)}
+                </p>
+                <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+                  <strong>{localizedText(CS.tradeoffs, lang)}:</strong> {localizedText(entry.tradeoffs, lang)}
+                </p>
+                <p style={{ margin: '0 0 8px', fontSize: '0.8125rem', lineHeight: 1.55 }}>
+                  <strong>{localizedText(CS.example, lang)}:</strong> {localizedText(entry.example, lang)}
+                </p>
+                {(entry.termIds || []).length > 0 && (
+                  <p style={{ margin: 0, fontSize: '0.75rem' }}>
+                    <strong>{localizedText(CS.relatedTerms, lang)}:</strong>{' '}
+                    {(entry.termIds || []).map((tid, i) => {
+                      const term = getGlossaryTerm(tid);
+                      if (!term) return null;
+                      return (
+                        <span key={tid}>
+                          {i > 0 ? ' · ' : ''}
+                          <a href={`#glossary-${tid}`} onClick={(e) => { e.preventDefault(); onOpenTerm(tid); }} style={{ color: 'var(--accent)' }}>
+                            {localizedText(term.name, lang)}
+                          </a>
+                        </span>
+                      );
+                    })}
                   </p>
-                  <p style={{ margin: '0 0 6px', fontSize: '0.875rem', lineHeight: 1.55 }}>
-                    <strong>{localizedText(CS.patterns, lang)}:</strong>{' '}
-                    <LinkedText text={localizedText(entry.patterns, lang)} lang={lang} termIds={entry.termIds || []} onOpenTerm={onOpenTerm} />
-                  </p>
-                  <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
-                    <strong>{localizedText(CS.when, lang)}:</strong> {localizedText(entry.when, lang)}
-                  </p>
-                  <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
-                    <strong>{localizedText(CS.tradeoffs, lang)}:</strong> {localizedText(entry.tradeoffs, lang)}
-                  </p>
-                  <p style={{ margin: '0 0 8px', fontSize: '0.8125rem', lineHeight: 1.55 }}>
-                    <strong>{localizedText(CS.example, lang)}:</strong> {localizedText(entry.example, lang)}
-                  </p>
-                  {(entry.termIds || []).length > 0 && (
-                    <p style={{ margin: 0, fontSize: '0.75rem' }}>
-                      <strong>{localizedText(CS.relatedTerms, lang)}:</strong>{' '}
-                      {(entry.termIds || []).map((tid, i) => {
-                        const term = getGlossaryTerm(tid);
-                        if (!term) return null;
-                        return (
-                          <span key={tid}>
-                            {i > 0 ? ' · ' : ''}
-                            <a href={`#glossary-${tid}`} onClick={(e) => { e.preventDefault(); onOpenTerm(tid); }} style={{ color: 'var(--accent)' }}>
-                              {localizedText(term.name, lang)}
-                            </a>
-                          </span>
-                        );
-                      })}
-                    </p>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+                )}
+              </article>
+            ))}
+          </div>
+        </StickyCategory>
       ))}
 
       <section className="cheat-numbers" style={{ marginTop: 28, padding: 16, borderRadius: 14, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
@@ -180,7 +185,6 @@ export function CheatSheet({ lang, onBack, onToggleLang, onOpenTerm, onOpenGloss
         </div>
       </section>
 
-      {/* Glossary appendix for PDF / print */}
       <section className="glossary-appendix print-only" style={{ marginTop: 32, pageBreakBefore: 'always' }}>
         <h2 style={{ fontSize: '1.25rem', margin: '0 0 16px', color: 'var(--accent)' }}>{localizedText(CS.glossaryAppendix, lang)}</h2>
         {GLOSSARY.categories.map(cat => {
@@ -200,6 +204,64 @@ export function CheatSheet({ lang, onBack, onToggleLang, onOpenTerm, onOpenGloss
         })}
       </section>
     </div>
+  );
+}
+
+function StickyCategory({
+  title,
+  open,
+  lang,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  lang: Lang;
+  onToggle: (headerEl: HTMLElement | null) => void;
+  children: ReactNode;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLButtonElement>(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setStuck(!entry.isIntersecting),
+      { threshold: [1], rootMargin: '0px 0px 0px 0px' }
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <section className="cheat-category" style={{ marginBottom: 16, breakInside: 'avoid' }}>
+      <div ref={sentinelRef} className="cheat-category-sentinel no-print" aria-hidden="true" />
+      <button
+        ref={headerRef}
+        type="button"
+        className={`cheat-category-header no-print${stuck ? ' is-stuck' : ''}`}
+        aria-expanded={open}
+        onClick={() => onToggle(headerRef.current)}
+        style={{
+          width: '100%',
+          textAlign: lang === 'ar' ? 'right' : 'left',
+          padding: '12px 14px',
+          borderRadius: stuck ? 0 : 12,
+          border: '1px solid var(--border-default)',
+          background: 'var(--bg-elevated)',
+          color: 'var(--text-primary)',
+          fontWeight: 600,
+          fontSize: '1rem',
+          cursor: 'pointer',
+        }}
+      >
+        {open ? '▾' : '▸'} {title}
+      </button>
+      <h2 className="print-only" style={{ fontSize: '1.1rem', margin: '16px 0 8px', color: 'var(--accent)' }}>{title}</h2>
+      {open && children}
+    </section>
   );
 }
 

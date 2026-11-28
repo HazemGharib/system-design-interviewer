@@ -1,66 +1,37 @@
-# تمرين مقابلة System Design
+# System Design Interview Trainer (PWA)
 
-تطبيق PWA للتدريب على مقابلات تصميم الأنظمة (System Design) باللغة العربية المصرية.
+Practice system design interviews offline: 3 scenarios, Senior/Staff levels, Arabic (Egyptian RTL) ↔ English, interactive drawing board, capacity calculator, chaos mode, trade-off cards, radar report, and a comprehensive pattern cheat sheet.
 
-## المميزات
-
-- **9 مراحل** تغطي كل جوانب مقابلة System Design
-- **ميقات 45 دقيقة** اختياري لمحاكاة المقابلة الحقيقية
-- **نقط الإجابة القوية** للتقييم الذاتي في كل مرحلة
-- **حفظ تلقائي** في المتصفح (localStorage)
-- **يعمل بدون إنترنت** بعد التحميل الأول
-- **قابل للتثبيت** على الموبايل والديسكتوب كتطبيق
-
-## التشغيل المحلي
+## Run locally
 
 ```bash
-# تثبيت المتطلبات
-npm install
-
-# تشغيل سيرفر التطوير
+npm ci
 npm run dev
+```
 
-# بناء النسخة النهائية
+Open the printed local URL (base path `/system-design-interviewer/`).
+
+## Build
+
+```bash
 npm run build
-
-# معاينة النسخة النهائية
 npm run preview
 ```
 
-## البناء والاستضافة
+## Features
 
-```bash
-npm run build
-```
+- **Scenarios**: Image Upload, URL Shortener, Chat/Messaging
+- **Levels**: Senior + optional Staff questions
+- **i18n**: Full AR/EN with RTL/LTR
+- **Drawing board**: drag components, connect edges, compare to proposed design
+- **Capacity calculator**: enter estimates, check vs reference with worked steps
+- **Chaos mode**: surprise incident cards with countdown + checklist scoring
+- **Trade-off cards**: pick side, justify, reveal interviewer expectations
+- **Radar report**: SVG radar + attempt history in localStorage
+- **Cheat sheet**: searchable pattern catalog + Print/PDF (`#/cheatsheet`)
 
-الملفات الجاهزة للاستضافة ستكون في مجلد `dist/`. يمكن استضافتها على:
+## Deploy
 
-- **Vercel**: `vercel --prod`
-- **Netlify**: ارفع مجلد `dist/`
-- **GitHub Pages**: استخدم GitHub Actions
-- **أي سيرفر ستاتيك**: انقل محتويات `dist/` للسيرفر
+GitHub Pages via `.github/workflows/deploy.yml` (Source = GitHub Actions).
 
-## الألوان
-
-| اللون | الكود |
-|-------|-------|
-| Teal (أساسي) | `#1A7A6D` |
-| Teal فاتح | `#2A9D8F` |
-| Teal غامق | `#0F4C5C` |
-| Sand (خلفية) | `#F6F1E8` |
-| Gold (أكسنت) | `#C9A227` |
-
-## التقنيات
-
-- React 18
-- TypeScript
-- Vite
-- vite-plugin-pwa (Service Worker + Manifest)
-- Noto Sans Arabic font
-
-## الرخصة
-
-MIT
-
-# Pages enabled
-
+Live: https://hazemgharib.github.io/system-design-interviewer/

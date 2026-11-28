@@ -34,6 +34,142 @@ export interface Scenario {
   stages: Stage[];
 }
 
+export type ComponentType =
+  | 'client'
+  | 'lb'
+  | 'api'
+  | 'cache'
+  | 'db'
+  | 'replica'
+  | 'storage'
+  | 'cdn'
+  | 'queue'
+  | 'worker'
+  | 'dlq'
+  | 'websocket'
+  | 'kgs'
+  | 'push'
+  | 'monitoring'
+  | 'presence'
+  | 'router';
+
+export interface DrawingBlock {
+  id: string;
+  type: ComponentType;
+  x: number;
+  y: number;
+}
+
+export interface DrawingEdge {
+  id: string;
+  from: string;
+  to: string;
+}
+
+export interface DrawingState {
+  blocks: DrawingBlock[];
+  edges: DrawingEdge[];
+  compared: boolean;
+  matchedComponents: string[];
+  missedComponents: string[];
+  matchedEdges: string[];
+  missedEdges: string[];
+  score: number;
+}
+
+export interface CapacityField {
+  id: string;
+  label: { ar: string; en: string };
+  unit: { ar: string; en: string };
+  reference: number;
+  helper?: { ar: string; en: string };
+}
+
+export interface CapacityState {
+  values: Record<string, string>;
+  helpers: Record<string, string>;
+  checked: boolean;
+  results: Record<string, { verdict: 'good' | 'ok' | 'off'; ratio: number }>;
+}
+
+export interface ChaosIncident {
+  id: string;
+  title: { ar: string; en: string };
+  description: { ar: string; en: string };
+  afterStage: string;
+  seconds: number;
+  checklist: { ar: string; en: string }[];
+}
+
+export interface ChaosResponse {
+  incidentId: string;
+  answer: string;
+  ticks: boolean[];
+  revealed: boolean;
+  timedOut: boolean;
+}
+
+export interface ChaosState {
+  enabled: boolean;
+  activeIncidentId: string | null;
+  deadline: number | null;
+  responses: Record<string, ChaosResponse>;
+  triggered: string[];
+}
+
+export interface TradeoffCard {
+  id: string;
+  question: { ar: string; en: string };
+  optionA: { ar: string; en: string };
+  optionB: { ar: string; en: string };
+  expected: 'A' | 'B' | 'either';
+  expectedNote: { ar: string; en: string };
+  prosA: { ar: string; en: string };
+  consA: { ar: string; en: string };
+  prosB: { ar: string; en: string };
+  consB: { ar: string; en: string };
+  whenOtherWins: { ar: string; en: string };
+}
+
+export interface TradeoffAnswer {
+  choice: 'A' | 'B' | null;
+  justification: string;
+  revealed: boolean;
+  scored: boolean;
+}
+
+export interface TradeoffState {
+  answers: Record<string, TradeoffAnswer>;
+}
+
+export type RadarDimension =
+  | 'requirements'
+  | 'estimation'
+  | 'architecture'
+  | 'scaling'
+  | 'reliability'
+  | 'dataModeling'
+  | 'tradeoffs'
+  | 'monitoring';
+
+export interface RadarScores {
+  requirements: number;
+  estimation: number;
+  architecture: number;
+  scaling: number;
+  reliability: number;
+  dataModeling: number;
+  tradeoffs: number;
+  monitoring: number;
+}
+
+export interface AttemptHistory {
+  timestamp: number;
+  scores: RadarScores;
+  overall: number;
+  level: Level;
+}
+
 export interface SavedScenarioState {
   answers: Record<string, string>;
   ticks: Record<string, boolean[]>;
@@ -44,6 +180,11 @@ export interface SavedScenarioState {
   running: boolean;
   deadline: number | null;
   level: Level;
+  drawing: DrawingState;
+  capacity: CapacityState;
+  chaos: ChaosState;
+  tradeoffs: TradeoffState;
+  history: AttemptHistory[];
 }
 
 export interface GlobalState {

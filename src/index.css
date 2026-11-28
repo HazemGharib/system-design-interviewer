@@ -130,3 +130,40 @@ html, body {
   background: var(--accent-soft);
   color: var(--text-primary);
 }
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  html[data-print-cheatsheet='true'] body * {
+    visibility: hidden;
+  }
+  html[data-print-cheatsheet='true'] .cheatsheet-page,
+  html[data-print-cheatsheet='true'] .cheatsheet-page * {
+    visibility: visible;
+  }
+  html[data-print-cheatsheet='true'] .cheatsheet-page {
+    position: absolute;
+    inset: 0;
+    max-width: none !important;
+    padding: 12mm !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .cheat-entry,
+  .cheat-category,
+  .cheat-numbers {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  @page {
+    margin: 12mm;
+  }
+}

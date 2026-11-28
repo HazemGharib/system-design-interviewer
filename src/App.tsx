@@ -3,11 +3,22 @@ import type { Lang, Level, Scenario, Stage, SavedScenarioState, GlobalState, Che
 import { SCENARIOS, getScenarioById } from './scenarios';
 import { t, localizedText } from './i18n';
 import { ArchitectureDiagram } from './diagrams/ArchitectureDiagram';
+import { DrawingBoard } from './components/DrawingBoard';
+import { CapacityCalculator } from './components/CapacityCalculator';
+import { ChaosToggle, ChaosIncidentCard } from './components/ChaosMode';
+import { TradeoffCards } from './components/TradeoffCards';
+import { RadarChart } from './components/RadarChart';
+import { CheatSheet } from './components/CheatSheet';
+import { emptyDrawing } from './interactive/drawingData';
+import { emptyCapacity } from './interactive/capacityData';
+import { emptyChaos } from './interactive/chaosData';
+import { emptyTradeoffs } from './interactive/tradeoffData';
+import { computeRadarScores, overallFromRadar } from './interactive/radar';
 
 const TOTAL_SECONDS = 45 * 60;
-const STORAGE_KEY = 'sysdesign-interview-v3';
+const STORAGE_KEY = 'sysdesign-interview-v4';
 
-function getDefaultScenarioState(scenario: Scenario, level: Level): SavedScenarioState {
+function getDefaultScenarioState(scenario: Scenario, level: Level, chaosEnabled = false): SavedScenarioState {
   const ticks: Record<string, boolean[]> = {};
   const expanded: Record<string, Record<number, boolean>> = {};
   for (const stage of scenario.stages) {
@@ -25,6 +36,25 @@ function getDefaultScenarioState(scenario: Scenario, level: Level): SavedScenari
     running: false,
     deadline: null,
     level,
+    drawing: emptyDrawing(),
+    capacity: emptyCapacity(scenario.id),
+    chaos: emptyChaos(chaosEnabled),
+    tradeoffs: emptyTradeoffs(scenario.id),
+    history: [],
+  };
+}
+
+function normalizeScenarioState(scenario: Scenario, raw: Partial<SavedScenarioState> | undefined, level: Level = 'senior'): SavedScenarioState {
+  const base = getDefaultScenarioState(scenario, raw?.level || level, raw?.chaos?.enabled);
+  if (!raw) return base;
+  return {
+    ...base,
+    ...raw,
+    drawing: { ...base.drawing, ...(raw.drawing || {}) },
+    capacity: { ...base.capacity, ...(raw.capacity || {}), values: { ...base.capacity.values, ...(raw.capacity?.values || {}) }, helpers: { ...base.capacity.helpers, ...(raw.capacity?.helpers || {}) }, results: raw.capacity?.results || {} },
+    chaos: { ...base.chaos, ...(raw.chaos || {}), responses: raw.chaos?.responses || {}, triggered: raw.chaos?.triggered || [] },
+    tradeoffs: { answers: { ...base.tradeoffs.answers, ...(raw.tradeoffs?.answers || {}) } },
+    history: raw.history || [],
   };
 }
 
@@ -161,7 +191,7 @@ function BodyText({ children, muted }: { children: ReactNode; muted?: boolean })
   return <p style={{ fontSize: '1rem', lineHeight: 1.7, color: muted ? 'var(--text-secondary)' : 'var(--text-primary)', margin: '0 0 20px' }}>{children}</p>;
 }
 
-function Hero({ lang }: { lang: Lang }) {
+function Hero({ lang, onOpenCheatsheet }: { lang: Lang; onOpenCheatsheet?: () => void }) {
   return (
     <div style={{
       width: '100%', borderRadius: 'var(--radius-xl)', padding: 'clamp(24px, 6vw, 36px) clamp(20px, 5vw, 28px)',
@@ -172,7 +202,20 @@ function Hero({ lang }: { lang: Lang }) {
       <p style={{ fontSize: '0.75rem', letterSpacing: '0.04em', color: 'rgba(246,241,232,0.86)', margin: '0 0 10px' }}>{t('appTagline', lang)}</p>
       <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2rem)', fontWeight: 600, color: '#F6F1E8', margin: '0 0 14px' }}>System Design</h1>
       <div style={{ width: 48, height: 3, borderRadius: 99, background: 'var(--color-gold)', marginBottom: 16 }} />
-      <p style={{ fontSize: '1rem', lineHeight: 1.6, color: 'rgba(246,241,232,0.86)', margin: 0 }}>{t('appDescription', lang)}</p>
+      <p style={{ fontSize: '1rem', lineHeight: 1.6, color: 'rgba(246,241,232,0.86)', margin: '0 0 14px' }}>{t('appDescription', lang)}</p>
+      {onOpenCheatsheet && (
+        <button
+          type="button"
+          onClick={onOpenCheatsheet}
+          style={{
+            padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(246,241,232,0.35)',
+            background: 'rgba(255,255,255,0.12)', color: '#F6F1E8', fontWeight: 600, fontSize: '0.8125rem',
+            cursor: 'pointer', minHeight: 40, touchAction: 'manipulation',
+          }}
+        >
+          {lang === 'ar' ? 'مرجع الأنماط (Cheat Sheet)' : 'Pattern Cheat Sheet'}
+        </button>
+      )}
     </div>
   );
 }
@@ -481,11 +524,20 @@ function BackToTop() {
 export default function App() {
   const [globalState, setGlobalState] = useState<GlobalState>(readGlobalState);
   const { lang, currentScenario } = globalState;
-  
-  const scenario = currentScenario ? getScenarioById(currentScenario) : null;
-  const scenarioState = scenario ? (globalState.scenarios[scenario.id] || getDefaultScenarioState(scenario, 'senior')) : null;
-  
   const [confirmReset, setConfirmReset] = useState(false);
+  const [chaosPref, setChaosPref] = useState(false);
+  const [route, setRoute] = useState(() => (typeof location !== 'undefined' && location.hash === '#/cheatsheet' ? 'cheatsheet' : 'home'));
+
+  const scenario = currentScenario ? getScenarioById(currentScenario) : null;
+  const scenarioState = scenario
+    ? normalizeScenarioState(scenario, globalState.scenarios[scenario.id], globalState.scenarios[scenario.id]?.level || 'senior')
+    : null;
+
+  useEffect(() => {
+    const onHash = () => setRoute(location.hash === '#/cheatsheet' ? 'cheatsheet' : 'home');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const updateGlobalState = useCallback((updates: Partial<GlobalState>) => {
     setGlobalState(prev => {
@@ -498,7 +550,7 @@ export default function App() {
   const updateScenarioState = useCallback((updates: Partial<SavedScenarioState>) => {
     if (!scenario) return;
     setGlobalState(prev => {
-      const current = prev.scenarios[scenario.id] || getDefaultScenarioState(scenario, 'senior');
+      const current = normalizeScenarioState(scenario, prev.scenarios[scenario.id]);
       const next = {
         ...prev,
         scenarios: {
@@ -518,15 +570,31 @@ export default function App() {
     document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
   };
 
+  const openCheatsheet = () => {
+    location.hash = '#/cheatsheet';
+    setRoute('cheatsheet');
+  };
+  const closeCheatsheet = () => {
+    location.hash = '';
+    setRoute('home');
+  };
+
   const startScenario = (id: string) => {
     const sc = getScenarioById(id);
     if (!sc) return;
-    const existing = globalState.scenarios[id];
+    const existing = globalState.scenarios[id]
+      ? normalizeScenarioState(sc, globalState.scenarios[id])
+      : getDefaultScenarioState(sc, 'senior', chaosPref);
+    if (!globalState.scenarios[id]) {
+      existing.chaos.enabled = chaosPref;
+    } else {
+      existing.chaos = { ...existing.chaos, enabled: chaosPref, activeIncidentId: null, deadline: null };
+    }
     updateGlobalState({
       currentScenario: id,
       scenarios: {
         ...globalState.scenarios,
-        [id]: existing || getDefaultScenarioState(sc, 'senior'),
+        [id]: existing,
       },
     });
   };
@@ -538,8 +606,13 @@ export default function App() {
 
   const changeLevel = (newLevel: Level) => {
     if (!scenario || !scenarioState) return;
-    const newState = getDefaultScenarioState(scenario, newLevel);
+    const newState = getDefaultScenarioState(scenario, newLevel, scenarioState.chaos.enabled);
     newState.answers = scenarioState.answers;
+    newState.drawing = scenarioState.drawing;
+    newState.capacity = scenarioState.capacity;
+    newState.chaos = scenarioState.chaos;
+    newState.tradeoffs = scenarioState.tradeoffs;
+    newState.history = scenarioState.history;
     updateScenarioState(newState);
   };
 
@@ -581,13 +654,17 @@ export default function App() {
     return { done, total, markedStages, writtenStages, perStage };
   }, [stages, scenarioState]);
 
+  if (route === 'cheatsheet') {
+    return <CheatSheet lang={lang} onBack={closeCheatsheet} onToggleLang={toggleLang} />;
+  }
+
   if (!scenario || !scenarioState) {
-    // Scenario picker
     return (
       <PageContainer lang={lang}>
         <LangToggle lang={lang} onToggle={toggleLang} />
-        <Hero lang={lang} />
+        <Hero lang={lang} onOpenCheatsheet={openCheatsheet} />
         <SoftCard lang={lang}>
+          <ChaosToggle lang={lang} enabled={chaosPref} onToggle={() => setChaosPref(v => !v)} />
           <CardHeader title={t('chooseScenario', lang)} caption={t('chooseScenarioDesc', lang)} />
           {SCENARIOS.map(sc => (
             <ScenarioCard key={sc.id} scenario={sc} lang={lang} onStart={() => startScenario(sc.id)} />
@@ -644,10 +721,23 @@ export default function App() {
     <Select label={t('jumpToStage', lang)} options={viewOptions} value={scenarioState.view} onChange={(v) => { setConfirmReset(false); updateScenarioState({ view: v }); }} />
   );
 
+  const radarScores = computeRadarScores(scenarioState, stages);
+  const radarOverall = overallFromRadar(radarScores);
+
   return (
     <PageContainer lang={lang}>
       <LangToggle lang={lang} onToggle={toggleLang} />
-      <Hero lang={lang} />
+      <Hero lang={lang} onOpenCheatsheet={openCheatsheet} />
+
+      {scenarioState.chaos.enabled && (
+        <ChaosIncidentCard
+          scenarioId={scenario.id}
+          lang={lang}
+          currentStageId={scenarioState.view}
+          state={scenarioState.chaos}
+          onChange={(chaos) => updateScenarioState({ chaos })}
+        />
+      )}
 
       <SoftCard lang={lang}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
@@ -662,6 +752,18 @@ export default function App() {
         )}
         <BodyText>{localizedText(scenario.problemStatement, lang)}</BodyText>
         <FactList items={scenario.facts} lang={lang} />
+        <ChaosToggle
+          lang={lang}
+          enabled={scenarioState.chaos.enabled}
+          onToggle={() => updateScenarioState({
+            chaos: {
+              ...scenarioState.chaos,
+              enabled: !scenarioState.chaos.enabled,
+              activeIncidentId: null,
+              deadline: null,
+            },
+          })}
+        />
       </SoftCard>
 
       <SoftCard lang={lang}>
@@ -689,6 +791,34 @@ export default function App() {
             onChange={(v) => updateScenarioState({ answers: { ...scenarioState.answers, [stage.id]: v } })}
             placeholder={t('writeAnswerPlaceholder', lang)}
           />
+
+          {stage.id === 'clarify' && (
+            <CapacityCalculator
+              scenarioId={scenario.id}
+              lang={lang}
+              state={scenarioState.capacity}
+              onChange={(capacity) => updateScenarioState({ capacity })}
+            />
+          )}
+
+          {stage.id === 'architecture' && (
+            <DrawingBoard
+              scenarioId={scenario.id}
+              lang={lang}
+              state={scenarioState.drawing}
+              onChange={(drawing) => updateScenarioState({ drawing })}
+            />
+          )}
+
+          {stage.id === 'tradeoffs' && (
+            <TradeoffCards
+              scenarioId={scenario.id}
+              lang={lang}
+              state={scenarioState.tradeoffs}
+              onChange={(tradeoffs) => updateScenarioState({ tradeoffs })}
+            />
+          )}
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             <Button
               label={scenarioState.revealed[stage.id] ? t('hidePoints', lang) : t('revealPoints', lang)}
@@ -735,6 +865,25 @@ export default function App() {
         <SoftCard lang={lang}>
           <CardHeader title={t('yourAssessment', lang)} actions={stageSelect} />
           <BodyText>{summaryText}</BodyText>
+          <RadarChart
+            lang={lang}
+            scores={radarScores}
+            overall={radarOverall}
+            history={scenarioState.history}
+            onSave={() => {
+              updateScenarioState({
+                history: [
+                  ...scenarioState.history,
+                  {
+                    timestamp: Date.now(),
+                    scores: radarScores,
+                    overall: radarOverall,
+                    level: scenarioState.level,
+                  },
+                ],
+              });
+            }}
+          />
           <Metrics metrics={[
             { value: `${totals.done} / ${totals.total}`, label: t('total', lang), detail: t('strongAnswerPoints', lang), tone: scoreTone(totals.done, totals.total) },
             { value: `${percent}%`, label: t('percentage', lang), tone: scoreTone(totals.done, totals.total) },

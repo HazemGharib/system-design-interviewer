@@ -1,0 +1,40 @@
+import type { ComponentType, Lang } from '../types';
+
+export interface PaletteItem {
+  type: ComponentType;
+  label: { ar: string; en: string };
+  color: string;
+  short: string;
+}
+
+export const PALETTE: PaletteItem[] = [
+  { type: 'client', label: { ar: 'Client', en: 'Client' }, color: '#0C2E36', short: 'CL' },
+  { type: 'lb', label: { ar: 'Load Balancer', en: 'Load Balancer' }, color: '#155E57', short: 'LB' },
+  { type: 'api', label: { ar: 'API Server', en: 'API Server' }, color: '#1A7A6D', short: 'API' },
+  { type: 'cache', label: { ar: 'Cache', en: 'Cache' }, color: '#C9A227', short: 'CA' },
+  { type: 'db', label: { ar: 'Database', en: 'Database' }, color: '#2A6F97', short: 'DB' },
+  { type: 'replica', label: { ar: 'Read Replica', en: 'Read Replica' }, color: '#468FAF', short: 'RR' },
+  { type: 'storage', label: { ar: 'Object Storage', en: 'Object Storage' }, color: '#6B4C9A', short: 'S3' },
+  { type: 'cdn', label: { ar: 'CDN', en: 'CDN' }, color: '#8B5CF6', short: 'CDN' },
+  { type: 'queue', label: { ar: 'Queue', en: 'Queue' }, color: '#B45309', short: 'Q' },
+  { type: 'worker', label: { ar: 'Worker', en: 'Worker' }, color: '#92400E', short: 'WK' },
+  { type: 'dlq', label: { ar: 'DLQ', en: 'DLQ' }, color: '#991B1B', short: 'DLQ' },
+  { type: 'websocket', label: { ar: 'WebSocket Server', en: 'WebSocket Server' }, color: '#0E7490', short: 'WS' },
+  { type: 'kgs', label: { ar: 'Key Generator', en: 'Key Generator' }, color: '#065F46', short: 'KGS' },
+  { type: 'push', label: { ar: 'Push Notification', en: 'Push Notification' }, color: '#9D174D', short: 'PUSH' },
+  { type: 'monitoring', label: { ar: 'Monitoring', en: 'Monitoring' }, color: '#374151', short: 'MON' },
+  { type: 'presence', label: { ar: 'Presence', en: 'Presence' }, color: '#047857', short: 'PRE' },
+  { type: 'router', label: { ar: 'Message Router', en: 'Message Router' }, color: '#1E40AF', short: 'RT' },
+];
+
+export function paletteLabel(type: ComponentType, lang: Lang): string {
+  return PALETTE.find(p => p.type === type)?.label[lang] || type;
+}
+
+export function paletteColor(type: ComponentType): string {
+  return PALETTE.find(p => p.type === type)?.color || '#666';
+}
+
+export function paletteShort(type: ComponentType): string {
+  return PALETTE.find(p => p.type === type)?.short || type.slice(0, 3).toUpperCase();
+}

@@ -94,6 +94,83 @@ export const UI_STRINGS = {
   jumpToStage: { ar: 'انتقل بين المراحل', en: 'Jump to Stage' },
   expandDetails: { ar: 'تفاصيل أكتر', en: 'More Details' },
   collapseDetails: { ar: 'إخفاء التفاصيل', en: 'Hide Details' },
+
+  // Drawing board
+  drawingBoard: { ar: 'لوحة رسم الأركيتكتشر', en: 'Architecture Drawing Board' },
+  drawingHint: {
+    ar: 'اسحب مكوّن من القائمة، حرّكه على اللوحة، واضغط مكوّنين ورا بعض عشان توصلهم بسهم. اضغط مطوّل للحذف.',
+    en: 'Drag a component from the palette, move it on the board, tap two components in sequence to connect them. Long-press to delete.'
+  },
+  palette: { ar: 'المكوّنات', en: 'Components' },
+  connectMode: { ar: 'توصيل', en: 'Connect' },
+  deleteSelected: { ar: 'احذف المحدد', en: 'Delete selected' },
+  clearBoard: { ar: 'امسح اللوحة', en: 'Clear board' },
+  compareDesign: { ar: 'قارن بالتصميم المقترح', en: 'Compare with proposed design' },
+  yourDrawing: { ar: 'رسمك', en: 'Your drawing' },
+  proposedDesign: { ar: 'التصميم المقترح', en: 'Proposed design' },
+  matchedComponents: { ar: 'مكوّنات موجودة', en: 'Matched components' },
+  missedComponents: { ar: 'مكوّنات ناقصة', en: 'Missed components' },
+  matchedEdges: { ar: 'وصلات صحيحة', en: 'Matched connections' },
+  missedEdges: { ar: 'وصلات ناقصة', en: 'Missed connections' },
+  drawingScore: { ar: 'درجة الرسم', en: 'Drawing score' },
+
+  // Capacity calculator
+  capacityCalculator: { ar: 'حاسبة تقدير السعة', en: 'Capacity Estimation Calculator' },
+  capacityHint: {
+    ar: 'ادخل تقديراتك. استخدم المساعدات لو حابب، بعدين اضغط تحقق.',
+    en: 'Enter your estimates. Use helpers if you want, then press Check.'
+  },
+  helpers: { ar: 'مدخلات مساعدة', en: 'Helper inputs' },
+  yourEstimates: { ar: 'تقديراتك', en: 'Your estimates' },
+  checkEstimates: { ar: 'تحقق', en: 'Check' },
+  referenceValue: { ar: 'المرجع', en: 'Reference' },
+  verdictGood: { ar: 'كويس (خلال ×2)', en: 'Good (within 2×)' },
+  verdictOk: { ar: 'مقبول (نفس الـ order)', en: 'OK (same order)' },
+  verdictOff: { ar: 'بعيد', en: 'Off' },
+  workedSteps: { ar: 'الحسبة خطوة بخطوة', en: 'Worked calculation steps' },
+
+  // Chaos mode
+  chaosMode: { ar: 'وضع الفوضى (Chaos)', en: 'Chaos Mode' },
+  chaosModeDesc: {
+    ar: 'خلال الجلسة هتظهر حوادث مفاجئة. جاوب بسرعة وقيّم نفسك.',
+    en: 'Surprise incidents appear during the session. Answer quickly and self-score.'
+  },
+  enableChaos: { ar: 'تفعيل Chaos Mode', en: 'Enable Chaos Mode' },
+  disableChaos: { ar: 'إيقاف Chaos Mode', en: 'Disable Chaos Mode' },
+  chaosIncident: { ar: 'حادثة مفاجئة!', en: 'Surprise incident!' },
+  chaosRespond: { ar: 'إزاي هتتعامل؟', en: 'How would you respond?' },
+  chaosSubmit: { ar: 'سلّم الرد', en: 'Submit response' },
+  chaosReveal: { ar: 'اكشف الرد المتوقع', en: 'Reveal expected response' },
+  chaosTimeLeft: { ar: 'الوقت المتبقي', en: 'Time left' },
+  chaosTimedOut: { ar: 'الوقت خلص — سلّم اللي كتبتُه', en: 'Time is up — submit what you wrote' },
+  chaosScoreHint: { ar: 'علّم النقط اللي غطّيتها في ردك', en: 'Check the points you covered in your response' },
+
+  // Trade-off cards
+  tradeoffCards: { ar: 'كروت الـ Trade-offs', en: 'Trade-off Cards' },
+  tradeoffHint: {
+    ar: 'اختار خيار واكتب تبرير في سطر، بعدين اكشف اللي الإنترفيور مستنيه.',
+    en: 'Pick an option, write a one-line justification, then reveal what the interviewer expects.'
+  },
+  yourChoice: { ar: 'اختيارك', en: 'Your choice' },
+  justification: { ar: 'التبرير (سطر واحد)', en: 'Justification (one line)' },
+  revealTradeoff: { ar: 'اكشف التقييم', en: 'Reveal evaluation' },
+  interviewerExpects: { ar: 'الإنترفيور مستني', en: 'Interviewer expects' },
+  pros: { ar: 'المميزات', en: 'Pros' },
+  cons: { ar: 'العيوب', en: 'Cons' },
+  whenOtherWins: { ar: 'امتى الخيار التاني يفوز', en: 'When the other option wins' },
+  iGotThis: { ar: 'غطّيت النقطة دي', en: 'I covered this' },
+  tradeoffCardOf: { ar: 'كارت', en: 'Card' },
+
+  // Radar
+  radarReport: { ar: 'تقرير الرادار', en: 'Radar Report' },
+  strengths: { ar: 'نقاط قوة', en: 'Strengths' },
+  weaknesses: { ar: 'نقاط ضعف', en: 'Weaknesses' },
+  attemptHistory: { ar: 'سجل المحاولات', en: 'Attempt history' },
+  saveAttempt: { ar: 'احفظ المحاولة دي', en: 'Save this attempt' },
+  previousAttempt: { ar: 'محاولة سابقة', en: 'Previous attempt' },
+  noHistory: { ar: 'مفيش محاولات محفوظة لسه.', en: 'No saved attempts yet.' },
+  overallScore: { ar: 'النتيجة الكلية', en: 'Overall score' },
+  interactiveExtras: { ar: 'أدوات تفاعلية', en: 'Interactive tools' },
 } as const;
 
 export function t(key: keyof typeof UI_STRINGS, lang: Lang): string {

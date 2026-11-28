@@ -119,6 +119,151 @@ html, body {
   overscroll-behavior-y: contain;
 }
 
+/* Shared action buttons — keep disabled state visible in light + dark */
+.app-btn--disabled,
+.app-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--text-secondary) !important;
+  background: var(--bg-subtle) !important;
+}
+
+.app-btn--primary:not(:disabled):not(.app-btn--disabled) {
+  border-color: transparent;
+}
+
+/* Capacity calculator — compact mobile layout */
+.capacity-calc {
+  margin-top: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.capacity-calc__title {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.capacity-calc__hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.capacity-calc__section-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.capacity-calc__helpers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.capacity-calc__estimates {
+  display: grid;
+  gap: 10px;
+}
+
+.capacity-calc__estimate {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.capacity-calc__field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+
+.capacity-calc__label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.capacity-calc__unit {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.capacity-calc__formula {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.capacity-calc__verdict {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+}
+
+.capacity-calc__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.capacity-calc__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capacity-calc__step {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+@media (max-width: 480px) {
+  .capacity-calc {
+    gap: 8px;
+  }
+
+  .capacity-calc__helpers {
+    gap: 8px;
+  }
+
+  .capacity-calc__estimates {
+    gap: 8px;
+  }
+
+  .capacity-calc__estimate {
+    padding: 8px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .capacity-calc__estimate:last-child {
+    border-bottom: none;
+  }
+
+  .capacity-calc__field {
+    gap: 3px;
+  }
+
+  .capacity-calc__formula {
+    font-size: 0.625rem;
+  }
+
+  .capacity-calc__title {
+    font-size: 1rem;
+  }
+}
+
 /* Focus styles */
 :focus-visible {
   outline: 2px solid var(--accent);

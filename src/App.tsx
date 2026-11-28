@@ -138,12 +138,19 @@ function Button({ label, onClick, variant, disabled, fullWidth, small }: {
   const isPrimary = variant === 'primary';
   return (
     <button
+      className={`app-btn${disabled ? ' app-btn--disabled' : ''}${isPrimary ? ' app-btn--primary' : ''}`}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         padding: small ? '8px 14px' : '12px 20px', fontSize: small ? '0.8125rem' : '0.9375rem', fontWeight: 500,
-        borderRadius: 'var(--radius-lg)', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1, transition: 'all 0.15s ease', width: fullWidth ? '100%' : 'auto',
-        background: isPrimary ? 'var(--accent)' : 'var(--bg-subtle)', color: isPrimary ? '#fff' : 'var(--text-primary)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-default)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+        transition: 'all 0.15s ease',
+        width: fullWidth ? '100%' : 'auto',
+        background: isPrimary && !disabled ? 'var(--accent)' : 'var(--bg-subtle)',
+        color: disabled ? 'var(--text-secondary)' : isPrimary ? '#fff' : 'var(--text-primary)',
+        touchAction: 'manipulation',
       }}
       onClick={onClick}
       disabled={disabled}
@@ -180,11 +187,13 @@ function Select({ label, options, value, onChange }: {
 function SoftCard({ children, lang }: { children: ReactNode; lang?: Lang }) {
   return (
     <div
+      className="soft-card"
       dir={lang === 'ar' ? 'rtl' : lang === 'en' ? 'ltr' : undefined}
       style={{
         width: '100%', boxSizing: 'border-box', background: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)', borderRadius: 'var(--radius-xl)',
         boxShadow: 'var(--shadow-card)', padding: 'clamp(20px, 5vw, 32px)', marginBottom: 24,
+        display: 'flex', flexDirection: 'column', gap: 12,
       }}
     >
       {children}
@@ -360,7 +369,7 @@ function AnswerArea({ label, value, onChange, placeholder }: { label: string; va
         width: '100%', boxSizing: 'border-box', minHeight: 180, resize: 'vertical', padding: 16,
         border: `1.5px solid ${focused ? 'var(--accent)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-lg)',
         background: 'var(--bg-subtle)', color: 'var(--text-primary)', fontSize: '1rem', lineHeight: 1.7, outline: 'none',
-        boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none', marginBottom: 20,
+        boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none', marginBottom: 0,
       }}
     />
   );
@@ -408,7 +417,7 @@ function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, o
   scenarioId: string;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 0 }}>
       {items.map((item, i) => {
         const checked = Boolean(values[i]);
         const isDiagram = localizedText(item.text, lang).includes('📊');
@@ -883,45 +892,46 @@ export default function App() {
             />
           )}
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <Button
-              label={scenarioState.revealed[stage.id] ? t('hidePoints', lang) : t('revealPoints', lang)}
-              variant={scenarioState.revealed[stage.id] ? undefined : 'primary'}
-              onClick={() => updateScenarioState({ revealed: { ...scenarioState.revealed, [stage.id]: !scenarioState.revealed[stage.id] } })}
-            />
-          </div>
-          {scenarioState.revealed[stage.id] && (
-            <>
-              <div style={{ height: 16 }} />
-              <BodyText muted>{t('checklistInstruction', lang)}</BodyText>
-              {stage.id === 'architecture' && (
-                <div style={{ marginBottom: 20, padding: 16, background: 'var(--bg-subtle)', borderRadius: 'var(--radius-lg)' }}>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>{t('architectureDiagram', lang)}</p>
-                  <ArchitectureDiagram scenarioId={scenario.id} lang={lang} />
-                </div>
-              )}
-              <ScoreTicks
-                items={stage.items}
-                values={scenarioState.ticks[stage.id] || []}
-                expanded={scenarioState.expanded[stage.id] || {}}
-                onToggle={(i) => {
-                  const current = scenarioState.ticks[stage.id] || stage.items.map(() => false);
-                  updateScenarioState({ ticks: { ...scenarioState.ticks, [stage.id]: current.map((v, idx) => idx === i ? !v : v) } });
-                }}
-                onToggleExpand={(i) => {
-                  const current = scenarioState.expanded[stage.id] || {};
-                  updateScenarioState({ expanded: { ...scenarioState.expanded, [stage.id]: { ...current, [i]: !current[i] } } });
-                }}
-                lang={lang}
-                onOpenTerm={(id) => openGlossary(id)}
-                scenarioId={scenario.id}
+          <div className="stage-actions" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+              <Button
+                label={scenarioState.revealed[stage.id] ? t('hidePoints', lang) : t('revealPoints', lang)}
+                variant={scenarioState.revealed[stage.id] ? undefined : 'primary'}
+                onClick={() => updateScenarioState({ revealed: { ...scenarioState.revealed, [stage.id]: !scenarioState.revealed[stage.id] } })}
               />
-              <ScoreBadge done={(scenarioState.ticks[stage.id] || []).filter(Boolean).length} total={stage.items.length} lang={lang} />
-            </>
-          )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <Button label={t('previous', lang)} onClick={goPrev} disabled={stageIndex <= 0} />
-            <Button label={stageIndex === stages.length - 1 ? t('viewResults', lang) : t('next', lang)} variant="primary" onClick={goNext} />
+            </div>
+            {scenarioState.revealed[stage.id] && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <BodyText muted>{t('checklistInstruction', lang)}</BodyText>
+                {stage.id === 'architecture' && (
+                  <div style={{ padding: 16, background: 'var(--bg-subtle)', borderRadius: 'var(--radius-lg)' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>{t('architectureDiagram', lang)}</p>
+                    <ArchitectureDiagram scenarioId={scenario.id} lang={lang} />
+                  </div>
+                )}
+                <ScoreTicks
+                  items={stage.items}
+                  values={scenarioState.ticks[stage.id] || []}
+                  expanded={scenarioState.expanded[stage.id] || {}}
+                  onToggle={(i) => {
+                    const current = scenarioState.ticks[stage.id] || stage.items.map(() => false);
+                    updateScenarioState({ ticks: { ...scenarioState.ticks, [stage.id]: current.map((v, idx) => idx === i ? !v : v) } });
+                  }}
+                  onToggleExpand={(i) => {
+                    const current = scenarioState.expanded[stage.id] || {};
+                    updateScenarioState({ expanded: { ...scenarioState.expanded, [stage.id]: { ...current, [i]: !current[i] } } });
+                  }}
+                  lang={lang}
+                  onOpenTerm={(id) => openGlossary(id)}
+                  scenarioId={scenario.id}
+                />
+                <ScoreBadge done={(scenarioState.ticks[stage.id] || []).filter(Boolean).length} total={stage.items.length} lang={lang} />
+              </div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+              <Button label={t('previous', lang)} onClick={goPrev} disabled={stageIndex <= 0} />
+              <Button label={stageIndex === stages.length - 1 ? t('viewResults', lang) : t('next', lang)} variant="primary" onClick={goNext} />
+            </div>
           </div>
         </SoftCard>
       )}
@@ -957,7 +967,7 @@ export default function App() {
           ]} />
           <Bars bars={totals.perStage.map(r => ({ label: localizedText(r.stage.shortTitle, lang), value: r.total === 0 ? 0 : Math.round((r.done / r.total) * 100), display: `${r.done} / ${r.total}` }))} />
           <ResultsTable rows={totals.perStage.map(r => ({ stage: localizedText(r.stage.title, lang), done: r.done, total: r.total }))} lang={lang} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 4 }}>
             <Button label={t('backToLastStage', lang)} onClick={goPrev} />
             {confirmReset ? (
               <Button label={t('confirmReset', lang)} variant="primary" onClick={resetAll} />

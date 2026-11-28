@@ -167,11 +167,31 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <button type="button" onClick={() => setConnectFrom(selectedId)} style={btnStyle} disabled={!selectedId}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10, alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setConnectFrom(selectedId)}
+          style={{
+            ...btnStyle,
+            opacity: selectedId ? 1 : 0.5,
+            cursor: selectedId ? 'pointer' : 'not-allowed',
+            color: selectedId ? 'var(--text-primary)' : 'var(--text-muted)',
+          }}
+          disabled={!selectedId}
+        >
           {t('connectMode', lang)}{connectFrom ? ' ✓' : ''}
         </button>
-        <button type="button" onClick={() => selectedId && deleteBlock(selectedId)} style={btnStyle} disabled={!selectedId}>
+        <button
+          type="button"
+          onClick={() => selectedId && deleteBlock(selectedId)}
+          style={{
+            ...btnStyle,
+            opacity: selectedId ? 1 : 0.5,
+            cursor: selectedId ? 'pointer' : 'not-allowed',
+            color: selectedId ? 'var(--text-primary)' : 'var(--text-muted)',
+          }}
+          disabled={!selectedId}
+        >
           {t('deleteSelected', lang)}
         </button>
         <button type="button" onClick={() => onChange({ ...state, blocks: [], edges: [], compared: false, score: 0, matchedComponents: [], missedComponents: [], matchedEdges: [], missedEdges: [] })} style={btnStyle}>

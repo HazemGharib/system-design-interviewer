@@ -126,9 +126,33 @@ export function TradeoffCards({ scenarioId, lang, state, onChange }: Props) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" disabled={index <= 0} onClick={() => setIndex(i => i - 1)} style={navBtn}>{t('previous', lang)}</button>
-        <button type="button" disabled={index >= cards.length - 1} onClick={() => setIndex(i => i + 1)} style={navBtn}>{t('next', lang)}</button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 12 }}>
+        <button
+          type="button"
+          disabled={index <= 0}
+          onClick={() => setIndex(i => i - 1)}
+          style={{
+            ...navBtn,
+            opacity: index <= 0 ? 0.5 : 1,
+            cursor: index <= 0 ? 'not-allowed' : 'pointer',
+            color: index <= 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+          }}
+        >
+          {t('previous', lang)}
+        </button>
+        <button
+          type="button"
+          disabled={index >= cards.length - 1}
+          onClick={() => setIndex(i => i + 1)}
+          style={{
+            ...navBtn,
+            opacity: index >= cards.length - 1 ? 0.5 : 1,
+            cursor: index >= cards.length - 1 ? 'not-allowed' : 'pointer',
+            color: index >= cards.length - 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+          }}
+        >
+          {t('next', lang)}
+        </button>
       </div>
     </div>
   );

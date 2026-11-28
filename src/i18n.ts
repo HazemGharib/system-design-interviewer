@@ -133,6 +133,36 @@ export const UI_STRINGS = {
   collapsePalette: { ar: 'طي القائمة', en: 'Collapse palette' },
   expandPalette: { ar: 'توسيع القائمة', en: 'Expand palette' },
   closeSheet: { ar: 'إغلاق', en: 'Close' },
+  startFromTemplate: { ar: 'ابدأ من قالب', en: 'Start from template' },
+  templateGeneric: { ar: 'قوالب عامة', en: 'Generic templates' },
+  templateScenario: { ar: 'بداية هذا السيناريو', en: 'Scenario starter' },
+  templateReplaceConfirm: {
+    ar: 'اللوحة مش فاضية. استبدال الرسم الحالي بالقالب؟',
+    en: 'The board is not empty. Replace the current drawing with this template?',
+  },
+
+  // Scenario picker
+  searchScenarios: { ar: 'ابحث في المسائل…', en: 'Search scenarios…' },
+  filterAll: { ar: 'الكل', en: 'All' },
+  filterEasy: { ar: 'سهل', en: 'Easy' },
+  filterMedium: { ar: 'متوسط', en: 'Medium' },
+  filterHard: { ar: 'صعب', en: 'Hard' },
+  noScenariosMatch: { ar: 'مفيش مسائل مطابقة.', en: 'No matching scenarios.' },
+
+  // Solution walkthrough
+  walkthroughControls: { ar: 'تحكم العرض', en: 'Walkthrough controls' },
+  walkthroughFlow: { ar: 'المسار', en: 'Flow' },
+  walkthroughPlay: { ar: 'تشغيل', en: 'Play' },
+  walkthroughPause: { ar: 'إيقاف', en: 'Pause' },
+  walkthroughPrev: { ar: 'السابق', en: 'Previous step' },
+  walkthroughNext: { ar: 'التالي', en: 'Next step' },
+  walkthroughSpeed: { ar: 'السرعة', en: 'Speed' },
+  walkthroughScrubber: { ar: 'شريط الخطوات', en: 'Step scrubber' },
+  walkthroughStep: { ar: 'خطوة', en: 'Step' },
+  walkthroughNoDrawing: {
+    ar: 'مفيش رسم مرجعي للسيناريو ده.',
+    en: 'No reference drawing for this scenario.',
+  },
 
   // Capacity calculator
   capacityCalculator: { ar: 'حاسبة تقدير السعة', en: 'Capacity Estimation Calculator' },

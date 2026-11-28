@@ -9,6 +9,40 @@ import type { CapacityModel } from '../interactive/capacityEngine';
 
 export type Bi = { ar: string; en: string };
 
+export interface FlowPacketJson {
+  from: string;
+  to: string;
+}
+
+export interface FlowStepJson {
+  id: string;
+  caption: Bi;
+  /** Highlighted node types; derived from edgeKeys when omitted. */
+  nodes?: string[];
+  /** Keys like "client->api" matching drawing.edges from→to. */
+  edgeKeys: string[];
+  /** Optional packet path (component types). */
+  packet?: FlowPacketJson;
+  /** Autoplay dwell ms (UI default ~2200). */
+  durationMs?: number;
+}
+
+export interface SolutionFlowJson {
+  id: string;
+  title: Bi;
+  steps: FlowStepJson[];
+}
+
+export interface DrawingContainerJson {
+  id: string;
+  label: Bi;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  parentId?: string | null;
+}
+
 export interface ScenarioJson {
   id: string;
   title: Bi;
@@ -32,7 +66,10 @@ export interface ScenarioJson {
     components: ComponentType[];
     edges: { from: ComponentType; to: ComponentType; label: Bi }[];
     referenceLayout: { type: ComponentType; x: number; y: number }[];
+    containers?: DrawingContainerJson[];
   } | null;
+  /** Animated solution walkthrough flows (write / read / failure, …). */
+  flows?: SolutionFlowJson[];
 }
 
 export interface CheatEntryJson {

@@ -91,10 +91,36 @@ const Tradeoff = z.object({
   whenOtherWins: Bi,
 });
 
+const DrawingContainer = z.object({
+  id: z.string().min(1),
+  label: Bi,
+  x: z.number(),
+  y: z.number(),
+  w: z.number().positive(),
+  h: z.number().positive(),
+  parentId: z.string().nullable().optional(),
+});
+
+const FlowStep = z.object({
+  id: z.string().min(1),
+  caption: Bi,
+  nodes: z.array(z.string()).optional(),
+  edgeKeys: z.array(z.string()).min(1),
+  packet: z.object({ from: z.string().min(1), to: z.string().min(1) }).optional(),
+  durationMs: z.number().positive().optional(),
+});
+
+const Flow = z.object({
+  id: z.string().min(1),
+  title: Bi,
+  steps: z.array(FlowStep).min(1),
+});
+
 const Drawing = z.object({
   components: z.array(z.string()).min(1),
   edges: z.array(z.object({ from: z.string(), to: z.string(), label: Bi })),
   referenceLayout: z.array(z.object({ type: z.string(), x: z.number(), y: z.number() })),
+  containers: z.array(DrawingContainer).optional(),
 });
 
 const ScenarioSchema = z.object({
@@ -114,6 +140,7 @@ const ScenarioSchema = z.object({
   chaos: z.array(Chaos),
   tradeoffs: z.array(Tradeoff),
   drawing: Drawing.nullable(),
+  flows: z.array(Flow).optional(),
 });
 
 const CheatEntry = z.object({
@@ -213,6 +240,39 @@ for (const file of scenarioFiles) {
       }
     }
   }
+  const rawFlows = (raw as { flows?: unknown }).flows;
+  if (Array.isArray(rawFlows) && sc.drawing) {
+    const edgeKeySet = new Set(sc.drawing.edges.map(e => `${e.from}->${e.to}`));
+    const layoutTypes = new Set(sc.drawing.referenceLayout.map(r => r.type));
+    for (const flow of rawFlows as {
+      id: string;
+      steps: {
+        id: string;
+        nodes?: string[];
+        edgeKeys: string[];
+        packet?: { from: string; to: string };
+      }[];
+    }[]) {
+      for (const step of flow.steps) {
+        for (const n of step.nodes || []) {
+          if (!layoutTypes.has(n) && !sc.drawing.components.includes(n)) {
+            fail(`scenario ${sc.id} flow "${flow.id}" step "${step.id}" node "${n}" not in drawing`);
+          }
+        }
+        for (const ek of step.edgeKeys) {
+          if (!edgeKeySet.has(ek)) {
+            fail(`scenario ${sc.id} flow "${flow.id}" step "${step.id}" edgeKey "${ek}" not in drawing.edges`);
+          }
+        }
+        if (step.packet) {
+          const pk = `${step.packet.from}->${step.packet.to}`;
+          if (!edgeKeySet.has(pk)) {
+            fail(`scenario ${sc.id} flow "${flow.id}" step "${step.id}" packet ${pk} not in drawing.edges`);
+          }
+        }
+      }
+    }
+  }
   if (sc.capacity) {
     const varIds = new Set(sc.capacity.variables.map(v => v.id));
     const metricIds = new Set<string>();
@@ -280,6 +340,29 @@ else {
     for (const c of sc.drawing.components) {
       if (!seen.has(c)) fail(`scenario ${sc.id} drawing component "${c}" not in palette.json`);
     }
+  }
+}
+
+// Light templates.json check (optional file)
+const templatesPath = join(dataDir, 'templates.json');
+if (existsSync(templatesPath)) {
+  try {
+    const templates = JSON.parse(readFileSync(templatesPath, 'utf8')) as {
+      generic?: { id?: string; blocks?: unknown[] }[];
+      scenarios?: Record<string, { blocks?: unknown[] }>;
+    };
+    if (!Array.isArray(templates.generic) || templates.generic.length < 1) {
+      fail('templates.json generic must be a non-empty array');
+    } else {
+      for (const tpl of templates.generic) {
+        if (!tpl?.id) fail('templates.json generic entry missing id');
+        if (!Array.isArray(tpl.blocks) || tpl.blocks.length < 2) {
+          fail(`templates.json generic "${tpl?.id || '?'}" needs ≥2 blocks`);
+        }
+      }
+    }
+  } catch (e) {
+    fail(`templates.json parse error: ${(e as Error).message}`);
   }
 }
 

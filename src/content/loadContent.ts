@@ -3,7 +3,9 @@ import type { CheatsheetJson, GlossaryJson, ScenarioJson } from './types';
 import cheatsheetJson from '../data/cheatsheet.json';
 import glossaryJson from '../data/glossary.json';
 import paletteJson from '../data/palette.json';
+import templatesJson from '../data/templates.json';
 import manifestJson from '../data/scenarios/manifest.json';
+import type { TemplatesJson } from '../interactive/templates';
 
 const scenarioModules = import.meta.glob('../data/scenarios/*.json', { eager: true, import: 'default' }) as Record<string, ScenarioJson>;
 
@@ -40,6 +42,7 @@ export function getScenarioJson(id: string): ScenarioJson | undefined {
 
 export const CHEATSHEET = cheatsheetJson as CheatsheetJson;
 export const GLOSSARY = glossaryJson as GlossaryJson;
+export const TEMPLATES_JSON = templatesJson as TemplatesJson;
 export const PALETTE_ITEMS = (paletteJson as {
   items: {
     type: string;

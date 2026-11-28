@@ -43,7 +43,14 @@ import {
   type ResizeHandle,
 } from '../interactive/drawingGeom';
 import { applyContainerMoveDelta, collectContainerMoveMembers } from '../interactive/drawingMove';
-import { t } from '../i18n';
+import {
+  boardIsEmpty,
+  getGenericTemplates,
+  getScenarioTemplate,
+  templateToDrawingSlice,
+  type DrawingTemplate,
+} from '../interactive/templates';
+import { localizedText, t } from '../i18n';
 
 type Tool = 'select' | 'connect' | 'container' | 'delete';
 type Sel =
@@ -100,6 +107,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   const [deskCollapsed, setDeskCollapsed] = useState(false);
   const [editingLabel, setEditingLabel] = useState<{ kind: 'edge' | 'container'; id: string } | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
   const didInitialFit = useRef(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -117,6 +126,17 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
 
   const expected = DRAWING_EXPECTATIONS[scenarioId];
   const rtl = lang === 'ar';
+  const genericTemplates = useMemo(() => getGenericTemplates(), []);
+  const scenarioTemplate = useMemo(() => getScenarioTemplate(scenarioId), [scenarioId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, []);
 
   const commit = useCallback(
     (partial: Partial<DrawingState>, pushHistory = true) => {
@@ -718,6 +738,59 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
     placeBlock(type, world.x, world.y);
   };
 
+  const fitToItems = (blocks: DrawingBlock[], conts: DrawingContainer[]) => {
+    const vp = viewportRef.current;
+    const items = [
+      ...blocks.map(b => {
+        const s = blockSize(b, lang);
+        return { x: b.x, y: b.y, w: s.w, h: s.h };
+      }),
+      ...conts.map(c => ({ x: c.x, y: c.y, w: c.w, h: c.h })),
+    ];
+    if (!items.length) {
+      setScale(1);
+      setPan({ x: 24, y: 24 });
+      return;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const it of items) {
+      minX = Math.min(minX, it.x);
+      minY = Math.min(minY, it.y);
+      maxX = Math.max(maxX, it.x + it.w);
+      maxY = Math.max(maxY, it.y + it.h);
+    }
+    const pad = 36;
+    const worldW = Math.max(1, maxX - minX + pad * 2);
+    const worldH = Math.max(1, maxY - minY + pad * 2);
+    const s = Math.max(0.8, Math.min(2.4, Math.min(vp.w / worldW, vp.h / worldH)));
+    setScale(s);
+    setPan({
+      x: (vp.w - worldW * s) / 2 - (minX - pad) * s,
+      y: (vp.h - worldH * s) / 2 - (minY - pad) * s,
+    });
+  };
+
+  const applyTemplate = (template: DrawingTemplate) => {
+    if (!boardIsEmpty(state)) {
+      const ok = window.confirm(t('templateReplaceConfirm', lang));
+      if (!ok) return;
+    }
+    const slice = templateToDrawingSlice(template, lang);
+    commit({
+      ...slice,
+      score: 0,
+      matchedComponents: [],
+      missedComponents: [],
+      matchedEdges: [],
+      missedEdges: [],
+    });
+    setTemplateOpen(false);
+    setSel(null);
+    setConnectFrom(null);
+    setArmedType(null);
+    requestAnimationFrame(() => fitToItems(slice.blocks, slice.containers || []));
+  };
+
   const toolbarItems: { id: Tool | 'undo' | 'redo'; labelKey: Parameters<typeof t>[0]; icon: string; action: () => void; active?: boolean; danger?: boolean }[] = [
     { id: 'select', labelKey: 'toolSelect', icon: '↖', active: tool === 'select', action: () => { setTool('select'); setConnectFrom(null); } },
     { id: 'connect', labelKey: 'toolConnect', icon: '⟷', active: tool === 'connect', action: () => setTool('connect') },
@@ -739,7 +812,16 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
   return (
     <div className="drawing-board" dir={rtl ? 'rtl' : 'ltr'}>
       <div className="drawing-board__header">
-        <h3 className="drawing-board__title">{t('drawingBoard', lang)}</h3>
+        <div className="drawing-board__title-row">
+          <h3 className="drawing-board__title">{t('drawingBoard', lang)}</h3>
+          <button
+            type="button"
+            className="drawing-icon-btn drawing-board__template-btn"
+            onClick={() => setTemplateOpen(true)}
+          >
+            {t('startFromTemplate', lang)}
+          </button>
+        </div>
         <p className="drawing-board__hint">{t('drawingHint', lang)}</p>
         {armedType && <p className="drawing-board__armed">{t('paletteArmed', lang)}</p>}
       </div>
@@ -1168,6 +1250,64 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
             placeholder={editingLabel.kind === 'edge' ? t('edgeLabel', lang) : t('containerLabel', lang)}
           />
           <button type="button" onClick={applyLabel}>{t('closeSheet', lang)}</button>
+        </div>
+      )}
+
+      {templateOpen && (
+        <div
+          className={`template-picker-backdrop${isNarrow ? ' is-sheet' : ' is-modal'}`}
+          role="presentation"
+          onClick={() => setTemplateOpen(false)}
+        >
+          <div
+            className={`template-picker${isNarrow ? ' is-sheet' : ' is-modal'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('startFromTemplate', lang)}
+            onClick={e => e.stopPropagation()}
+          >
+            {isNarrow && <div className="template-picker__handle" aria-hidden />}
+            <div className="template-picker__top">
+              <h4 className="template-picker__title">{t('startFromTemplate', lang)}</h4>
+              <button type="button" className="drawing-icon-btn" onClick={() => setTemplateOpen(false)}>
+                {t('closeSheet', lang)}
+              </button>
+            </div>
+            <div className="template-picker__body">
+              <p className="template-picker__section">{t('templateGeneric', lang)}</p>
+              <ul className="template-picker__list">
+                {genericTemplates.map(tpl => (
+                  <li key={tpl.id}>
+                    <button type="button" className="template-picker__item" onClick={() => applyTemplate(tpl)}>
+                      <span className="template-picker__item-title">{localizedText(tpl.title, lang)}</span>
+                      <span className="template-picker__item-desc">{localizedText(tpl.description, lang)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {scenarioTemplate && (
+                <>
+                  <p className="template-picker__section">{t('templateScenario', lang)}</p>
+                  <ul className="template-picker__list">
+                    <li>
+                      <button
+                        type="button"
+                        className="template-picker__item"
+                        onClick={() => applyTemplate(scenarioTemplate)}
+                      >
+                        <span className="template-picker__item-title">
+                          {localizedText(scenarioTemplate.title, lang)}
+                        </span>
+                        <span className="template-picker__item-desc">
+                          {localizedText(scenarioTemplate.description, lang)}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

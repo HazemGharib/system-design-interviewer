@@ -55,3 +55,57 @@ assert.equal(moved.blocks.find(b => b.id === 'by-geom')!.x, 330);
 assert.equal(moved.blocks.find(b => b.id === 'outside')!.x, 600);
 
 console.log('test-drawing-geom: ok');
+
+// Templates JSON: parse + each generic template has ≥2 blocks
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  edgeKey,
+  flowsForScenario,
+  nodesFromEdgeKeys,
+  parseEdgeKey,
+  synthesizeFlowsFromDrawing,
+} from '../src/interactive/solutionFlows';
+import type { ScenarioJson } from '../src/content/types';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const templates = JSON.parse(readFileSync(join(root, 'src/data/templates.json'), 'utf8')) as {
+  generic: { id: string; blocks: unknown[]; edges: unknown[] }[];
+  scenarios: Record<string, { blocks: unknown[] }>;
+};
+
+assert.ok(Array.isArray(templates.generic) && templates.generic.length >= 3);
+for (const tpl of templates.generic) {
+  assert.ok(tpl.blocks.length >= 2, `generic template ${tpl.id} needs ≥2 blocks`);
+  assert.ok(Array.isArray(tpl.edges));
+}
+assert.ok(templates.scenarios['image-upload']?.blocks.length >= 3);
+assert.ok(templates.scenarios['url-shortener']?.blocks.length >= 3);
+assert.ok(templates.scenarios['chat-messaging']?.blocks.length >= 3);
+
+assert.equal(edgeKey('api', 'db'), 'api->db');
+assert.deepEqual(parseEdgeKey('client->cdn'), { from: 'client', to: 'cdn' });
+assert.deepEqual(nodesFromEdgeKeys(['a->b', 'b->c']).sort(), ['a', 'b', 'c']);
+
+const drawing = {
+  components: ['client', 'api', 'db'] as const,
+  edges: [
+    { from: 'client' as const, to: 'api' as const, label: { ar: 'طلب', en: 'request' } },
+    { from: 'api' as const, to: 'db' as const, label: { ar: 'كتابة', en: 'write' } },
+    { from: 'db' as const, to: 'api' as const, label: { ar: 'رد', en: 'reply' } },
+  ],
+  referenceLayout: [
+    { type: 'client' as const, x: 0, y: 0 },
+    { type: 'api' as const, x: 100, y: 0 },
+    { type: 'db' as const, x: 200, y: 0 },
+  ],
+};
+const syn = synthesizeFlowsFromDrawing(drawing);
+assert.equal(syn.length, 1);
+assert.ok(syn[0].steps.length >= 1 && syn[0].steps.length <= 3);
+
+const stub = { drawing, flows: undefined } as Pick<ScenarioJson, 'drawing' | 'flows'>;
+assert.equal(flowsForScenario(stub as ScenarioJson).length, 1);
+
+console.log('test-templates-flows: ok');

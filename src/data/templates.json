@@ -1,0 +1,133 @@
+{
+  "generic": [
+    {
+      "id": "read-heavy",
+      "title": { "ar": "قراءة كثيفة", "en": "Read-heavy" },
+      "description": {
+        "ar": "عميل → CDN/كاش → API → نسخة قراءة",
+        "en": "Client → CDN/Cache → API → DB replica"
+      },
+      "blocks": [
+        { "id": "t1", "type": "client", "x": 40, "y": 80, "parentId": null },
+        { "id": "t2", "type": "cdn", "x": 200, "y": 40, "parentId": null },
+        { "id": "t3", "type": "cache", "x": 200, "y": 140, "parentId": null },
+        { "id": "t4", "type": "api", "x": 380, "y": 80, "parentId": null },
+        { "id": "t5", "type": "replica", "x": 560, "y": 80, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "t1", "to": "t2", "direction": "forward" },
+        { "id": "e2", "from": "t1", "to": "t3", "direction": "forward" },
+        { "id": "e3", "from": "t2", "to": "t4", "direction": "forward" },
+        { "id": "e4", "from": "t3", "to": "t4", "direction": "forward" },
+        { "id": "e5", "from": "t4", "to": "t5", "direction": "forward" }
+      ]
+    },
+    {
+      "id": "write-heavy",
+      "title": { "ar": "كتابة كثيفة", "en": "Write-heavy" },
+      "description": {
+        "ar": "عميل → LB → API → طابور → Worker → تخزين/DB",
+        "en": "Client → LB → API → Queue → Worker → Storage/DB"
+      },
+      "blocks": [
+        { "id": "t1", "type": "client", "x": 40, "y": 100, "parentId": null },
+        { "id": "t2", "type": "lb", "x": 180, "y": 100, "parentId": null },
+        { "id": "t3", "type": "api", "x": 320, "y": 100, "parentId": null },
+        { "id": "t4", "type": "queue", "x": 460, "y": 40, "parentId": null },
+        { "id": "t5", "type": "worker", "x": 460, "y": 160, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "t1", "to": "t2", "direction": "forward" },
+        { "id": "e2", "from": "t2", "to": "t3", "direction": "forward" },
+        { "id": "e3", "from": "t3", "to": "t4", "direction": "forward" },
+        { "id": "e4", "from": "t4", "to": "t5", "direction": "forward" }
+      ]
+    },
+    {
+      "id": "event-driven",
+      "title": { "ar": "مبني على الأحداث", "en": "Event-driven" },
+      "description": {
+        "ar": "API → طابور → Worker → DLQ + مراقبة",
+        "en": "API → Queue → Worker → DLQ + Monitoring"
+      },
+      "blocks": [
+        { "id": "t1", "type": "api", "x": 40, "y": 80, "parentId": null },
+        { "id": "t2", "type": "queue", "x": 220, "y": 80, "parentId": null },
+        { "id": "t3", "type": "worker", "x": 400, "y": 80, "parentId": null },
+        { "id": "t4", "type": "dlq", "x": 400, "y": 200, "parentId": null },
+        { "id": "t5", "type": "monitoring", "x": 220, "y": 200, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "t1", "to": "t2", "direction": "forward" },
+        { "id": "e2", "from": "t2", "to": "t3", "direction": "forward" },
+        { "id": "e3", "from": "t3", "to": "t4", "direction": "forward" },
+        { "id": "e4", "from": "t2", "to": "t5", "direction": "forward" }
+      ]
+    }
+  ],
+  "scenarios": {
+    "image-upload": {
+      "id": "starter-image-upload",
+      "title": { "ar": "بداية: رفع الصور", "en": "Starter: Image upload" },
+      "description": {
+        "ar": "عميل، API، تخزين — أكمل مسار المعالجة والقراءة",
+        "en": "Client, API, storage — finish processing and read paths"
+      },
+      "blocks": [
+        { "id": "s1", "type": "client", "x": 40, "y": 60, "parentId": null },
+        { "id": "s2", "type": "api", "x": 220, "y": 60, "parentId": null },
+        { "id": "s3", "type": "storage", "x": 400, "y": 40, "parentId": null },
+        { "id": "s4", "type": "queue", "x": 220, "y": 180, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "s1", "to": "s2", "direction": "forward" },
+        { "id": "e2", "from": "s2", "to": "s3", "direction": "forward" },
+        { "id": "e3", "from": "s3", "to": "s4", "direction": "forward" }
+      ]
+    },
+    "url-shortener": {
+      "id": "starter-url-shortener",
+      "title": { "ar": "بداية: اختصار الروابط", "en": "Starter: URL shortener" },
+      "description": {
+        "ar": "عميل، LB، API — أضف الكاش وقاعدة البيانات",
+        "en": "Client, LB, API — add cache and database"
+      },
+      "blocks": [
+        { "id": "s1", "type": "client", "x": 40, "y": 80, "parentId": null },
+        { "id": "s2", "type": "lb", "x": 200, "y": 80, "parentId": null },
+        { "id": "s3", "type": "api", "x": 360, "y": 80, "parentId": null },
+        { "id": "s4", "type": "db", "x": 520, "y": 80, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "s1", "to": "s2", "direction": "forward" },
+        { "id": "e2", "from": "s2", "to": "s3", "direction": "forward" },
+        { "id": "e3", "from": "s3", "to": "s4", "direction": "forward" }
+      ]
+    },
+    "chat-messaging": {
+      "id": "starter-chat-messaging",
+      "title": { "ar": "بداية: الدردشة", "en": "Starter: Chat messaging" },
+      "description": {
+        "ar": "عميل وWebSocket — أكمل الراوتر والطابور",
+        "en": "Client and WebSocket — finish router and queue"
+      },
+      "blocks": [
+        { "id": "s1", "type": "client", "x": 40, "y": 100, "parentId": null },
+        { "id": "s2", "type": "websocket", "x": 200, "y": 100, "parentId": null },
+        { "id": "s3", "type": "router", "x": 380, "y": 100, "parentId": null },
+        { "id": "s4", "type": "queue", "x": 380, "y": 220, "parentId": null }
+      ],
+      "containers": [],
+      "edges": [
+        { "id": "e1", "from": "s1", "to": "s2", "direction": "forward" },
+        { "id": "e2", "from": "s2", "to": "s3", "direction": "forward" },
+        { "id": "e3", "from": "s3", "to": "s4", "direction": "forward" }
+      ]
+    }
+  }
+}

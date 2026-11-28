@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState, useCallback, type ReactNode, type ChangeE
 import type { Lang, Level, Scenario, Stage, SavedScenarioState, GlobalState, ChecklistItem } from './types';
 import { SCENARIOS, getScenarioById } from './scenarios';
 import { t, localizedText } from './i18n';
-import { ArchitectureDiagram } from './diagrams/ArchitectureDiagram';
 import { DrawingBoard } from './components/DrawingBoard';
+import { SolutionWalkthrough } from './components/SolutionWalkthrough';
 import { CapacityCalculator } from './components/CapacityCalculator';
 import { ChaosToggle, ChaosIncidentCard } from './components/ChaosMode';
 import { TradeoffCards } from './components/TradeoffCards';
@@ -328,27 +328,97 @@ function LevelToggle({ level, onChange, lang }: { level: Level; onChange: (l: Le
   );
 }
 
+type DifficultyFilter = 'all' | 'Easy' | 'Medium' | 'Hard';
+
+function difficultyTone(en: string): 'easy' | 'medium' | 'hard' | 'other' {
+  const v = en.toLowerCase();
+  if (v === 'easy') return 'easy';
+  if (v === 'medium') return 'medium';
+  if (v === 'hard') return 'hard';
+  return 'other';
+}
+
 function ScenarioCard({ scenario, lang, onStart }: { scenario: Scenario; lang: Lang; onStart: () => void }) {
+  const tone = difficultyTone(scenario.difficulty.en);
   return (
-    <div style={{
-      background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-xl)',
-      padding: 24, marginBottom: 16, boxShadow: 'var(--shadow-card)',
-    }}>
-      <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-        {localizedText(scenario.title, lang)}
-      </h3>
-      <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', margin: '0 0 16px', lineHeight: 1.5 }}>
-        {localizedText(scenario.description, lang)}
-      </p>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
-        <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-          <strong>{t('difficulty', lang)}:</strong> {localizedText(scenario.difficulty, lang)}
+    <div className="scenario-card">
+      <div className="scenario-card__top">
+        <h3 className="scenario-card__title">{localizedText(scenario.title, lang)}</h3>
+        <span className={`scenario-card__badge scenario-card__badge--${tone}`}>
+          {localizedText(scenario.difficulty, lang)}
         </span>
-        <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+      </div>
+      <p className="scenario-card__desc">{localizedText(scenario.description, lang)}</p>
+      <div className="scenario-card__meta">
+        <span>
           <strong>{t('estimatedTime', lang)}:</strong> {localizedText(scenario.estimatedTime, lang)}
         </span>
       </div>
       <Button label={t('startScenario', lang)} variant="primary" onClick={onStart} />
+    </div>
+  );
+}
+
+function ScenarioPicker({
+  scenarios,
+  lang,
+  onStart,
+}: {
+  scenarios: Scenario[];
+  lang: Lang;
+  onStart: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [difficulty, setDifficulty] = useState<DifficultyFilter>('all');
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return scenarios.filter(sc => {
+      if (difficulty !== 'all' && sc.difficulty.en !== difficulty) return false;
+      if (!q) return true;
+      const hay = `${localizedText(sc.title, lang)} ${localizedText(sc.description, lang)}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [scenarios, query, difficulty, lang]);
+
+  const chips: { id: DifficultyFilter; label: string }[] = [
+    { id: 'all', label: t('filterAll', lang) },
+    { id: 'Easy', label: t('filterEasy', lang) },
+    { id: 'Medium', label: t('filterMedium', lang) },
+    { id: 'Hard', label: t('filterHard', lang) },
+  ];
+
+  return (
+    <div className="scenario-picker">
+      <input
+        className="scenario-picker__search"
+        type="search"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder={t('searchScenarios', lang)}
+        aria-label={t('searchScenarios', lang)}
+      />
+      <div className="scenario-picker__filters" role="group" aria-label={t('difficulty', lang)}>
+        {chips.map(chip => (
+          <button
+            key={chip.id}
+            type="button"
+            className={`scenario-picker__chip${difficulty === chip.id ? ' is-active' : ''}`}
+            onClick={() => setDifficulty(chip.id)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
+        <p className="scenario-picker__empty">{t('noScenariosMatch', lang)}</p>
+      ) : (
+        <div className="scenario-picker__grid">
+          {filtered.map(sc => (
+            <ScenarioCard key={sc.id} scenario={sc} lang={lang} onStart={() => onStart(sc.id)} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -475,7 +545,7 @@ function ScoreTicks({ items, values, expanded, onToggle, onToggleExpand, lang, o
             </button>
             {isDiagram && (
               <div style={{ marginTop: 16 }}>
-                <ArchitectureDiagram scenarioId={scenarioId} lang={lang} />
+                <SolutionWalkthrough scenarioId={scenarioId} lang={lang} />
               </div>
             )}
             <ExpandableDetail item={item} expanded={!!expanded[i]} onToggle={() => onToggleExpand(i)} lang={lang} onOpenTerm={onOpenTerm} />
@@ -772,9 +842,7 @@ export default function App() {
         <SoftCard lang={lang}>
           <ChaosToggle lang={lang} enabled={chaosPref} onToggle={() => setChaosPref(v => !v)} />
           <CardHeader title={t('chooseScenario', lang)} caption={t('chooseScenarioDesc', lang)} />
-          {SCENARIOS.map(sc => (
-            <ScenarioCard key={sc.id} scenario={sc} lang={lang} onStart={() => startScenario(sc.id)} />
-          ))}
+          <ScenarioPicker scenarios={SCENARIOS} lang={lang} onStart={startScenario} />
         </SoftCard>
       </PageContainer>
     );
@@ -937,9 +1005,9 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <BodyText muted>{t('checklistInstruction', lang)}</BodyText>
                 {stage.id === 'architecture' && (
-                  <div style={{ padding: 16, background: 'var(--bg-subtle)', borderRadius: 'var(--radius-lg)' }}>
-                    <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>{t('architectureDiagram', lang)}</p>
-                    <ArchitectureDiagram scenarioId={scenario.id} lang={lang} />
+                  <div className="architecture-reveal">
+                    <p className="architecture-reveal__title">{t('architectureDiagram', lang)}</p>
+                    <SolutionWalkthrough scenarioId={scenario.id} lang={lang} />
                   </div>
                 )}
                 <ScoreTicks

@@ -698,15 +698,26 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                   const selected = sel?.kind === 'edge' && sel.id === edge.id;
                   const dir: DrawingEdgeDirection = edge.direction || 'forward';
                   return (
-                    <g key={edge.id}>
+                    <g key={edge.id} data-edge-id={edge.id}>
                       <line
+                        className="drawing-edge-hit"
+                        data-edge-id={edge.id}
                         x1={p1.x}
                         y1={p1.y}
                         x2={p2.x}
                         y2={p2.y}
                         stroke="transparent"
-                        strokeWidth={22}
-                        style={{ cursor: 'pointer' }}
+                        strokeWidth={28}
+                        style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                        onPointerDown={ev => {
+                          ev.stopPropagation();
+                          if (tool === 'delete') {
+                            commit({ edges: state.edges.filter(ed => ed.id !== edge.id) });
+                            setSel(null);
+                            return;
+                          }
+                          setSel({ kind: 'edge', id: edge.id });
+                        }}
                       />
                       <line
                         x1={p1.x}
@@ -718,6 +729,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                         markerEnd={dir === 'forward' || dir === 'both' ? 'url(#arrow-fwd)' : undefined}
                         markerStart={dir === 'backward' || dir === 'both' ? 'url(#arrow-back)' : undefined}
                         opacity={0.85}
+                        style={{ pointerEvents: 'none' }}
                       />
                       {edge.label && (
                         <text
@@ -727,6 +739,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                           fontSize={10}
                           fill="var(--text-secondary)"
                           onDoubleClick={() => startEdgeEdit(edge)}
+                          style={{ pointerEvents: 'none' }}
                         >
                           {edge.label}
                         </text>
@@ -734,6 +747,7 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                       {selected && (
                         <g
                           className="drawing-ui-chrome"
+                          data-edge-delete={edge.id}
                           transform={`translate(${mid.x}, ${mid.y})`}
                           onPointerDown={ev => {
                             ev.stopPropagation();
@@ -741,8 +755,8 @@ export function DrawingBoard({ scenarioId, lang, state, onChange }: Props) {
                             setSel(null);
                           }}
                         >
-                          <circle r={14} fill="var(--bg-elevated)" stroke="var(--warning)" strokeWidth={2} />
-                          <text textAnchor="middle" dy="4" fontSize={14} fill="var(--warning)" style={{ pointerEvents: 'none' }}>
+                          <circle r={16} fill="var(--bg-elevated)" stroke="var(--warning)" strokeWidth={2} />
+                          <text textAnchor="middle" dy="5" fontSize={16} fill="var(--warning)" style={{ pointerEvents: 'none' }}>
                             ✕
                           </text>
                         </g>

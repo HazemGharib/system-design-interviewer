@@ -133,7 +133,7 @@ html, body {
   border-color: transparent;
 }
 
-/* Capacity calculator — compact mobile layout */
+/* Capacity calculator — Auto/Practice + compact mobile */
 .capacity-calc {
   margin-top: 16px;
   margin-bottom: 12px;
@@ -142,9 +142,44 @@ html, body {
   gap: 12px;
 }
 
+.capacity-calc__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .capacity-calc__title {
   font-size: 1.05rem;
   margin: 0;
+}
+
+.capacity-calc__mode {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+}
+
+.capacity-calc__mode-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+.capacity-calc__mode-btn.is-active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .capacity-calc__hint {
@@ -194,11 +229,49 @@ html, body {
   color: var(--text-secondary);
 }
 
-.capacity-calc__formula {
-  display: block;
-  font-size: 0.6875rem;
-  line-height: 1.4;
+.capacity-calc__formula-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 0.75rem;
+  line-height: 1.45;
   color: var(--text-secondary);
+}
+
+.capacity-calc__formula-text,
+.capacity-calc__formula-const,
+.capacity-calc__formula-symbol {
+  color: var(--text-secondary);
+}
+
+.capacity-calc__formula-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacity-calc__inline-input {
+  width: 4.5rem;
+  max-width: 28vw;
+  min-height: 28px;
+  height: 28px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+.capacity-calc__result {
+  margin: 2px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .capacity-calc__verdict {
@@ -255,8 +328,12 @@ html, body {
     gap: 3px;
   }
 
-  .capacity-calc__formula {
-    font-size: 0.625rem;
+  .capacity-calc__formula-row {
+    font-size: 0.6875rem;
+  }
+
+  .capacity-calc__inline-input {
+    width: 3.75rem;
   }
 
   .capacity-calc__title {

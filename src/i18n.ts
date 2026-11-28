@@ -120,6 +120,21 @@ export const UI_STRINGS = {
     ar: 'ادخل تقديراتك. استخدم المساعدات لو حابب، بعدين اضغط تحقق.',
     en: 'Enter your estimates. Use helpers if you want, then press Check.'
   },
+  capacityHintAuto: {
+    ar: 'اكتب أرقام المسألة في المدخلات. القيم المشتقة بتتحسب لوحدها مع المعادلة.',
+    en: 'Type the problem numbers into the inputs. Derived values compute live with the formula.'
+  },
+  capacityHintPractice: {
+    ar: 'اكتب تقديراتك للقيم المشتقة، بعدين اضغط تحقق. تقدر تستخدم نفس المدخلات لو حابب.',
+    en: 'Type your estimates for derived values, then press Check. You can use the same inputs if you want.'
+  },
+  capacityMode: { ar: 'وضع الحاسبة', en: 'Calculator mode' },
+  capacityModeAuto: { ar: 'تلقائي', en: 'Auto' },
+  capacityModePractice: { ar: 'تمرين', en: 'Practice' },
+  capacityVariables: { ar: 'المدخلات', en: 'Inputs' },
+  capacityAssumptions: { ar: 'افتراضات قابلة للتعديل', en: 'Editable assumptions' },
+  capacityDerived: { ar: 'قيم محسوبة', en: 'Derived values' },
+  capacityClear: { ar: 'مسح', en: 'Clear' },
   helpers: { ar: 'مدخلات مساعدة', en: 'Helper inputs' },
   yourEstimates: { ar: 'تقديراتك', en: 'Your estimates' },
   checkEstimates: { ar: 'تحقق', en: 'Check' },

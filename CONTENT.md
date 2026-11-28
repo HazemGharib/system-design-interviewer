@@ -28,6 +28,54 @@ src/data/
 
 Required scenario sections: `stages` (with senior/staff levels), `capacity` (or `null`), `chaos`, `tradeoffs`, `drawing` (or `null`). Checklist item `detail` must include `ar`/`en` objects with `why`, `how`, `tradeoffs`, `examples`, `mistakes`.
 
+## Capacity formulas
+
+`capacity` is formula-driven (Auto + Practice modes):
+
+```json
+{
+  "variables": [
+    {
+      "id": "dau",
+      "label": { "ar": "...", "en": "Daily Active Users" },
+      "unit": { "ar": "يوزر", "en": "users" },
+      "default": 10000000,
+      "role": "input"
+    },
+    {
+      "id": "peakFactor",
+      "label": { "ar": "...", "en": "Peak factor" },
+      "unit": { "ar": "x", "en": "x" },
+      "default": 3,
+      "role": "assumption"
+    }
+  ],
+  "metrics": [
+    {
+      "id": "writeQps",
+      "label": { "ar": "...", "en": "Write QPS" },
+      "unit": { "ar": "طلب/ث", "en": "req/s" },
+      "format": "qps",
+      "expr": "uploadsDay / 86400",
+      "display": [
+        { "ref": "uploadsDay" },
+        { "text": " ÷ " },
+        { "const": 86400 }
+      ],
+      "practice": true
+    }
+  ],
+  "steps": [{ "ar": "...", "en": "..." }]
+}
+```
+
+- `variables[].role`: `input` (problem numbers the user types) or `assumption` (editable peak factor, retention, etc.).
+- `variables[].default`: used only for Practice grading when a field is blank — **never** shown as UI prefill/placeholder.
+- `metrics[].expr`: arithmetic with `+ - * / **`, ids, and numbers.
+- `metrics[].display`: formula UI parts — `{ text }`, `{ const }`, `{ ref }` (prior metric/variable), `{ var }` (inline editable variable).
+- `metrics[].practice`: if true, shown as a graded estimate field in Practice mode.
+- UI inputs start empty with unit/label placeholders only; Clear wipes values.
+
 ## Add a cheat sheet entry
 
 Edit `src/data/cheatsheet.json`:
@@ -52,4 +100,4 @@ Deep links: `#/glossary` and `#/glossary/<term-id>`.
 npm run validate
 ```
 
-Fails the build/CI on missing bilingual fields, schema errors, manifest mismatches, or glossary/cheat links to unknown term ids.
+Fails the build/CI on missing bilingual fields, schema errors, manifest mismatches, capacity formula/link errors, or glossary/cheat links to unknown term ids.

@@ -1,11 +1,11 @@
 import type {
   ChecklistItem,
   ComponentType,
-  CapacityField,
   ChaosIncident,
   TradeoffCard,
   Level,
 } from '../types';
+import type { CapacityModel } from '../interactive/capacityEngine';
 
 export type Bi = { ar: string; en: string };
 
@@ -25,11 +25,7 @@ export interface ScenarioJson {
     items: ChecklistItem[];
     level: Level;
   }[];
-  capacity: {
-    helpers: CapacityField[];
-    fields: CapacityField[];
-    steps: Bi[];
-  } | null;
+  capacity: CapacityModel | null;
   chaos: ChaosIncident[];
   tradeoffs: TradeoffCard[];
   drawing: {

@@ -2037,7 +2037,7 @@
     }
   ],
   "capacity": {
-    "helpers": [
+    "variables": [
       {
         "id": "dau",
         "label": {
@@ -2048,7 +2048,8 @@
           "ar": "يوزر",
           "en": "users"
         },
-        "reference": 10000000
+        "default": 10000000,
+        "role": "input"
       },
       {
         "id": "uploadsPerUser",
@@ -2060,7 +2061,8 @@
           "ar": "صورة",
           "en": "images"
         },
-        "reference": 2
+        "default": 2,
+        "role": "input"
       },
       {
         "id": "avgSizeMb",
@@ -2072,7 +2074,8 @@
           "ar": "MB",
           "en": "MB"
         },
-        "reference": 2
+        "default": 2,
+        "role": "input"
       },
       {
         "id": "readWriteRatio",
@@ -2084,10 +2087,88 @@
           "ar": "x",
           "en": "x"
         },
-        "reference": 100
+        "default": 100,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 3,
+        "role": "assumption"
+      },
+      {
+        "id": "serverCapacity",
+        "label": {
+          "ar": "سعة السيرفر",
+          "en": "Per-server capacity"
+        },
+        "unit": {
+          "ar": "طلب/ث",
+          "en": "req/s"
+        },
+        "default": 1500,
+        "role": "assumption"
+      },
+      {
+        "id": "retentionYears",
+        "label": {
+          "ar": "سنوات الاحتفاظ",
+          "en": "Retention years"
+        },
+        "unit": {
+          "ar": "سنة",
+          "en": "years"
+        },
+        "default": 5,
+        "role": "assumption"
+      },
+      {
+        "id": "daysPerYear",
+        "label": {
+          "ar": "أيام/سنة",
+          "en": "Days/year"
+        },
+        "unit": {
+          "ar": "يوم",
+          "en": "days"
+        },
+        "default": 365,
+        "role": "assumption"
       }
     ],
-    "fields": [
+    "metrics": [
+      {
+        "id": "uploadsDay",
+        "label": {
+          "ar": "رفع/يوم",
+          "en": "Uploads/day"
+        },
+        "unit": {
+          "ar": "صورة",
+          "en": "images"
+        },
+        "format": "count",
+        "expr": "dau * uploadsPerUser",
+        "display": [
+          {
+            "ref": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "ref": "uploadsPerUser"
+          }
+        ],
+        "practice": false
+      },
       {
         "id": "writeQps",
         "label": {
@@ -2098,11 +2179,20 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 230,
-        "helper": {
-          "ar": "uploads/day ÷ 86400",
-          "en": "uploads/day ÷ 86400"
-        }
+        "format": "qps",
+        "expr": "uploadsDay / 86400",
+        "display": [
+          {
+            "ref": "uploadsDay"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "const": 86400
+          }
+        ],
+        "practice": true
       },
       {
         "id": "readQps",
@@ -2114,11 +2204,20 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 23000,
-        "helper": {
-          "ar": "write × ratio",
-          "en": "write × ratio"
-        }
+        "format": "qps",
+        "expr": "writeQps * readWriteRatio",
+        "display": [
+          {
+            "ref": "writeQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "readWriteRatio"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "peakQps",
@@ -2130,11 +2229,20 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 69000,
-        "helper": {
-          "ar": "read × 3",
-          "en": "read × 3"
-        }
+        "format": "qps",
+        "expr": "readQps * peakFactor",
+        "display": [
+          {
+            "ref": "readQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "storageDay",
@@ -2146,27 +2254,57 @@
           "ar": "TB",
           "en": "TB"
         },
-        "reference": 40,
-        "helper": {
-          "ar": "uploads × size",
-          "en": "uploads × size"
-        }
+        "format": "storage",
+        "expr": "uploadsDay * avgSizeMb / 1000000",
+        "display": [
+          {
+            "ref": "uploadsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "avgSizeMb"
+          },
+          {
+            "text": " MB ÷ 1,000,000"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "storage5y",
         "label": {
-          "ar": "تخزين 5 سنين",
-          "en": "Storage 5 years"
+          "ar": "تخزين طويل الأمد",
+          "en": "Long-term storage"
         },
         "unit": {
           "ar": "PB",
           "en": "PB"
         },
-        "reference": 73,
-        "helper": {
-          "ar": "day × 365 × 5",
-          "en": "day × 365 × 5"
-        }
+        "format": "storage",
+        "expr": "storageDay * daysPerYear * retentionYears / 1000",
+        "display": [
+          {
+            "ref": "storageDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "daysPerYear"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "retentionYears"
+          },
+          {
+            "text": " ÷ 1,000"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "bandwidth",
@@ -2178,11 +2316,29 @@
           "ar": "TB",
           "en": "TB"
         },
-        "reference": 4000,
-        "helper": {
-          "ar": "reads × size",
-          "en": "reads × size"
-        }
+        "format": "storage",
+        "expr": "uploadsDay * readWriteRatio * avgSizeMb / 1000000",
+        "display": [
+          {
+            "ref": "uploadsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "readWriteRatio"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "avgSizeMb"
+          },
+          {
+            "text": " MB ÷ 1,000,000"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "servers",
@@ -2194,29 +2350,38 @@
           "ar": "سيرفر",
           "en": "servers"
         },
-        "reference": 50,
-        "helper": {
-          "ar": "peak / capacity",
-          "en": "peak / capacity"
-        }
+        "format": "count",
+        "expr": "peakQps / serverCapacity",
+        "display": [
+          {
+            "ref": "peakQps"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "serverCapacity"
+          }
+        ],
+        "practice": true
       }
     ],
     "steps": [
       {
-        "ar": "1) Uploads/day = 10M DAU × 2 = 20M. Write QPS = 20M / 86400 ≈ 230.",
-        "en": "1) Uploads/day = 10M DAU × 2 = 20M. Write QPS = 20M / 86400 ≈ 230."
+        "ar": "1) Uploads/day = DAU × uploads. Write QPS = uploads/day ÷ 86400.",
+        "en": "1) Uploads/day = DAU × uploads. Write QPS = uploads/day ÷ 86400."
       },
       {
-        "ar": "2) Read QPS = 230 × 100 = 23,000. Peak ≈ 3× = 69,000.",
-        "en": "2) Read QPS = 230 × 100 = 23,000. Peak ≈ 3× = 69,000."
+        "ar": "2) Read QPS = write × ratio. Peak = read × peak factor.",
+        "en": "2) Read QPS = write × ratio. Peak = read × peak factor."
       },
       {
-        "ar": "3) Storage/day = 20M × 2MB = 40TB. 5 years ≈ 40 × 365 × 5 ≈ 73PB.",
-        "en": "3) Storage/day = 20M × 2MB = 40TB. 5 years ≈ 40 × 365 × 5 ≈ 73PB."
+        "ar": "3) Storage/day من الحجم، والتخزين طويل الأمد = يوم × أيام/سنة × سنين.",
+        "en": "3) Storage/day from size; long-term = day × days/year × years."
       },
       {
-        "ar": "4) Bandwidth ≈ reads × size → حوالي 4PB/day عبر CDN. Servers ≈ peak/1500 ≈ 50.",
-        "en": "4) Bandwidth ≈ reads × size → ~4PB/day via CDN. Servers ≈ peak/1500 ≈ 50."
+        "ar": "4) Bandwidth ≈ reads × size. Servers ≈ peak ÷ per-server capacity.",
+        "en": "4) Bandwidth ≈ reads × size. Servers ≈ peak ÷ per-server capacity."
       }
     ]
   },

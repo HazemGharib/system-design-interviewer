@@ -1323,7 +1323,7 @@
     }
   ],
   "capacity": {
-    "helpers": [
+    "variables": [
       {
         "id": "dau",
         "label": {
@@ -1334,7 +1334,8 @@
           "ar": "يوزر",
           "en": "users"
         },
-        "reference": 500000000
+        "default": 500000000,
+        "role": "input"
       },
       {
         "id": "msgsPerUser",
@@ -1346,10 +1347,11 @@
           "ar": "رسالة",
           "en": "msgs"
         },
-        "reference": 100
+        "default": 100,
+        "role": "input"
       },
       {
-        "id": "msgSize",
+        "id": "msgSizeKb",
         "label": {
           "ar": "متوسط حجم الرسالة",
           "en": "Avg message size"
@@ -1358,7 +1360,8 @@
           "ar": "KB",
           "en": "KB"
         },
-        "reference": 1
+        "default": 1,
+        "role": "input"
       },
       {
         "id": "concurrentPct",
@@ -1370,10 +1373,75 @@
           "ar": "%",
           "en": "%"
         },
-        "reference": 30
+        "default": 30,
+        "role": "input"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 2.6,
+        "role": "assumption"
+      },
+      {
+        "id": "connPerServer",
+        "label": {
+          "ar": "اتصالات/سيرفر",
+          "en": "Connections/server"
+        },
+        "unit": {
+          "ar": "اتصال",
+          "en": "conns"
+        },
+        "default": 100000,
+        "role": "assumption"
+      },
+      {
+        "id": "duplexFactor",
+        "label": {
+          "ar": "معامل الإرسال/الاستقبال",
+          "en": "Send+receive factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 2,
+        "role": "assumption"
       }
     ],
-    "fields": [
+    "metrics": [
+      {
+        "id": "msgsDay",
+        "label": {
+          "ar": "رسائل/يوم",
+          "en": "Messages/day"
+        },
+        "unit": {
+          "ar": "رسالة",
+          "en": "msgs"
+        },
+        "format": "count",
+        "expr": "dau * msgsPerUser",
+        "display": [
+          {
+            "ref": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "ref": "msgsPerUser"
+          }
+        ],
+        "practice": false
+      },
       {
         "id": "msgQps",
         "label": {
@@ -1384,7 +1452,20 @@
           "ar": "رسالة/ث",
           "en": "msg/s"
         },
-        "reference": 580000
+        "format": "qps",
+        "expr": "msgsDay / 86400",
+        "display": [
+          {
+            "ref": "msgsDay"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "const": 86400
+          }
+        ],
+        "practice": true
       },
       {
         "id": "peakQps",
@@ -1396,7 +1477,20 @@
           "ar": "رسالة/ث",
           "en": "msg/s"
         },
-        "reference": 1500000
+        "format": "qps",
+        "expr": "msgQps * peakFactor",
+        "display": [
+          {
+            "ref": "msgQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "storageDay",
@@ -1408,7 +1502,23 @@
           "ar": "TB",
           "en": "TB"
         },
-        "reference": 50
+        "format": "storage",
+        "expr": "msgsDay * msgSizeKb / 1000000000",
+        "display": [
+          {
+            "ref": "msgsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "msgSizeKb"
+          },
+          {
+            "text": " KB ÷ 1e9"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "connections",
@@ -1420,7 +1530,23 @@
           "ar": "مليون",
           "en": "million"
         },
-        "reference": 150
+        "format": "count",
+        "expr": "dau * concurrentPct / 100 / 1000000",
+        "display": [
+          {
+            "ref": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "concurrentPct"
+          },
+          {
+            "text": "% ÷ 1,000,000"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "wsServers",
@@ -1432,7 +1558,26 @@
           "ar": "سيرفر",
           "en": "servers"
         },
-        "reference": 1500
+        "format": "count",
+        "expr": "dau * concurrentPct / 100 / connPerServer",
+        "display": [
+          {
+            "ref": "dau"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "concurrentPct"
+          },
+          {
+            "text": "% ÷ "
+          },
+          {
+            "var": "connPerServer"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "bandwidth",
@@ -1444,21 +1589,43 @@
           "ar": "TB",
           "en": "TB"
         },
-        "reference": 100
+        "format": "storage",
+        "expr": "msgsDay * msgSizeKb * duplexFactor / 1000000000",
+        "display": [
+          {
+            "ref": "msgsDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "msgSizeKb"
+          },
+          {
+            "text": " KB × "
+          },
+          {
+            "var": "duplexFactor"
+          },
+          {
+            "text": " ÷ 1e9"
+          }
+        ],
+        "practice": true
       }
     ],
     "steps": [
       {
-        "ar": "1) Messages/day = 500M × 100 = 50B. QPS = 50B/86400 ≈ 580K. Peak ≈ 1.5M.",
-        "en": "1) Messages/day = 500M × 100 = 50B. QPS = 50B/86400 ≈ 580K. Peak ≈ 1.5M."
+        "ar": "1) Messages/day = DAU × msgs. QPS = day ÷ 86400. Peak = QPS × factor.",
+        "en": "1) Messages/day = DAU × msgs. QPS = day ÷ 86400. Peak = QPS × factor."
       },
       {
-        "ar": "2) Storage/day = 50B × 1KB = 50TB. Connections = 500M × 30% = 150M.",
-        "en": "2) Storage/day = 50B × 1KB = 50TB. Connections = 500M × 30% = 150M."
+        "ar": "2) Storage/day من حجم الرسالة. Connections = DAU × concurrent %.",
+        "en": "2) Storage/day from message size. Connections = DAU × concurrent %."
       },
       {
-        "ar": "3) WS servers = 150M / 100K ≈ 1500. Bandwidth ≈ 100TB/day (send+receive).",
-        "en": "3) WS servers = 150M / 100K ≈ 1500. Bandwidth ≈ 100TB/day (send+receive)."
+        "ar": "3) WS servers = connections ÷ per-server. Bandwidth ≈ send+receive.",
+        "en": "3) WS servers = connections ÷ per-server. Bandwidth ≈ send+receive."
       }
     ]
   },

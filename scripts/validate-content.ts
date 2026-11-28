@@ -34,12 +34,29 @@ const Stage = z.object({
   level: z.enum(['senior', 'staff']),
 });
 
-const CapacityField = z.object({
-  id: z.string(),
+const FormulaPart = z.union([
+  z.object({ text: z.string() }),
+  z.object({ const: z.number() }),
+  z.object({ ref: z.string().min(1) }),
+  z.object({ var: z.string().min(1) }),
+]);
+
+const CapacityVariable = z.object({
+  id: z.string().min(1),
   label: Bi,
   unit: Bi,
-  reference: z.number(),
-  helper: Bi.optional(),
+  default: z.number(),
+  role: z.enum(['input', 'assumption']),
+});
+
+const CapacityMetric = z.object({
+  id: z.string().min(1),
+  label: Bi,
+  unit: Bi,
+  format: z.enum(['count', 'qps', 'storage']),
+  expr: z.string().min(1),
+  display: z.array(FormulaPart).min(1),
+  practice: z.boolean(),
 });
 
 const Chaos = z.object({
@@ -81,8 +98,8 @@ const ScenarioSchema = z.object({
   facts: z.array(z.object({ label: Bi, value: Bi })).min(1),
   stages: z.array(Stage).min(1),
   capacity: z.object({
-    helpers: z.array(CapacityField),
-    fields: z.array(CapacityField).min(1),
+    variables: z.array(CapacityVariable).min(1),
+    metrics: z.array(CapacityMetric).min(1),
     steps: z.array(Bi).min(1),
   }).nullable(),
   chaos: z.array(Chaos),
@@ -184,6 +201,30 @@ for (const file of scenarioFiles) {
     for (const edge of sc.drawing.edges) {
       if (!sc.drawing.components.includes(edge.from as never) && !sc.drawing.referenceLayout.some(r => r.type === edge.from)) {
         // soft: components list should include edge endpoints
+      }
+    }
+  }
+  if (sc.capacity) {
+    const varIds = new Set(sc.capacity.variables.map(v => v.id));
+    const metricIds = new Set<string>();
+    if (!sc.capacity.variables.some(v => v.role === 'input')) {
+      fail(`scenario ${sc.id} capacity has no input variables`);
+    }
+    for (const m of sc.capacity.metrics) {
+      metricIds.add(m.id);
+      for (const part of m.display) {
+        if ('var' in part && !varIds.has(part.var)) fail(`scenario ${sc.id} metric "${m.id}" display var "${part.var}" missing`);
+        if ('ref' in part && !varIds.has(part.ref) && !metricIds.has(part.ref) && !sc.capacity.metrics.some(x => x.id === part.ref)) {
+          // ref may point to earlier metric — check full set after loop
+        }
+      }
+    }
+    const allMetricIds = new Set(sc.capacity.metrics.map(m => m.id));
+    for (const m of sc.capacity.metrics) {
+      for (const part of m.display) {
+        if ('ref' in part && !varIds.has(part.ref) && !allMetricIds.has(part.ref)) {
+          fail(`scenario ${sc.id} metric "${m.id}" display ref "${part.ref}" missing`);
+        }
       }
     }
   }

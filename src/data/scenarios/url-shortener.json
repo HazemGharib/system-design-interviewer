@@ -1089,7 +1089,7 @@
     }
   ],
   "capacity": {
-    "helpers": [
+    "variables": [
       {
         "id": "urlsMonth",
         "label": {
@@ -1100,7 +1100,8 @@
           "ar": "URL",
           "en": "URLs"
         },
-        "reference": 100000000
+        "default": 100000000,
+        "role": "input"
       },
       {
         "id": "rwRatio",
@@ -1112,7 +1113,8 @@
           "ar": "x",
           "en": "x"
         },
-        "reference": 100
+        "default": 100,
+        "role": "input"
       },
       {
         "id": "recordBytes",
@@ -1124,10 +1126,115 @@
           "ar": "bytes",
           "en": "bytes"
         },
-        "reference": 500
+        "default": 500,
+        "role": "input"
+      },
+      {
+        "id": "daysPerMonth",
+        "label": {
+          "ar": "أيام/شهر",
+          "en": "Days/month"
+        },
+        "unit": {
+          "ar": "يوم",
+          "en": "days"
+        },
+        "default": 30,
+        "role": "assumption"
+      },
+      {
+        "id": "peakFactor",
+        "label": {
+          "ar": "معامل الذروة",
+          "en": "Peak factor"
+        },
+        "unit": {
+          "ar": "x",
+          "en": "x"
+        },
+        "default": 3,
+        "role": "assumption"
+      },
+      {
+        "id": "retentionYears",
+        "label": {
+          "ar": "سنوات الاحتفاظ",
+          "en": "Retention years"
+        },
+        "unit": {
+          "ar": "سنة",
+          "en": "years"
+        },
+        "default": 5,
+        "role": "assumption"
+      },
+      {
+        "id": "daysPerYear",
+        "label": {
+          "ar": "أيام/سنة",
+          "en": "Days/year"
+        },
+        "unit": {
+          "ar": "يوم",
+          "en": "days"
+        },
+        "default": 365,
+        "role": "assumption"
+      },
+      {
+        "id": "cacheHotPct",
+        "label": {
+          "ar": "نسبة الـ hot cache",
+          "en": "Hot cache %"
+        },
+        "unit": {
+          "ar": "%",
+          "en": "%"
+        },
+        "default": 20,
+        "role": "assumption"
+      },
+      {
+        "id": "cacheMonths",
+        "label": {
+          "ar": "شهور الـ hot set",
+          "en": "Hot-set months"
+        },
+        "unit": {
+          "ar": "شهر",
+          "en": "months"
+        },
+        "default": 8,
+        "role": "assumption"
+      },
+      {
+        "id": "keyLength",
+        "label": {
+          "ar": "طول المفتاح",
+          "en": "Key length"
+        },
+        "unit": {
+          "ar": "حرف",
+          "en": "chars"
+        },
+        "default": 7,
+        "role": "assumption"
+      },
+      {
+        "id": "alphabetSize",
+        "label": {
+          "ar": "حجم الأبجدية",
+          "en": "Alphabet size"
+        },
+        "unit": {
+          "ar": "رمز",
+          "en": "symbols"
+        },
+        "default": 62,
+        "role": "assumption"
       }
     ],
-    "fields": [
+    "metrics": [
       {
         "id": "writeQps",
         "label": {
@@ -1138,7 +1245,26 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 40
+        "format": "qps",
+        "expr": "urlsMonth / daysPerMonth / 86400",
+        "display": [
+          {
+            "var": "urlsMonth"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "daysPerMonth"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "const": 86400
+          }
+        ],
+        "practice": true
       },
       {
         "id": "readQps",
@@ -1150,7 +1276,20 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 4000
+        "format": "qps",
+        "expr": "writeQps * rwRatio",
+        "display": [
+          {
+            "ref": "writeQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "rwRatio"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "peakQps",
@@ -1162,7 +1301,20 @@
           "ar": "طلب/ث",
           "en": "req/s"
         },
-        "reference": 12000
+        "format": "qps",
+        "expr": "readQps * peakFactor",
+        "display": [
+          {
+            "ref": "readQps"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "peakFactor"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "storageDay",
@@ -1174,19 +1326,63 @@
           "ar": "GB",
           "en": "GB"
         },
-        "reference": 1.7
+        "format": "storage",
+        "expr": "urlsMonth / daysPerMonth * recordBytes / 1000000000",
+        "display": [
+          {
+            "var": "urlsMonth"
+          },
+          {
+            "text": " ÷ "
+          },
+          {
+            "var": "daysPerMonth"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "recordBytes"
+          },
+          {
+            "text": " B ÷ 1e9"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "storage5y",
         "label": {
-          "ar": "تخزين 5 سنين",
-          "en": "Storage 5 years"
+          "ar": "تخزين طويل الأمد",
+          "en": "Long-term storage"
         },
         "unit": {
           "ar": "TB",
           "en": "TB"
         },
-        "reference": 3
+        "format": "storage",
+        "expr": "storageDay * daysPerYear * retentionYears / 1000",
+        "display": [
+          {
+            "ref": "storageDay"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "daysPerYear"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "retentionYears"
+          },
+          {
+            "text": " ÷ 1,000"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "cacheSize",
@@ -1198,33 +1394,77 @@
           "ar": "GB",
           "en": "GB"
         },
-        "reference": 80
+        "format": "storage",
+        "expr": "urlsMonth * cacheMonths * cacheHotPct / 100 * recordBytes / 1000000000",
+        "display": [
+          {
+            "var": "urlsMonth"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "cacheMonths"
+          },
+          {
+            "text": " × "
+          },
+          {
+            "var": "cacheHotPct"
+          },
+          {
+            "text": "% × "
+          },
+          {
+            "var": "recordBytes"
+          },
+          {
+            "text": " B ÷ 1e9"
+          }
+        ],
+        "practice": true
       },
       {
         "id": "keySpace",
         "label": {
-          "ar": "Key space (Base62^7)",
-          "en": "Key space (Base62^7)"
+          "ar": "Key space",
+          "en": "Key space"
         },
         "unit": {
           "ar": "تريليون",
           "en": "trillion"
         },
-        "reference": 3.5
+        "format": "count",
+        "expr": "alphabetSize ** keyLength / 1000000000000",
+        "display": [
+          {
+            "var": "alphabetSize"
+          },
+          {
+            "text": "^"
+          },
+          {
+            "var": "keyLength"
+          },
+          {
+            "text": " ÷ 1e12"
+          }
+        ],
+        "practice": true
       }
     ],
     "steps": [
       {
-        "ar": "1) Write QPS = 100M / 30 / 86400 ≈ 40. Read = 40 × 100 = 4000. Peak ≈ 12K.",
-        "en": "1) Write QPS = 100M / 30 / 86400 ≈ 40. Read = 40 × 100 = 4000. Peak ≈ 12K."
+        "ar": "1) Write QPS = URLs/month ÷ أيام/شهر ÷ 86400. Read = write × ratio.",
+        "en": "1) Write QPS = URLs/month ÷ days/month ÷ 86400. Read = write × ratio."
       },
       {
-        "ar": "2) Storage/day = 100M/30 × 500B ≈ 1.7GB. 5 years ≈ 3TB مع overhead.",
-        "en": "2) Storage/day = 100M/30 × 500B ≈ 1.7GB. 5 years ≈ 3TB with overhead."
+        "ar": "2) Storage/day من حجم السجل، والتخزين طويل الأمد عبر سنوات الاحتفاظ.",
+        "en": "2) Storage/day from record size; long-term via retention years."
       },
       {
-        "ar": "3) Cache الـ hot 20% من الـ redirects → ~80GB. Base62^7 ≈ 3.5 trillion keys.",
-        "en": "3) Cache hot 20% of redirects → ~80GB. Base62^7 ≈ 3.5 trillion keys."
+        "ar": "3) Cache = hot % من الروابط على شهور. Key space = alphabet^length.",
+        "en": "3) Cache = hot % of URLs over months. Key space = alphabet^length."
       }
     ]
   },

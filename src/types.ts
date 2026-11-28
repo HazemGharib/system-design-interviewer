@@ -85,9 +85,15 @@ export interface CapacityField {
   helper?: { ar: string; en: string };
 }
 
+export type CapacityMode = 'auto' | 'practice';
+
 export interface CapacityState {
+  /** Variable / assumption inputs (prefilled with defaults). */
+  variables: Record<string, string>;
+  /** Practice-mode user estimates keyed by metric id. */
   values: Record<string, string>;
-  helpers: Record<string, string>;
+  /** @deprecated migrated into variables */
+  helpers?: Record<string, string>;
   checked: boolean;
   results: Record<string, { verdict: 'good' | 'ok' | 'off'; ratio: number }>;
 }

@@ -248,7 +248,7 @@ function StickyCategory({
           width: '100%',
           textAlign: lang === 'ar' ? 'right' : 'left',
           padding: '12px 14px',
-          borderRadius: stuck ? 0 : 12,
+          borderRadius: 12,
           border: '1px solid var(--border-default)',
           background: 'var(--bg-elevated)',
           color: 'var(--text-primary)',

@@ -244,16 +244,16 @@ export function DrawingPaletteMobile({
               showCaption
             />
           ))}
-          <button
-            type="button"
-            className="drawing-chip drawing-chip--more"
-            onClick={() => setSheetOpen(true)}
-            aria-label={t('paletteMore', lang)}
-          >
-            <span className="drawing-chip__more-plus">+</span>
-            <span className="drawing-chip__cap">{t('paletteMore', lang)}</span>
-          </button>
         </div>
+        <button
+          type="button"
+          className="drawing-chip drawing-chip--more"
+          onClick={() => setSheetOpen(true)}
+          aria-label={t('paletteMore', lang)}
+        >
+          <span className="drawing-chip__more-plus">+</span>
+          <span className="drawing-chip__cap">{t('paletteMore', lang)}</span>
+        </button>
       </div>
 
       {sheetOpen && (

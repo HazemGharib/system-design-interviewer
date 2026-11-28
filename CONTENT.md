@@ -47,7 +47,12 @@ Required scenario sections: `stages` (with senior/staff levels), `capacity` (or 
       "label": { "ar": "...", "en": "Peak factor" },
       "unit": { "ar": "x", "en": "x" },
       "default": 3,
-      "role": "assumption"
+      "role": "assumption",
+      "range": { "goodMin": 2, "goodMax": 4, "okMin": 1.5, "okMax": 6 },
+      "rangeHint": {
+        "ar": "معامل الذروة المعتاد حوالي ٢–٤× متوسط الحمل.",
+        "en": "Typical peak factor is about 2–4× average load."
+      }
     }
   ],
   "metrics": [
@@ -70,7 +75,9 @@ Required scenario sections: `stages` (with senior/staff levels), `capacity` (or 
 ```
 
 - `variables[].role`: `input` (problem numbers the user types) or `assumption` (editable peak factor, retention, etc.).
-- `variables[].default`: used only for Practice grading when a field is blank — **never** shown as UI prefill/placeholder.
+- `variables[].default`: expected value kept in JSON for Auto Check (inputs) / Practice fill — **never** shown as UI prefill/placeholder.
+- `variables[].range` + `rangeHint` (required for assumptions): reasonable bands for Auto Check (`good` / `ok` / `off`) with a short bilingual explanation. Do not put the exact expected number in failure copy for inputs.
+- Auto mode **Check** grades problem inputs vs `default` (without revealing the number on failure) and assumptions vs `range`; empty fields are `missing`. Practice mode Check is unchanged (grades metric estimates).
 - `metrics[].expr`: arithmetic with `+ - * / **`, ids, and numbers.
 - `metrics[].display`: formula UI parts — `{ text }`, `{ const }`, `{ ref }` (prior metric/variable), `{ var }` (inline editable variable).
 - `metrics[].practice`: if true, shown as a graded estimate field in Practice mode.

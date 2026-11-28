@@ -121,8 +121,8 @@ export const UI_STRINGS = {
     en: 'Enter your estimates. Use helpers if you want, then press Check.'
   },
   capacityHintAuto: {
-    ar: 'اكتب أرقام المسألة في المدخلات. القيم المشتقة بتتحسب لوحدها مع المعادلة.',
-    en: 'Type the problem numbers into the inputs. Derived values compute live with the formula.'
+    ar: 'اكتب أرقام المسألة والافتراضات، وبعدين اضغط تحقق. القيم المشتقة بتتحسب لوحدها.',
+    en: 'Enter problem numbers and assumptions, then tap Check. Derived values compute live.'
   },
   capacityHintPractice: {
     ar: 'اكتب تقديراتك للقيم المشتقة، بعدين اضغط تحقق. تقدر تستخدم نفس المدخلات لو حابب.',
@@ -135,6 +135,22 @@ export const UI_STRINGS = {
   capacityAssumptions: { ar: 'افتراضات قابلة للتعديل', en: 'Editable assumptions' },
   capacityDerived: { ar: 'قيم محسوبة', en: 'Derived values' },
   capacityClear: { ar: 'مسح', en: 'Clear' },
+  capacityCheckInputs: { ar: 'تحقق من المدخلات', en: 'Check inputs' },
+  capacityFeedbackGood: { ar: '✓ صح', en: '✓ Correct' },
+  capacityFeedbackOk: { ar: '~ مقبول', en: '~ Acceptable' },
+  capacityFeedbackMissing: { ar: '✗ فاضي — اكتب الرقم من المسألة', en: '✗ Missing — enter the number from the problem' },
+  capacityFeedbackInputOff: {
+    ar: '✗ راجع نص المسألة (الوحدة: {unit})',
+    en: '✗ Check the problem statement (unit: {unit})',
+  },
+  capacityFeedbackAssumptionOff: {
+    ar: '✗ خارج النطاق المعتاد',
+    en: '✗ Outside the typical range',
+  },
+  capacityAutoSummary: {
+    ar: 'المدخلات: {inputsOk}/{inputsTotal} صح · الافتراضات: {assumptionsOk}/{assumptionsTotal} معقولة',
+    en: 'Inputs: {inputsOk}/{inputsTotal} correct · Assumptions: {assumptionsOk}/{assumptionsTotal} reasonable',
+  },
   helpers: { ar: 'مدخلات مساعدة', en: 'Helper inputs' },
   yourEstimates: { ar: 'تقديراتك', en: 'Your estimates' },
   checkEstimates: { ar: 'تحقق', en: 'Check' },
@@ -190,6 +206,17 @@ export const UI_STRINGS = {
 
 export function t(key: keyof typeof UI_STRINGS, lang: Lang): string {
   return UI_STRINGS[key][lang];
+}
+
+export function tf(
+  key: keyof typeof UI_STRINGS,
+  lang: Lang,
+  vars: Record<string, string | number>,
+): string {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    t(key, lang),
+  );
 }
 
 export function localizedText(text: { ar: string; en: string }, lang: Lang): string {

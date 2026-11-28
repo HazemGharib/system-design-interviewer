@@ -18,7 +18,7 @@ export function emptyCapacity(scenarioId: string): CapacityState {
   if (model) {
     for (const m of practiceMetrics(model)) values[m.id] = '';
   }
-  return { variables, values, checked: false, results: {} };
+  return { variables, values, checked: false, results: {}, autoChecked: false, autoResults: {} };
 }
 
 export function verdictFor(user: number, reference: number): { verdict: 'good' | 'ok' | 'off'; ratio: number } {

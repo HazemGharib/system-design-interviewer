@@ -2,12 +2,41 @@ import type { Bi } from '../content/types';
 
 export type CapacityVarRole = 'input' | 'assumption';
 
+export interface CapacityVarRange {
+  goodMin: number;
+  goodMax: number;
+  okMin: number;
+  okMax: number;
+}
+
 export interface CapacityVariable {
   id: string;
   label: Bi;
   unit: Bi;
+  /** Expected problem value (inputs) or typical assumption; never shown as UI placeholder. */
   default: number;
   role: CapacityVarRole;
+  /** Reasonable range for assumptions (Auto Check). */
+  range?: CapacityVarRange;
+  rangeHint?: Bi;
+}
+
+export type AutoVarVerdict = 'good' | 'ok' | 'off' | 'missing';
+
+export function gradeInputValue(user: number, expected: number): Exclude<AutoVarVerdict, 'missing'> {
+  if (!Number.isFinite(user) || user <= 0 || !Number.isFinite(expected) || expected <= 0) return 'off';
+  const ratio = user / expected;
+  const factor = ratio >= 1 ? ratio : 1 / ratio;
+  if (factor <= 2) return 'good';
+  if (factor <= 10) return 'ok';
+  return 'off';
+}
+
+export function gradeAssumptionValue(user: number, range: CapacityVarRange): Exclude<AutoVarVerdict, 'missing'> {
+  if (!Number.isFinite(user)) return 'off';
+  if (user >= range.goodMin && user <= range.goodMax) return 'good';
+  if (user >= range.okMin && user <= range.okMax) return 'ok';
+  return 'off';
 }
 
 export type FormulaPart =

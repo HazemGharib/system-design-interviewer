@@ -274,6 +274,19 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+.capacity-calc__feedback {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.capacity-calc__auto-summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 .capacity-calc__verdict {
   margin: 6px 0 0;
   font-size: 0.75rem;

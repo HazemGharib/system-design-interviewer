@@ -8,13 +8,17 @@ import {
   formatExact,
   formatMetricValue,
   formulaReady,
+  gradeAssumptionValue,
+  gradeInputValue,
   inputVariables,
+  parseNum,
   practiceMetrics,
   symbolForPart,
+  type AutoVarVerdict,
   type CapacityMetric,
   type CapacityVariable,
 } from '../interactive/capacityEngine';
-import { t, localizedText } from '../i18n';
+import { t, tf, localizedText } from '../i18n';
 
 interface Props {
   scenarioId: string;
@@ -52,6 +56,8 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
       variables: { ...variables, [id]: value },
       checked: false,
       results: {},
+      autoChecked: false,
+      autoResults: {},
     });
   };
 
@@ -71,27 +77,71 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
       values: clearedValues,
       checked: false,
       results: {},
+      autoChecked: false,
+      autoResults: {},
     });
   };
 
-  const check = () => {
+  const checkPractice = () => {
     const results: CapacityState['results'] = {};
     for (const m of practiceMetrics(model)) {
-      const raw = parseFloat((state.values[m.id] || '').replace(/,/g, ''));
+      const raw = parseNum(state.values[m.id]);
       const reference = practiceRefs[m.id];
       results[m.id] = verdictFor(raw, reference);
     }
     onChange({ ...state, checked: true, results });
   };
 
+  const checkAuto = () => {
+    const autoResults: NonNullable<CapacityState['autoResults']> = {};
+    for (const v of model.variables) {
+      const raw = (variables[v.id] || '').trim();
+      if (raw === '') {
+        autoResults[v.id] = { verdict: 'missing', kind: v.role };
+        continue;
+      }
+      const n = parseNum(raw);
+      if (v.role === 'input') {
+        autoResults[v.id] = { verdict: gradeInputValue(n, v.default), kind: 'input' };
+      } else if (v.range) {
+        autoResults[v.id] = { verdict: gradeAssumptionValue(n, v.range), kind: 'assumption' };
+      } else {
+        autoResults[v.id] = { verdict: gradeInputValue(n, v.default), kind: 'assumption' };
+      }
+    }
+    onChange({ ...state, autoChecked: true, autoResults });
+  };
+
   const verdictLabel = (v: 'good' | 'ok' | 'off') =>
     v === 'good' ? t('verdictGood', lang) : v === 'ok' ? t('verdictOk', lang) : t('verdictOff', lang);
 
-  const verdictColor = (v: 'good' | 'ok' | 'off') =>
+  const verdictColor = (v: AutoVarVerdict) =>
     v === 'good' ? 'var(--success)' : v === 'ok' ? 'var(--accent)' : 'var(--warning)';
 
   const inputs = inputVariables(model);
   const assumptions = assumptionVariables(model);
+  const autoResults = state.autoResults || {};
+  const autoChecked = !!state.autoChecked;
+
+  const autoSummary = (() => {
+    if (!autoChecked) return null;
+    let inputsOk = 0;
+    let assumptionsOk = 0;
+    for (const v of inputs) {
+      const r = autoResults[v.id];
+      if (r && (r.verdict === 'good' || r.verdict === 'ok')) inputsOk += 1;
+    }
+    for (const v of assumptions) {
+      const r = autoResults[v.id];
+      if (r && (r.verdict === 'good' || r.verdict === 'ok')) assumptionsOk += 1;
+    }
+    return tf('capacityAutoSummary', lang, {
+      inputsOk,
+      inputsTotal: inputs.length,
+      assumptionsOk,
+      assumptionsTotal: assumptions.length,
+    });
+  })();
 
   return (
     <div className="capacity-calc" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -122,7 +172,14 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
       <p className="capacity-calc__section-label">{t('capacityVariables', lang)}</p>
       <div className="capacity-calc__helpers">
         {inputs.map(v => (
-          <VarInput key={v.id} v={v} lang={lang} value={variables[v.id] || ''} onChange={val => setVar(v.id, val)} />
+          <VarInput
+            key={v.id}
+            v={v}
+            lang={lang}
+            value={variables[v.id] || ''}
+            onChange={val => setVar(v.id, val)}
+            feedback={autoChecked ? autoResults[v.id] : undefined}
+          />
         ))}
       </div>
 
@@ -131,7 +188,14 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
           <p className="capacity-calc__section-label">{t('capacityAssumptions', lang)}</p>
           <div className="capacity-calc__helpers">
             {assumptions.map(v => (
-              <VarInput key={v.id} v={v} lang={lang} value={variables[v.id] || ''} onChange={val => setVar(v.id, val)} />
+              <VarInput
+                key={v.id}
+                v={v}
+                lang={lang}
+                value={variables[v.id] || ''}
+                onChange={val => setVar(v.id, val)}
+                feedback={autoChecked ? autoResults[v.id] : undefined}
+              />
             ))}
           </div>
         </>
@@ -220,8 +284,13 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
       )}
 
       <div className="capacity-calc__actions">
+        {mode === 'auto' && (
+          <button type="button" onClick={checkAuto} style={primaryBtn}>
+            {t('capacityCheckInputs', lang)}
+          </button>
+        )}
         {mode === 'practice' && (
-          <button type="button" onClick={check} style={primaryBtn}>
+          <button type="button" onClick={checkPractice} style={primaryBtn}>
             {t('checkEstimates', lang)}
           </button>
         )}
@@ -229,6 +298,12 @@ export function CapacityCalculator({ scenarioId, lang, state, onChange }: Props)
           {t('capacityClear', lang)}
         </button>
       </div>
+
+      {mode === 'auto' && autoChecked && autoSummary && (
+        <p className="capacity-calc__auto-summary" aria-live="polite">
+          {autoSummary}
+        </p>
+      )}
 
       {mode === 'practice' && state.checked && (
         <div className="capacity-calc__steps">
@@ -249,17 +324,48 @@ function VarInput({
   lang,
   value,
   onChange,
+  feedback,
 }: {
   v: CapacityVariable;
   lang: Lang;
   value: string;
   onChange: (v: string) => void;
+  feedback?: { verdict: AutoVarVerdict; kind: 'input' | 'assumption' };
 }) {
+  const unit = localizedText(v.unit, lang);
+  let feedbackText: string | null = null;
+  if (feedback) {
+    if (feedback.verdict === 'missing') {
+      feedbackText = t('capacityFeedbackMissing', lang);
+    } else if (feedback.kind === 'input') {
+      if (feedback.verdict === 'good') feedbackText = t('capacityFeedbackGood', lang);
+      else if (feedback.verdict === 'ok') feedbackText = t('capacityFeedbackOk', lang);
+      else feedbackText = tf('capacityFeedbackInputOff', lang, { unit: unit || localizedText(v.label, lang) });
+    } else {
+      const base =
+        feedback.verdict === 'good'
+          ? t('capacityFeedbackGood', lang)
+          : feedback.verdict === 'ok'
+            ? t('capacityFeedbackOk', lang)
+            : t('capacityFeedbackAssumptionOff', lang);
+      feedbackText = v.rangeHint ? `${base} — ${localizedText(v.rangeHint, lang)}` : base;
+    }
+  }
+
+  const color =
+    feedback?.verdict === 'good'
+      ? 'var(--success)'
+      : feedback?.verdict === 'ok'
+        ? 'var(--accent)'
+        : feedback
+          ? 'var(--warning)'
+          : undefined;
+
   return (
     <label className="capacity-calc__field">
       <span className="capacity-calc__label">
         {localizedText(v.label, lang)}
-        <span className="capacity-calc__unit"> ({localizedText(v.unit, lang)})</span>
+        <span className="capacity-calc__unit"> ({unit})</span>
       </span>
       <input
         type="number"
@@ -267,9 +373,15 @@ function VarInput({
         value={value}
         onChange={e => onChange(e.target.value)}
         className="capacity-calc__input"
-        placeholder={localizedText(v.unit, lang) || localizedText(v.label, lang)}
+        placeholder={unit || localizedText(v.label, lang)}
         style={inputStyle}
+        aria-invalid={feedback ? feedback.verdict === 'off' || feedback.verdict === 'missing' : undefined}
       />
+      {feedbackText && (
+        <p className="capacity-calc__feedback" style={{ color }} aria-live="polite">
+          {feedbackText}
+        </p>
+      )}
     </label>
   );
 }

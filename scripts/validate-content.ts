@@ -41,12 +41,21 @@ const FormulaPart = z.union([
   z.object({ var: z.string().min(1) }),
 ]);
 
+const CapacityVarRange = z.object({
+  goodMin: z.number(),
+  goodMax: z.number(),
+  okMin: z.number(),
+  okMax: z.number(),
+});
+
 const CapacityVariable = z.object({
   id: z.string().min(1),
   label: Bi,
   unit: Bi,
   default: z.number(),
   role: z.enum(['input', 'assumption']),
+  range: CapacityVarRange.optional(),
+  rangeHint: Bi.optional(),
 });
 
 const CapacityMetric = z.object({
@@ -209,6 +218,15 @@ for (const file of scenarioFiles) {
     const metricIds = new Set<string>();
     if (!sc.capacity.variables.some(v => v.role === 'input')) {
       fail(`scenario ${sc.id} capacity has no input variables`);
+    }
+    for (const v of sc.capacity.variables) {
+      if (v.role === 'assumption') {
+        if (!v.range) fail(`scenario ${sc.id} assumption "${v.id}" missing range`);
+        else if (v.range.goodMin > v.range.goodMax || v.range.okMin > v.range.okMax) {
+          fail(`scenario ${sc.id} assumption "${v.id}" has invalid range bounds`);
+        }
+        if (!v.rangeHint) fail(`scenario ${sc.id} assumption "${v.id}" missing rangeHint`);
+      }
     }
     for (const m of sc.capacity.metrics) {
       metricIds.add(m.id);

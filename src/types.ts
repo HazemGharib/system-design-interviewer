@@ -88,14 +88,21 @@ export interface CapacityField {
 export type CapacityMode = 'auto' | 'practice';
 
 export interface CapacityState {
-  /** Variable / assumption inputs (prefilled with defaults). */
+  /** Variable / assumption inputs (start empty). */
   variables: Record<string, string>;
   /** Practice-mode user estimates keyed by metric id. */
   values: Record<string, string>;
   /** @deprecated migrated into variables */
   helpers?: Record<string, string>;
+  /** Practice Check completed. */
   checked: boolean;
   results: Record<string, { verdict: 'good' | 'ok' | 'off'; ratio: number }>;
+  /** Auto Check completed. */
+  autoChecked?: boolean;
+  autoResults?: Record<string, {
+    verdict: 'good' | 'ok' | 'off' | 'missing';
+    kind: 'input' | 'assumption';
+  }>;
 }
 
 export interface ChaosIncident {

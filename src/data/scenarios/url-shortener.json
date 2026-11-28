@@ -1140,7 +1140,17 @@
           "en": "days"
         },
         "default": 30,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 28,
+          "goodMax": 31,
+          "okMin": 28,
+          "okMax": 31
+        },
+        "rangeHint": {
+          "ar": "الشهر تقريباً ٣٠ يوماً في تقديرات السعة.",
+          "en": "Capacity estimates usually use ~30 days/month."
+        }
       },
       {
         "id": "peakFactor",
@@ -1153,7 +1163,17 @@
           "en": "x"
         },
         "default": 3,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 4,
+          "okMin": 1.5,
+          "okMax": 6
+        },
+        "rangeHint": {
+          "ar": "معامل الذروة المعتاد حوالي ٢–٤× متوسط الحمل.",
+          "en": "Typical peak factor is about 2–4× average load."
+        }
       },
       {
         "id": "retentionYears",
@@ -1166,7 +1186,17 @@
           "en": "years"
         },
         "default": 5,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 3,
+          "goodMax": 7,
+          "okMin": 1,
+          "okMax": 10
+        },
+        "rangeHint": {
+          "ar": "الاحتفاظ الشائع للبيانات حوالي ٣–٧ سنين.",
+          "en": "Common retention is about 3–7 years."
+        }
       },
       {
         "id": "daysPerYear",
@@ -1179,7 +1209,17 @@
           "en": "days"
         },
         "default": 365,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 365,
+          "goodMax": 366,
+          "okMin": 360,
+          "okMax": 370
+        },
+        "rangeHint": {
+          "ar": "استخدم ٣٦٥ يوماً/سنة (أو ٣٦٦ للكبيسة).",
+          "en": "Use 365 days/year (or 366 for leap years)."
+        }
       },
       {
         "id": "cacheHotPct",
@@ -1192,7 +1232,17 @@
           "en": "%"
         },
         "default": 20,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 10,
+          "goodMax": 30,
+          "okMin": 5,
+          "okMax": 50
+        },
+        "rangeHint": {
+          "ar": "نسبة الـ hot set المعتادة حوالي ١٠–٣٠٪.",
+          "en": "A typical hot-set share is about 10–30%."
+        }
       },
       {
         "id": "cacheMonths",
@@ -1205,7 +1255,17 @@
           "en": "months"
         },
         "default": 8,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 3,
+          "goodMax": 12,
+          "okMin": 1,
+          "okMax": 24
+        },
+        "rangeHint": {
+          "ar": "نافذة الـ hot cache غالباً ٣–١٢ شهر.",
+          "en": "Hot-cache windows are often about 3–12 months."
+        }
       },
       {
         "id": "keyLength",
@@ -1218,7 +1278,17 @@
           "en": "chars"
         },
         "default": 7,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 6,
+          "goodMax": 8,
+          "okMin": 5,
+          "okMax": 10
+        },
+        "rangeHint": {
+          "ar": "طول مفتاح Base62 الشائع ٦–٨ حروف.",
+          "en": "Common Base62 key length is 6–8 characters."
+        }
       },
       {
         "id": "alphabetSize",
@@ -1231,7 +1301,17 @@
           "en": "symbols"
         },
         "default": 62,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 62,
+          "goodMax": 62,
+          "okMin": 36,
+          "okMax": 64
+        },
+        "rangeHint": {
+          "ar": "Base62 = ٦٢ رمزاً (A–Z, a–z, 0–9).",
+          "en": "Base62 uses 62 symbols (A–Z, a–z, 0–9)."
+        }
       }
     ],
     "metrics": [

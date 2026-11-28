@@ -80,6 +80,8 @@ function normalizeScenarioState(scenario: Scenario, raw: Partial<SavedScenarioSt
       values: { ...base.capacity.values, ...(raw.capacity?.values || {}) },
       results: raw.capacity?.results || {},
       checked: !!raw.capacity?.checked,
+      autoChecked: !!raw.capacity?.autoChecked,
+      autoResults: raw.capacity?.autoResults || {},
     },
     chaos: { ...base.chaos, ...(raw.chaos || {}), responses: raw.chaos?.responses || {}, triggered: raw.chaos?.triggered || [] },
     tradeoffs: { answers: { ...base.tradeoffs.answers, ...(raw.tradeoffs?.answers || {}) } },

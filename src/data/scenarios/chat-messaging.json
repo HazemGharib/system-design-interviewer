@@ -1387,7 +1387,17 @@
           "en": "x"
         },
         "default": 2.6,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 4,
+          "okMin": 1.5,
+          "okMax": 6
+        },
+        "rangeHint": {
+          "ar": "معامل الذروة المعتاد حوالي ٢–٤× متوسط الحمل.",
+          "en": "Typical peak factor is about 2–4× average load."
+        }
       },
       {
         "id": "connPerServer",
@@ -1400,7 +1410,17 @@
           "en": "conns"
         },
         "default": 100000,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 50000,
+          "goodMax": 200000,
+          "okMin": 10000,
+          "okMax": 500000
+        },
+        "rangeHint": {
+          "ar": "سيرفر WebSocket غالباً يتحمّل حوالي ٥٠ألف–٢٠٠ألف اتصال.",
+          "en": "A WebSocket server often holds about 50k–200k connections."
+        }
       },
       {
         "id": "duplexFactor",
@@ -1413,7 +1433,17 @@
           "en": "x"
         },
         "default": 2,
-        "role": "assumption"
+        "role": "assumption",
+        "range": {
+          "goodMin": 2,
+          "goodMax": 2,
+          "okMin": 1.5,
+          "okMax": 3
+        },
+        "rangeHint": {
+          "ar": "send+receive غالباً يتحسب ×٢ لحركة الرسائل.",
+          "en": "Send+receive traffic is often counted as about 2× message volume."
+        }
       }
     ],
     "metrics": [
